@@ -62,6 +62,7 @@ const segmentOutcomeSchema = z.discriminatedUnion("status", [
     status: z.literal("translated"),
     markup: z.string(),
     fromCache: z.boolean(),
+    lostGroups: z.int().positive().optional(),
   }),
   z.object({
     id: z.string(),
@@ -73,6 +74,7 @@ const segmentOutcomeSchema = z.discriminatedUnion("status", [
       "STRUCTURE_MOVED",
       "SEGMENT_TOO_LONG",
       "RESPONSE_MISSING_SEGMENT",
+      "TRANSLATION_EMPTY",
     ]),
   }),
 ]) satisfies z.ZodType<SegmentOutcome>;

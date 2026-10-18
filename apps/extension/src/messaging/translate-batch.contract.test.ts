@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { Option } from "@lambe/kernel/option";
-import type { BatchRequest } from "@lambe/translation/application/batch-translation.service";
+import type {
+  BatchRequest,
+  SegmentOutcome,
+} from "@lambe/translation/application/batch-translation.service";
 import { LanguageCode } from "@lambe/translation/domain/language/value-objects/language-code.vo";
 import type { ProviderError } from "@lambe/translation/domain/provider/provider-error";
 import {
@@ -66,5 +69,17 @@ describe("translate batch contract", () => {
     );
 
     expect(parsed).toEqual({ ok: false, error });
+  });
+
+  test("outcomes_keep_tolerated_losses_and_the_empty_translation_code", () => {
+    const outcomes: SegmentOutcome[] = [
+      { id: "0", status: "translated", markup: "Lisez la doc", fromCache: false, lostGroups: 1 },
+      { id: "1", status: "failed", code: "TRANSLATION_EMPTY" },
+    ];
+    const parsed = translateBatchResponseSchema.parse(
+      JSON.parse(JSON.stringify({ ok: true, outcomes })),
+    );
+
+    expect(parsed).toEqual({ ok: true, outcomes });
   });
 });
