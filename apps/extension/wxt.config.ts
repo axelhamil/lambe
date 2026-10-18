@@ -22,6 +22,9 @@ export default defineConfig({
       },
     },
   },
+  vite: () => ({
+    define: { "import.meta.env.LAMBE_ALL_FRAMES": JSON.stringify(ALL_FRAMES ? "1" : "0") },
+  }),
   hooks: {
     "build:manifestGenerated": (_wxt, manifest) => {
       for (const script of manifest.content_scripts ?? []) {

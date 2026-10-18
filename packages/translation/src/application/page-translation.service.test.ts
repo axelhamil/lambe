@@ -572,6 +572,72 @@ describe("PageTranslationService", () => {
     expect(service.state()).toEqual({ kind: "translated" });
   });
 
+  test("toggle_to_original_then_immediate_retranslate_ends_translated", async () => {
+    const { service, near, committed } = setup({ blocks: [ALPHA] });
+    await service.toggle();
+    near("alpha", 0);
+    await service.whenIdle();
+
+    const toggled = service.toggle();
+    const retranslated = service.retranslate();
+    await Promise.all([toggled, retranslated]);
+    await service.whenIdle();
+
+    expect(committed("alpha")).toEqual({
+      blockId: ALPHA.id,
+      kind: "structured",
+      nodes: [text("fresh Forks share code with upstream.")],
+    });
+    expect(service.state()).toEqual({ kind: "translated" });
+  });
+
+  test("first_toggle_then_immediate_retranslate_ends_translated_with_refresh", async () => {
+    const { service, near, requests, committed } = setup({ blocks: [ALPHA] });
+
+    const toggled = service.toggle();
+    const retranslated = service.retranslate();
+    await Promise.all([toggled, retranslated]);
+    near("alpha", 0);
+    await service.whenIdle();
+
+    expect(requests().map((request) => request.cachePolicy)).toEqual(["refresh"]);
+    expect(committed("alpha")).toEqual({
+      blockId: ALPHA.id,
+      kind: "structured",
+      nodes: [text("fresh Forks share code with upstream.")],
+    });
+    expect(service.state()).toEqual({ kind: "translated" });
+  });
+
+  test("toggle_then_retranslate_during_a_request_discards_the_stale_response", async () => {
+    const held = heldTranslator();
+    const { service, surface, near, requests, committed } = setup({
+      blocks: [ALPHA],
+      translate: held.translate,
+    });
+    await service.toggle();
+    const stale = held.nextRequest();
+    near("alpha", 0);
+    await stale;
+
+    const fresh = held.nextRequest();
+    await service.toggle();
+    await service.retranslate();
+    held.releaseNext();
+    await fresh;
+    held.releaseNext();
+    await service.whenIdle();
+
+    expect(requests().map((request) => request.cachePolicy)).toEqual(["use", "refresh"]);
+    expect(committed("alpha")).toEqual({
+      blockId: ALPHA.id,
+      kind: "structured",
+      nodes: [text("fresh Forks share code with upstream.")],
+    });
+    expect(surface.translations.size).toBe(1);
+    expect(service.state()).toEqual({ kind: "translated" });
+  });
+
   test("detached_block_rediscovered_is_translated_again", async () => {
     const { service, surface, near, discover, sentMarkup, committed } = setup({ blocks: [ALPHA] });
     spyOn(surface, "commit").mockImplementationOnce(() => Result.fail({ code: "BLOCK_DETACHED" }));

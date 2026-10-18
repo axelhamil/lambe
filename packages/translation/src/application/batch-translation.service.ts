@@ -7,6 +7,7 @@ import type { InlineNode } from "../domain/block/inline-node";
 import { cacheKey } from "../domain/cache/cache-key";
 import type { CachePolicy } from "../domain/cache/cache-policy";
 import type { LanguageCode } from "../domain/language/value-objects/language-code.vo";
+import { restoreEmptyGroups, withoutEmptyGroups } from "../domain/markup/empty-groups";
 import { type MarkupErrorCode, parseMarkup, toMarkup } from "../domain/markup/markup";
 import { checkAgainstSource } from "../domain/markup/structure-check";
 import type { PageBrief } from "../domain/page/page-brief";
@@ -114,6 +115,7 @@ function validate(piece: Piece, response: string | undefined): PieceResult {
   if (response === undefined) return Result.fail("RESPONSE_MISSING_SEGMENT");
 
   return parseMarkup(response)
+    .map((nodes) => restoreEmptyGroups(piece.nodes, nodes))
     .flatMap((nodes) => checkAgainstSource(piece.nodes, nodes))
     .map(toMarkup)
     .mapError((error): SegmentFailureCode => error.code);
@@ -362,7 +364,7 @@ export class BatchTranslationService {
             pieces: parts.map((part, index) => ({
               group,
               nodes: part,
-              markup: toMarkup(part),
+              markup: toMarkup(withoutEmptyGroups(part)),
               separator: separatorBetween(parts[index - 1], part),
             })),
           }));

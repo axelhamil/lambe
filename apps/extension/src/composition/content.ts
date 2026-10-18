@@ -12,6 +12,7 @@ import { loadRuntimeConfig } from "../config/runtime-config";
 import type { RuntimePort } from "../messaging/runtime-port";
 import { toggleMessageSchema } from "../messaging/toggle.contract";
 import { TRANSLATE_PORT_NAME } from "../messaging/translate-batch.contract";
+import { hostsBubble } from "./bubble-frames";
 
 function blockIds(): () => BlockId {
   let next = 0;
@@ -58,9 +59,7 @@ interface MountedBubble {
 
 type PageAction = (page: PageTranslationService) => Promise<void>;
 
-function isTopFrame(): boolean {
-  return window.top === window.self;
-}
+const ALL_FRAMES = import.meta.env.LAMBE_ALL_FRAMES === "1";
 
 async function showBubble(
   ctx: ContentScriptContext,
@@ -106,7 +105,7 @@ export function startContent(ctx: ContentScriptContext): void {
     return false;
   });
 
-  if (!isTopFrame()) return;
+  if (!hostsBubble({ isTop: window.top === window.self, allFrames: ALL_FRAMES })) return;
 
   run(
     (page) => showBubble(ctx, page, { onSingle: toggle, onDouble: retranslate }),

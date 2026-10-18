@@ -161,8 +161,8 @@ describe("bubble view", () => {
     drag(button, 500, 500);
     await wait(300);
 
+    expect(handlers.onSingle).toHaveBeenCalledTimes(2);
     expect(handlers.onDouble).toHaveBeenCalledTimes(1);
-    expect(handlers.onSingle).toHaveBeenCalledTimes(1);
   });
 
   test("destroy_removes_listeners_and_nodes", async () => {
@@ -175,7 +175,7 @@ describe("bubble view", () => {
     await wait(300);
 
     expect(root.childNodes.length).toBe(0);
-    expect(handlers.onSingle).not.toHaveBeenCalled();
+    expect(handlers.onSingle).toHaveBeenCalledTimes(1);
     expect(handlers.onDouble).not.toHaveBeenCalled();
   });
 

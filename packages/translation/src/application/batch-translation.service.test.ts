@@ -476,6 +476,78 @@ describe("BatchTranslationService", () => {
     expect(written()).toEqual(new Map([[keyOf("Hello."), "Bonjour."]]));
   });
 
+  test("empty_group_dropped_by_the_model_is_restored_cached_and_not_requested_again", async () => {
+    const markup = "About forks<g2></g2>";
+    const first = setup();
+    first.provider.chat.mockResolvedValue(Result.ok(seg("À propos des forks")));
+
+    const result = await first.service.translate(request([{ id: "a", markup }]));
+
+    expect(first.batchesSent()).toEqual([seg("About forks")]);
+    expect(result.getValue()).toEqual([
+      { id: "a", status: "translated", markup: "À propos des forks<g2></g2>", fromCache: false },
+    ]);
+
+    const second = setup({ cached: first.written() });
+
+    await second.service.translate(request([{ id: "a", markup }]));
+
+    expect(second.provider.chat).not.toHaveBeenCalled();
+  });
+
+  test("empty_groups_return_to_their_source_position_between_kept_placeholders", async () => {
+    const { service, batchesSent } = setup();
+    const markup = "<g1></g1>Run <x2/><g3></g3> now <g4>here</g4>.";
+
+    const result = await service.translate(request([{ id: "a", markup }]));
+
+    expect(batchesSent()).toEqual([seg("Run <x2/> now <g4>here</g4>.")]);
+    expect(result.getValue()).toEqual([
+      {
+        id: "a",
+        status: "translated",
+        markup: "<g1></g1>fr: Run <x2/><g3></g3> now <g4>here</g4>.",
+        fromCache: false,
+      },
+    ]);
+  });
+
+  test("empty_group_after_text_stays_after_the_text_and_not_after_the_previous_atom", async () => {
+    const { provider, service } = setup();
+    provider.chat.mockResolvedValue(Result.ok(seg("<x1/>À propos des forks")));
+
+    const result = await service.translate(
+      request([{ id: "a", markup: "<x1/>About forks<g2></g2>" }]),
+    );
+
+    expect(result.getValue()).toEqual([
+      {
+        id: "a",
+        status: "translated",
+        markup: "<x1/>À propos des forks<g2></g2>",
+        fromCache: false,
+      },
+    ]);
+  });
+
+  test("empty_group_at_the_start_before_text_stays_at_the_start", async () => {
+    const { provider, service } = setup();
+    provider.chat.mockResolvedValue(Result.ok(seg("À propos des forks<x1/>")));
+
+    const result = await service.translate(
+      request([{ id: "a", markup: "<g2></g2>About forks<x1/>" }]),
+    );
+
+    expect(result.getValue()).toEqual([
+      {
+        id: "a",
+        status: "translated",
+        markup: "<g2></g2>À propos des forks<x1/>",
+        fromCache: false,
+      },
+    ]);
+  });
+
   test("segment_wrapped_in_one_group_is_sent_unwrapped_and_rewrapped", async () => {
     const { service, batchesSent, written } = setup();
     const markup = "<g1><g2>Pull requests</g2></g1>";

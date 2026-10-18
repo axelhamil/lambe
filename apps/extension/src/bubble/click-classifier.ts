@@ -12,27 +12,31 @@ export interface ClickClassifier {
   pointerUp(): void;
 }
 
+type Phase = "idle" | "single" | "double";
+
 export function createClickClassifier(
   scheduler: Scheduler,
   handlers: ClickHandlers,
   windowMs = 250,
 ): ClickClassifier {
-  let pending: number | undefined;
+  let phase: Phase = "idle";
 
   return {
     pointerUp() {
-      if (pending !== undefined) {
-        scheduler.clear(pending);
-        pending = undefined;
+      if (phase === "double") return;
+
+      if (phase === "single") {
+        phase = "double";
         handlers.onDouble();
 
         return;
       }
 
-      pending = scheduler.set(() => {
-        pending = undefined;
-        handlers.onSingle();
+      phase = "single";
+      scheduler.set(() => {
+        phase = "idle";
       }, windowMs);
+      handlers.onSingle();
     },
   };
 }

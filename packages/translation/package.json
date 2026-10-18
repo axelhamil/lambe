@@ -10,7 +10,7 @@
   },
   "scripts": {
     "type-check": "tsc --noEmit",
-    "test": "bun test --preload ./test-setup/happy-dom.ts"
+    "test": "bun test"
   },
   "dependencies": {
     "@lambe/kernel": "workspace:*",

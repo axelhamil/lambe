@@ -38,37 +38,34 @@ function setup() {
 }
 
 describe("click classifier", () => {
-  test("single_click_fires_after_250ms", () => {
-    const { scheduler, handlers, classifier } = setup();
+  test("single_click_fires_immediately", () => {
+    const { handlers, classifier } = setup();
 
     classifier.pointerUp();
-    scheduler.advance(249);
-
-    expect(handlers.onSingle).not.toHaveBeenCalled();
-
-    scheduler.advance(1);
 
     expect(handlers.onSingle).toHaveBeenCalledTimes(1);
     expect(handlers.onDouble).not.toHaveBeenCalled();
   });
 
-  test("two_clicks_within_250ms_fire_only_double", () => {
+  test("second_click_within_250ms_fires_double_once", () => {
     const { scheduler, handlers, classifier } = setup();
 
     classifier.pointerUp();
     scheduler.advance(120);
     classifier.pointerUp();
+    scheduler.advance(60);
+    classifier.pointerUp();
     scheduler.advance(1000);
 
+    expect(handlers.onSingle).toHaveBeenCalledTimes(1);
     expect(handlers.onDouble).toHaveBeenCalledTimes(1);
-    expect(handlers.onSingle).not.toHaveBeenCalled();
   });
 
   test("two_clicks_far_apart_fire_two_singles", () => {
     const { scheduler, handlers, classifier } = setup();
 
     classifier.pointerUp();
-    scheduler.advance(400);
+    scheduler.advance(250);
     classifier.pointerUp();
     scheduler.advance(400);
 

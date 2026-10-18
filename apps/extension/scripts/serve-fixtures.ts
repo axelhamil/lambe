@@ -7,6 +7,12 @@ const ROOTS = [
   resolve(import.meta.dir, "../proof"),
 ];
 
+const STRICT_CSP = "default-src 'self'; style-src 'self'; script-src 'self'; object-src 'none'";
+
+const HEADERS: Record<string, HeadersInit> = {
+  "strict-csp.html": { "Content-Security-Policy": STRICT_CSP },
+};
+
 function decoded(pathname: string): string | undefined {
   try {
     return decodeURIComponent(pathname);
@@ -29,7 +35,7 @@ async function find(pathname: string): Promise<Response | undefined> {
 
     const file = Bun.file(candidate);
 
-    if (await file.exists()) return new Response(file);
+    if (await file.exists()) return new Response(file, { headers: HEADERS[relative] });
   }
 
   return undefined;
