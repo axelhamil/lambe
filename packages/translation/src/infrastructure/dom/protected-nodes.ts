@@ -69,6 +69,14 @@ function looksLikeUrlOrPath(anchor: Element, text: string): boolean {
   return endsTheHrefPath(anchor, text);
 }
 
+const CITATION_MARK = /^\[[^[\]]{1,8}\]$/;
+
+function isCitation(el: Element): boolean {
+  if (el.localName !== "sup") return false;
+
+  return el.classList.contains("reference") || CITATION_MARK.test((el.textContent ?? "").trim());
+}
+
 export function isExcluded(el: Element): boolean {
   if (EXCLUDED_TAGS.has(el.localName)) return true;
 
@@ -76,7 +84,7 @@ export function isExcluded(el: Element): boolean {
 }
 
 export function isProtectedInline(el: Element): boolean {
-  if (PROTECTED_INLINE_TAGS.has(el.localName)) return true;
+  if (PROTECTED_INLINE_TAGS.has(el.localName) || isCitation(el)) return true;
 
   if (el.localName !== "a") return false;
 

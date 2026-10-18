@@ -190,24 +190,23 @@ describe("BatchTranslationService", () => {
     expect(written()).toEqual(new Map([[keyOf(RUN), `fr: ${RUN}`]]));
   });
 
-  test("lost_placeholder_is_retried_alone_then_succeeds", async () => {
+  test("invented_tag_on_plain_text_is_retried_alone_then_succeeds", async () => {
     const { provider, service, written } = setup();
-    provider.chat.mockResolvedValueOnce(Result.ok(seg("Lancez maintenant.")));
-    provider.chat.mockResolvedValueOnce(Result.ok(seg("Lancez <x1/> maintenant.")));
+    provider.chat.mockResolvedValueOnce(Result.ok(seg("<g1>Bonjour</g1>.")));
+    provider.chat.mockResolvedValueOnce(Result.ok(seg("Bonjour.")));
 
-    const result = await service.translate(request([{ id: "a", markup: RUN }]));
+    const result = await service.translate(request([{ id: "a", markup: "Hello." }]));
 
     expect(result.getValue()).toEqual([
-      { id: "a", status: "translated", markup: "Lancez <x1/> maintenant.", fromCache: false },
+      { id: "a", status: "translated", markup: "Bonjour.", fromCache: false },
     ]);
     expect(provider.chat).toHaveBeenCalledTimes(2);
-    expect(written()).toEqual(new Map([[keyOf(RUN), "Lancez <x1/> maintenant."]]));
+    expect(written()).toEqual(new Map([[keyOf("Hello."), "Bonjour."]]));
   });
 
-  test("lost_placeholder_twice_yields_failed_PLACEHOLDER_LOST_and_caches_nothing_for_it", async () => {
+  test("lost_placeholder_fails_PLACEHOLDER_LOST_without_a_retry_and_caches_nothing_for_it", async () => {
     const { provider, service, written } = setup();
     provider.chat.mockResolvedValueOnce(Result.ok("[1] Lancez maintenant.\n[2] Bonjour."));
-    provider.chat.mockResolvedValueOnce(Result.ok(seg("Lancez maintenant.")));
 
     const result = await service.translate(
       request([
@@ -220,6 +219,7 @@ describe("BatchTranslationService", () => {
       { id: "a", status: "failed", code: "PLACEHOLDER_LOST" },
       { id: "b", status: "translated", markup: "Bonjour.", fromCache: false },
     ]);
+    expect(provider.chat).toHaveBeenCalledTimes(1);
     expect(written()).toEqual(new Map([[keyOf("Hello."), "Bonjour."]]));
   });
 
@@ -235,7 +235,7 @@ describe("BatchTranslationService", () => {
     expect(written().size).toBe(0);
   });
 
-  test("group_moved_out_of_parent_is_failed_STRUCTURE_MOVED_after_one_retry", async () => {
+  test("group_moved_out_of_parent_is_failed_STRUCTURE_MOVED_without_a_retry", async () => {
     const { provider, service } = setup();
     provider.chat.mockResolvedValue(Result.ok(seg("Voir <g1>le guide</g1> <x1/>.")));
 
@@ -244,7 +244,7 @@ describe("BatchTranslationService", () => {
     );
 
     expect(result.getValue()).toEqual([{ id: "a", status: "failed", code: "STRUCTURE_MOVED" }]);
-    expect(provider.chat).toHaveBeenCalledTimes(2);
+    expect(provider.chat).toHaveBeenCalledTimes(1);
   });
 
   test("oversized_segment_is_split_translated_in_pieces_and_joined_in_order", async () => {
@@ -405,12 +405,12 @@ describe("BatchTranslationService", () => {
     ]);
   });
 
-  test("invalid_streamed_segment_is_retried_after_the_stream_and_emitted_once", async () => {
+  test("missing_streamed_segment_is_retried_after_the_stream_and_emitted_once", async () => {
     const { provider, service, written } = setup();
     const onOutcome = emitted();
     let emittedDuringStream = 0;
     provider.chat.mockImplementationOnce(
-      streaming(["[1] Lancez maintenant.\n", "[2] Bonjour.\n", "[3] Au revoir."], () => {
+      streaming(["[2] Bonjour.\n", "[3] Au revoir."], () => {
         emittedDuringStream = onOutcome.mock.calls.length;
       }),
     );
@@ -667,7 +667,7 @@ describe("BatchTranslationService", () => {
     );
 
     expect(result.getValue()).toEqual([{ id: "a", status: "failed", code: "PLACEHOLDER_LOST" }]);
-    expect(provider.chat).toHaveBeenCalledTimes(2);
+    expect(provider.chat).toHaveBeenCalledTimes(1);
     expect(written().size).toBe(0);
   });
 });

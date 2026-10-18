@@ -40,3 +40,16 @@ describe("isProtectedInline on links", () => {
     ).toBe(true);
   });
 });
+
+describe("isProtectedInline on citations", () => {
+  test("reference_superscripts_are_atoms_and_other_superscripts_are_text", () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><p>Text<sup class="reference"><a href="#cite_note-1"><span>[</span>1<span>]</span></a></sup> and <sup>[note 2]</sup>, x<sup>2</sup> and <sup class="noprint">[citation needed]</sup></p></body></html>',
+      "text/html",
+    );
+
+    const protectedSups = [...doc.querySelectorAll("sup")].map(isProtectedInline);
+
+    expect(protectedSups).toEqual([true, true, false, false]);
+  });
+});

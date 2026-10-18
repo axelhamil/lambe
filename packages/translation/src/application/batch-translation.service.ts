@@ -94,6 +94,12 @@ function validate(piece: Piece, response: string | undefined): PieceResult {
     .mapError((error): SegmentFailureCode => error.code);
 }
 
+const PLACEHOLDER = /<(?:x\d+\/|g\d+)>/;
+
+function worthRetrying(piece: Piece, code: SegmentFailureCode): boolean {
+  return code === "RESPONSE_MISSING_SEGMENT" || !PLACEHOLDER.test(piece.markup);
+}
+
 const EDGE_SPACE_END = /[ \t\n\f\r]$/;
 
 const EDGE_SPACE_START = /^[ \t\n\f\r]/;
@@ -410,7 +416,11 @@ export class BatchTranslationService {
       if (attempt.isFailure) return Result.fail(attempt.getError());
 
       for (const [piece, result] of attempt.getValue()) {
-        if (result.isSuccess || run.isSettled(piece.group)) {
+        if (
+          result.isSuccess ||
+          run.isSettled(piece.group) ||
+          !worthRetrying(piece, result.getError())
+        ) {
           run.record(piece, result);
           continue;
         }
