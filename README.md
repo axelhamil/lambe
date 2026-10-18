@@ -83,7 +83,16 @@ Other keys: `provider` (`baseUrl`, `model`, `concurrency` as an upper bound, `ti
 
 [release-please](https://github.com/googleapis/release-please) runs on `main` (`.github/workflows/release.yml`). It reads Conventional Commits, opens a release PR, then tags and writes the changelog when that PR merges. Versions start from `.release-please-manifest.json` (`0.0.0`) with `bump-minor-pre-major`, and the extension `package.json` (hence the manifest version) follows the root. Never edit a version or a tag by hand.
 
-The workflow authenticates with a GitHub App token: set `BOT_CLIENT_ID` and `BOT_PRIVATE_KEY` as repository secrets. CI (`.github/workflows/ci.yml`) runs `pnpm install --frozen-lockfile` and `pnpm verify` on every push and pull request. Both workflows are dormant until the repository has a remote.
+When a release is created, the `publish` job checks out its tag, runs `pnpm verify`, builds `wxt zip -b chrome` with `LAMBE_STORE=1` (which drops the manifest `key`, rejected by the store) and without `LAMBE_ALL_FRAMES`, checks that the manifest has no `key`, attaches the zip to the GitHub release and, if the store secrets exist, submits it to the Chrome Web Store with `wxt submit` over the CWS API v2. The submission is staged (`CHROME_PUBLISH_TYPE: STAGED_PUBLISH`): once approved it waits for a manual publish in the developer dashboard. To publish as soon as the review passes, remove that line from the submit step in `release.yml`. CI (`.github/workflows/ci.yml`) runs `pnpm install --frozen-lockfile`, `pnpm verify`, the extension build and `check:manifest` (the dev manifest keeps its `key`) on every pull request and on pushes to any branch but `main`. Both workflows are dormant until the repository has a remote.
+
+Repository secrets:
+
+- `BOT_CLIENT_ID`, `BOT_PRIVATE_KEY`: client id and private key of the GitHub App that cuts releases and uploads the zip (contents and pull requests: read and write).
+- `CHROME_EXTENSION_ID`: the item id shown in the Chrome Web Store developer dashboard. Publishing is skipped while it is unset.
+- `CHROME_PUBLISHER_ID`: the publisher id, in the dashboard account settings.
+- `CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL`, `CHROME_SERVICE_ACCOUNT_PRIVATE_KEY`: a Google Cloud service account with the Chrome Web Store API enabled in its project, a JSON key downloaded for it (`client_email` and `private_key`), and its email added to the publisher in the developer dashboard. `pnpm --filter @lambe/extension exec wxt submit init` walks through the same steps.
+
+The first store submission must be made by hand: upload a zip from a release in the developer dashboard, fill the listing and privacy tabs, and submit. API publishing only updates an item that already exists. The store assigns its own id, so the published extension id differs from the unpacked dev id derived from the `key` in `wxt.config.ts`, which only dev and unpacked builds carry: Ollama users of the store build need `OLLAMA_ORIGINS=chrome-extension://<store id>`.
 
 ## Plan 1 verification
 

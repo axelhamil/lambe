@@ -6,12 +6,14 @@ const EXTENSION_PUBLIC_KEY =
 
 const ALL_FRAMES = process.env.LAMBE_ALL_FRAMES === "1";
 
+const STORE_BUILD = process.env.LAMBE_STORE === "1";
+
 export default defineConfig({
   imports: false,
   manifest: {
     name: "Lambë",
     description: "Translates web pages in place with a local LLM.",
-    key: EXTENSION_PUBLIC_KEY,
+    ...(STORE_BUILD ? {} : { key: EXTENSION_PUBLIC_KEY }),
     permissions: ["storage", "unlimitedStorage"],
     host_permissions: [...PAGE_MATCHES, ...PROVIDER_HOSTS],
     action: { default_title: "Translate this page with Lambë" },

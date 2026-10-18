@@ -8,7 +8,8 @@
     "build": "wxt build",
     "fixtures": "bun scripts/serve-fixtures.ts",
     "type-check": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "check:manifest": "bun scripts/check-manifest-key.ts"
   },
   "dependencies": {
     "@lambe/kernel": "workspace:*",

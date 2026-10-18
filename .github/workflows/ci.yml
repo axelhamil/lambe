@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, dev]
+    branches-ignore: [main]
   pull_request:
 
 permissions:
@@ -21,3 +21,5 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
+      - run: pnpm --filter @lambe/extension build
+      - run: pnpm --filter @lambe/extension check:manifest
