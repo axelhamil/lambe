@@ -41,7 +41,7 @@ type StateListener = (state: ViewState) => void;
 
 interface Session {
   brief: PageBrief;
-  source: Option<LanguageCode>;
+  source: Promise<Option<LanguageCode>>;
 }
 
 interface BatchPlan {
@@ -105,6 +105,10 @@ function workerDisconnected(): ProviderError {
   );
 }
 
+function briefSignature(brief: PageBrief): string {
+  return JSON.stringify([brief.url, brief.title]);
+}
+
 function chunks<T>(items: T[], size: number): T[][] {
   const step = Math.max(1, size);
 
@@ -158,7 +162,8 @@ export class PageTranslationService {
   private readonly controllers = new Set<AbortController>();
   private session: Session | undefined;
   private started = false;
-  private cachePolicy: CachePolicy = "use";
+  private refreshing = new Set<string>();
+  private refreshScan = false;
   private epoch = 0;
   private firstRequestPending = true;
   private transportRetried = false;
@@ -184,7 +189,8 @@ export class PageTranslationService {
   }
 
   public async retranslate(): Promise<void> {
-    this.cachePolicy = "refresh";
+    this.refreshing = new Set(this.blocks.keys());
+    this.refreshScan = this.session === undefined;
 
     if (!this.started) return this.start();
 
@@ -234,10 +240,18 @@ export class PageTranslationService {
       return;
     }
 
-    this.session = { brief, source: source.getValue() };
-    this.addBlocks(this.deps.surface.scan());
+    this.session = { brief, source: Promise.resolve(source.getValue()) };
+
+    const scanned = this.deps.surface.scan();
+
+    if (this.refreshScan)
+      for (const scannedBlock of scanned) this.refreshing.add(scannedBlock.id.value);
+
+    this.refreshScan = false;
+    this.addBlocks(scanned);
     this.deps.surface.watch({
       onBlocks: (blocks) => {
+        this.followNavigation();
         this.addBlocks(blocks);
         this.schedule();
       },
@@ -261,6 +275,17 @@ export class PageTranslationService {
         .then(() => this.deps.detector.detect(sample))
         .then((detected) => Result.ok(detected)),
     );
+  }
+
+  private followNavigation(): void {
+    const current = this.session;
+    const brief = this.deps.surface.readBrief();
+
+    if (current === undefined || briefSignature(brief) === briefSignature(current.brief)) return;
+
+    const source = this.sourceLanguage(brief).then((detected) => detected.unwrapOr(Option.none()));
+
+    this.session = { brief, source };
   }
 
   private showOriginal(): void {
@@ -307,6 +332,7 @@ export class PageTranslationService {
     this.positions.delete(key);
     this.reported.delete(key);
     this.settled.delete(key);
+    this.refreshing.delete(key);
   }
 
   private updateProximity(key: string, rank: Option<ProximityRank>): void {
@@ -387,7 +413,7 @@ export class PageTranslationService {
       for (const ids of requests) {
         const lane = this.process(
           ids.flatMap((id) => this.blocks.get(id.value) ?? []),
-          session,
+          this.session ?? session,
         ).then((processed) => {
           lanes.delete(lane);
 
@@ -488,7 +514,10 @@ export class PageTranslationService {
   }
 
   private apply(plan: BatchPlan): void {
-    for (const block of plan.settled) this.settled.add(block.id.value);
+    for (const block of plan.settled) {
+      this.settled.add(block.id.value);
+      this.refreshing.delete(block.id.value);
+    }
 
     for (const translation of plan.translations) {
       const committed = this.deps.surface.commit(translation);
@@ -507,10 +536,12 @@ export class PageTranslationService {
 
     if (sendable.length === 0) return Result.ok({ translations: [], settled: batch });
 
+    const policy = this.policyFor(batch);
     const committed = new Set<string>();
     const structured = await this.request(
       sendable.map((block, index) => ({ id: `${index}`, markup: toMarkup(block.nodes) })),
       session,
+      policy,
       {
         signal: scope.signal,
         onOutcome: (outcome) => {
@@ -547,7 +578,7 @@ export class PageTranslationService {
       translations.push({ blockId: block.id, kind: "structured", nodes: nodes.unwrap() });
     });
 
-    const slotted = await this.translateSlots(fallback, session, scope.signal);
+    const slotted = await this.translateSlots(fallback, session, policy, scope.signal);
 
     return slotted.map((slotTranslations) => ({
       translations: [...translations, ...slotTranslations],
@@ -558,6 +589,7 @@ export class PageTranslationService {
   private async translateSlots(
     blocks: Block[],
     session: Session,
+    policy: CachePolicy,
     signal: AbortSignal,
   ): Promise<Result<BlockTranslation[], ProviderError>> {
     const slots = blocks.map((block) => textSlots(block.nodes));
@@ -576,7 +608,7 @@ export class PageTranslationService {
     const outcomes: Outcomes = new Map();
 
     for (const chunk of chunks(segments, this.deps.maxSegmentsPerRequest)) {
-      const result = await this.request(chunk, session, { signal });
+      const result = await this.request(chunk, session, policy, { signal });
 
       if (result.isFailure) return Result.fail(result.getError());
 
@@ -611,18 +643,23 @@ export class PageTranslationService {
     });
   }
 
+  private policyFor(batch: Block[]): CachePolicy {
+    return batch.some((block) => this.refreshing.has(block.id.value)) ? "refresh" : "use";
+  }
+
   private async request(
     segments: SegmentRequest[],
     session: Session,
+    cachePolicy: CachePolicy,
     options: BatchTranslateOptions,
   ): Promise<Result<Outcomes, ProviderError>> {
     const result = await this.deps.translator.translate(
       {
         segments,
-        source: session.source,
+        source: await session.source,
         target: this.deps.target,
         brief: session.brief,
-        cachePolicy: this.cachePolicy,
+        cachePolicy,
       },
       options,
     );

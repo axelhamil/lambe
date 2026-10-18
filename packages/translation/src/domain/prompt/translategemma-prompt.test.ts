@@ -9,6 +9,7 @@ const language = (code: string): LanguageCode => LanguageCode.create(code).getVa
 
 const brief: PageBrief = {
   host: "github.com",
+  url: "https://github.com/about-forks",
   title: "Contributing guide",
   description: "How to open a pull request.",
   headings: ["Contributing", "Forking the repository"],

@@ -114,7 +114,7 @@ The extension, not the model, guarantees code is untouched:
 - Delivery step 1 has no bubble yet: translation is triggered by the `chrome.commands` shortcut and the toolbar action. (Builder call.)
 - Scheduling: a priority queue, visible blocks first, then the next screen; blocks scrolled far away are dropped from the queue; a fixed concurrency per provider (1 for local Ollama by default).
 - Batches sized to the model context (small for TranslateGemma), with a structured in and out format keyed by segment id, validated before applying.
-- Cache: persistent (survives tab and browser restart), keyed by hash of source text, source and target language, provider, model, prompt version. Settings show its size and offer a clear button.
+- Cache: persistent (survives tab and browser restart), keyed by hash of source text, source and target language, page host, provider, model, prompt version, so a translation is only reused on the host that produced it. Settings show its size and offer a clear button.
 - Toggle swaps between stored original and translated text per node, without re-rendering the page.
 - Model choice: keep `translategemma:12b` as default; ship an eval harness (section 11) and compare against `gemma4:12b-it-qat` and Mistral Small before changing the default.
 

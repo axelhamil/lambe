@@ -230,6 +230,8 @@ export class DomPageSurface implements PageSurface {
   private readonly reads = new Map<string, ReadBlock>();
   private readonly originals = new Map<string, Layout>();
   private readonly patches = new Map<string, Patch>();
+  private readonly originalData = new WeakMap<Node, string>();
+  private readonly addedTexts = new WeakSet<Node>();
   private watcher: BlockWatcher | undefined;
 
   public constructor(private readonly deps: DomPageSurfaceDeps) {
@@ -237,7 +239,7 @@ export class DomPageSurface implements PageSurface {
   }
 
   public readBrief(): PageBrief {
-    return readPageBrief(this.deps.doc);
+    return readPageBrief(this.deps.doc, (element) => this.originalText(element));
   }
 
   public scan(): Block[] {
@@ -302,8 +304,12 @@ export class DomPageSurface implements PageSurface {
     const original = this.originals.get(key) ?? snapshot(read);
     this.originals.set(key, original);
 
+    for (const [text, value] of original.data) this.originalData.set(text, value);
+
     const patch = this.layout(read, translation, original);
     this.patches.set(key, patch);
+
+    for (const extra of patch.extras) this.addedTexts.add(extra);
     apply(patch.translated, patch.parked);
   }
 
@@ -326,6 +332,19 @@ export class DomPageSurface implements PageSurface {
     return { original, translated, extras: builder.extras, parked };
   }
 
+  private originalText(element: Element): string {
+    const walker = this.deps.doc.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    let text = "";
+
+    for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+      if (this.addedTexts.has(node)) continue;
+
+      text += this.originalData.get(node) ?? node.nodeValue ?? "";
+    }
+
+    return text;
+  }
+
   private remember(reads: ReadBlock[]): void {
     for (const read of reads) this.reads.set(read.block.id.value, read);
   }
@@ -343,6 +362,8 @@ export class DomPageSurface implements PageSurface {
   }
 
   private forget(key: string): void {
+    for (const text of this.originals.get(key)?.data.keys() ?? []) this.originalData.delete(text);
+
     this.reads.delete(key);
     this.originals.delete(key);
     this.patches.delete(key);

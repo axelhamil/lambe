@@ -15,6 +15,7 @@ const request: BatchRequest = {
   target: LanguageCode.create("fr").getValue(),
   brief: {
     host: "x.test",
+    url: "https://x.test/",
     title: "",
     description: "",
     headings: [],

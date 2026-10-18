@@ -35,6 +35,7 @@ const target = language("fr");
 
 const brief: PageBrief = {
   host: "github.com",
+  url: "https://github.com/about-forks",
   title: "About forks",
   description: "A fork is a new repository that shares code with an upstream repository.",
   headings: ["About forks"],
@@ -76,9 +77,22 @@ function setup(options: { cached?: Map<string, string>; maxSegmentsPerBatch?: nu
     model: "translategemma:12b",
     chat: mock((messages: ChatMessage[], _options: ChatOptions) => echo(french)(messages)),
   };
+  const store = new Map(options.cached);
   const cache = {
-    getMany: mock(async (_keys: string[]) => new Map(options.cached)),
-    setMany: mock(async (_entries: Map<string, string>) => {}),
+    getMany: mock(async (keys: string[]) => {
+      const found = new Map<string, string>();
+
+      for (const key of keys) {
+        const value = store.get(key);
+
+        if (value !== undefined) found.set(key, value);
+      }
+
+      return found;
+    }),
+    setMany: mock(async (entries: Map<string, string>) => {
+      for (const [key, value] of entries) store.set(key, value);
+    }),
   };
   const hasher = { sha256Hex: mock(async (input: string) => `sha(${input})`) };
   const service = new BatchTranslationService({
@@ -104,6 +118,7 @@ const keyOf = (markup: string): string =>
     sourceMarkup: markup,
     source,
     target,
+    host: brief.host,
     providerId: "ollama",
     model: "translategemma:12b",
     promptVersion: PROMPT_VERSION,
@@ -424,6 +439,52 @@ describe("BatchTranslationService", () => {
         [keyOf("Bye."), "Au revoir."],
       ]),
     );
+  });
+
+  test("streamed_segment_repeated_later_is_retried_and_its_first_version_never_cached", async () => {
+    const { provider, service, written } = setup();
+    const onOutcome = emitted();
+    provider.chat.mockImplementationOnce(
+      streaming(["[1] Bonjour.\n", "[2] Au revoir.\n", "[1] Salut."]),
+    );
+    provider.chat.mockResolvedValueOnce(Result.ok(seg("Bonjour à tous.")));
+
+    const result = await service.translate(
+      request([
+        { id: "a", markup: "Hello." },
+        { id: "b", markup: "Bye." },
+      ]),
+      { onOutcome },
+    );
+
+    expect(provider.chat).toHaveBeenCalledTimes(2);
+    expect(result.getValue()).toEqual([
+      { id: "a", status: "translated", markup: "Bonjour à tous.", fromCache: false },
+      { id: "b", status: "translated", markup: "Au revoir.", fromCache: false },
+    ]);
+    expect(
+      onOutcome.mock.calls.map(([outcome]) => outcome).filter((outcome) => outcome.id === "a"),
+    ).toEqual([
+      { id: "a", status: "translated", markup: "Bonjour.", fromCache: false },
+      { id: "a", status: "translated", markup: "Bonjour à tous.", fromCache: false },
+    ]);
+    expect(written()).toEqual(
+      new Map([
+        [keyOf("Hello."), "Bonjour à tous."],
+        [keyOf("Bye."), "Au revoir."],
+      ]),
+    );
+  });
+
+  test("same_markup_on_two_hosts_is_translated_once_per_host", async () => {
+    const { provider, service } = setup();
+    const segments = [{ id: "a", markup: "Sign in" }];
+
+    await service.translate(request(segments));
+    await service.translate({ ...request(segments), brief: { ...brief, host: "evil.example" } });
+    await service.translate(request(segments));
+
+    expect(provider.chat).toHaveBeenCalledTimes(2);
   });
 
   test("identical_markup_is_sent_once_and_fanned_out", async () => {

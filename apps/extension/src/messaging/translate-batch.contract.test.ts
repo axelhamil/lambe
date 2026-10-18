@@ -21,6 +21,7 @@ const request: BatchRequest = {
   target: code("pt-BR"),
   brief: {
     host: "docs.github.com",
+    url: "https://docs.github.com/fork-a-repo",
     title: "Fork a repo",
     description: "",
     headings: ["Forking"],

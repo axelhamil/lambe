@@ -10,7 +10,7 @@ export class InMemoryPageSurface implements PageSurface {
   public view: SurfaceView = "original";
 
   public constructor(
-    private readonly brief: PageBrief,
+    public brief: PageBrief,
     private readonly blocks: Block[],
   ) {}
 

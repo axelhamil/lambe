@@ -7,7 +7,7 @@ Lambë is Quenya for "tongue, language"; the bubble glyph is the tengwa of the s
 ## Requirements
 
 - Chrome (or any Chromium browser) with Manifest V3.
-- Node 24.20 or newer (`.nvmrc`), pnpm 11 (`packageManager`), Bun 1.4 for tests and scripts.
+- Node 24.20 or newer (`.nvmrc`), pnpm 11 (`packageManager`), Bun 1.4.0 for tests and scripts (`.bun-version`, also read by CI).
 - [Ollama](https://ollama.com) on `http://localhost:11434` with the default model: `ollama pull translategemma:12b`.
 
 ## Install and build
@@ -83,16 +83,18 @@ Other keys: `provider` (`baseUrl`, `model`, `concurrency` as an upper bound, `ti
 
 [release-please](https://github.com/googleapis/release-please) runs on `main` (`.github/workflows/release.yml`). It reads Conventional Commits, opens a release PR, then tags and writes the changelog when that PR merges. Versions start from `.release-please-manifest.json` (`0.0.0`) with `bump-minor-pre-major`, and the extension `package.json` (hence the manifest version) follows the root. Never edit a version or a tag by hand.
 
-When a release is created, the `publish` job checks out its tag, runs `pnpm verify`, builds `wxt zip -b chrome` with `LAMBE_STORE=1` (which drops the manifest `key`, rejected by the store) and without `LAMBE_ALL_FRAMES`, checks that the manifest has no `key`, attaches the zip to the GitHub release and, if the store secrets exist, submits it to the Chrome Web Store with `wxt submit` over the CWS API v2. The submission is staged (`CHROME_PUBLISH_TYPE: STAGED_PUBLISH`): once approved it waits for a manual publish in the developer dashboard. To publish as soon as the review passes, remove that line from the submit step in `release.yml`. CI (`.github/workflows/ci.yml`) runs `pnpm install --frozen-lockfile`, `pnpm verify`, the extension build and `check:manifest` (the dev manifest keeps its `key`) on every pull request and on pushes to any branch but `main`. Both workflows are dormant until the repository has a remote.
+When a release is created, the `publish` job checks out its tag, runs `pnpm verify` and builds two zips without `LAMBE_ALL_FRAMES`. `*-chrome.zip` is a loadable unpacked build that keeps its `key` (checked by `check:manifest`). `*-chrome-store.zip` is built with `LAMBE_STORE=1`, which drops the `key` the store rejects. Both are attached to the GitHub release. Then, if the store secrets exist, the job runs the store guard (`check:manifest` with `LAMBE_STORE=1`: no `key` and no `<all_urls>` in `host_permissions` or content script `matches`) and submits the store zip to the Chrome Web Store with `wxt submit` over the CWS API v2. The submission is staged (`CHROME_PUBLISH_TYPE: STAGED_PUBLISH`): once approved it waits for a manual publish in the developer dashboard. To publish as soon as the review passes, remove that line from the submit step in `release.yml`. CI (`.github/workflows/ci.yml`) runs `pnpm install --frozen-lockfile`, `pnpm verify`, the extension build and `check:manifest` (the dev manifest keeps its `key`) on every pull request and on pushes to any branch but `main`. Both workflows are dormant until the repository has a remote.
 
 Repository secrets:
 
-- `BOT_CLIENT_ID`, `BOT_PRIVATE_KEY`: client id and private key of the GitHub App that cuts releases and uploads the zip (contents and pull requests: read and write).
+- `BOT_CLIENT_ID`, `BOT_PRIVATE_KEY`: client id and private key of the GitHub App that cuts releases and uploads the zip (contents, issues and pull requests: read and write). The release-please token asks for contents, pull requests and issues write (issues for its labels), and the publish token only contents write, minted right before the upload.
 - `CHROME_EXTENSION_ID`: the item id shown in the Chrome Web Store developer dashboard. Publishing is skipped while it is unset.
 - `CHROME_PUBLISHER_ID`: the publisher id, in the dashboard account settings.
 - `CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL`, `CHROME_SERVICE_ACCOUNT_PRIVATE_KEY`: a Google Cloud service account with the Chrome Web Store API enabled in its project, a JSON key downloaded for it (`client_email` and `private_key`), and its email added to the publisher in the developer dashboard. `pnpm --filter @lambe/extension exec wxt submit init` walks through the same steps.
 
-The first store submission must be made by hand: upload a zip from a release in the developer dashboard, fill the listing and privacy tabs, and submit. API publishing only updates an item that already exists. The store assigns its own id, so the published extension id differs from the unpacked dev id derived from the `key` in `wxt.config.ts`, which only dev and unpacked builds carry: Ollama users of the store build need `OLLAMA_ORIGINS=chrome-extension://<store id>`.
+The first store submission must be made by hand: upload the `*-chrome-store.zip` asset of a release in the developer dashboard, fill the listing and privacy tabs, and submit. API publishing only updates an item that already exists. The store assigns its own id, so the published extension id differs from the unpacked dev id derived from the `key` in `wxt.config.ts`, which only dev and unpacked builds carry: Ollama users of the store build need `OLLAMA_ORIGINS=chrome-extension://<store id>`.
+
+Store releases are blocked for now. The extension still requests `<all_urls>`, and the spec requires narrowing it to `activeTab` plus optional host permissions before any store release. Until that change lands, `check:manifest` fails on every `LAMBE_STORE=1` build, so the store submission fails while the GitHub release still gets both zips. Run the same guard by hand before a manual upload.
 
 ## Plan 1 verification
 

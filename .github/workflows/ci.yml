@@ -19,6 +19,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
       - run: pnpm --filter @lambe/extension build

@@ -139,6 +139,16 @@ const positionOf = (node: Node): number =>
   Array.from<Node>(node.parentNode?.childNodes ?? []).indexOf(node);
 
 describe("DomPageSurface commit and restore", () => {
+  test("brief_headings_stay_the_originals_after_the_headings_are_translated", async () => {
+    const { surface, blocks } = await setup("github-fork-a-repo.html");
+    const before = surface.readBrief().headings;
+
+    commitAll(surface, blocks);
+
+    expect(before[0]).toBe("Fork a repository");
+    expect(surface.readBrief().headings).toEqual(before);
+  });
+
   test("commit_translated_then_show_original_restores_outerHTML_byte_for_byte", async () => {
     const { doc, surface, blocks } = await setup("github-fork-a-repo.html");
     const before = doc.documentElement.outerHTML;

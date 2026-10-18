@@ -1,4 +1,4 @@
-import type { Option } from "@lambe/kernel/option";
+import { Option } from "@lambe/kernel/option";
 import { Result } from "@lambe/kernel/result";
 import { decodeBatch, decodeStreamedBatch, encodeBatch } from "../domain/batch/batch-format";
 import { estimateTokens, maxInputTokens, planBatches } from "../domain/batch/budget";
@@ -137,6 +137,8 @@ function outcomeOf(id: string, result: GroupResult | undefined): SegmentOutcome 
 class BatchRun {
   private readonly plans = new Map<SegmentGroup, PiecePlan>();
   private readonly pieces: PieceResults = new Map();
+  private readonly previews: PieceResults = new Map();
+  private readonly previewed = new Map<SegmentGroup, string>();
   private readonly settled = new Map<SegmentGroup, GroupResult>();
   private readonly writes: Promise<void>[] = [];
 
@@ -162,32 +164,78 @@ class BatchRun {
       this.writes.push(this.cache.setMany(new Map([[group.key, result.getValue().markup]])));
     }
 
+    const previewed = this.previewed.get(group);
+
+    if (previewed !== undefined && result.isSuccess && result.getValue().markup === previewed)
+      return;
+
     for (const id of group.ids) this.onOutcome(outcomeOf(id, result));
   }
 
-  public record(piece: Piece, result: PieceResult, final: boolean): void {
+  public preview(piece: Piece, result: PieceResult): void {
+    const { group } = piece;
+
+    if (this.settled.has(group) || this.previewed.has(group)) return;
+
+    this.previews.set(piece, result);
+
+    const joined = this.join(
+      group,
+      piece,
+      (member) => this.pieces.get(member) ?? this.previews.get(member),
+    );
+
+    if (joined.isNone() || joined.unwrap().isFailure) return;
+
+    const markup = joined.unwrap().getValue();
+
+    this.previewed.set(group, markup);
+
+    for (const id of group.ids) {
+      this.onOutcome({ id, status: "translated", markup, fromCache: false });
+    }
+  }
+
+  public record(piece: Piece, result: PieceResult): void {
     const { group } = piece;
 
     if (this.settled.has(group)) return;
 
     if (result.isFailure) {
-      if (final) this.settle(group, Result.fail(result.getError()));
+      this.settle(group, Result.fail(result.getError()));
 
       return;
     }
 
     this.pieces.set(piece, result);
 
-    const { shell, pieces } = this.plans.get(group) ?? { shell: [], pieces: [piece] };
+    const joined = this.join(group, piece, (member) => this.pieces.get(member));
 
-    if (!pieces.every((member) => this.pieces.get(member)?.isSuccess)) return;
+    if (joined.isNone()) return;
 
     this.settle(
       group,
-      joinPieces(pieces, this.pieces)
-        .flatMap((markup) => rewrap(shell, markup))
-        .map((markup) => ({ markup, fromCache: false })),
+      joined.unwrap().map((markup) => ({ markup, fromCache: false })),
     );
+  }
+
+  private join(
+    group: SegmentGroup,
+    piece: Piece,
+    resultOf: (member: Piece) => PieceResult | undefined,
+  ): Option<PieceResult> {
+    const { shell, pieces } = this.plans.get(group) ?? { shell: [], pieces: [piece] };
+    const results: PieceResults = new Map();
+
+    for (const member of pieces) {
+      const result = resultOf(member);
+
+      if (result === undefined || result.isFailure) return Option.none();
+
+      results.set(member, result);
+    }
+
+    return Option.some(joinPieces(pieces, results).flatMap((markup) => rewrap(shell, markup)));
   }
 
   public outcomes(groups: SegmentGroup[], segments: SegmentRequest[]): SegmentOutcome[] {
@@ -223,7 +271,7 @@ function streamedSegments(pieces: Piece[], run: BatchRun): (delta: string) => vo
 
       const result = validate(piece, markup);
 
-      if (result.isSuccess) run.record(piece, result, false);
+      if (result.isSuccess) run.preview(piece, result);
     }
   };
 }
@@ -294,6 +342,7 @@ export class BatchTranslationService {
         sourceMarkup: markup,
         source: request.source,
         target: request.target,
+        host: request.brief.host,
         providerId: this.deps.provider.id,
         model: this.deps.provider.model,
         promptVersion: PROMPT_VERSION,
@@ -362,7 +411,7 @@ export class BatchTranslationService {
 
       for (const [piece, result] of attempt.getValue()) {
         if (result.isSuccess || run.isSettled(piece.group)) {
-          run.record(piece, result, true);
+          run.record(piece, result);
           continue;
         }
 
@@ -370,7 +419,7 @@ export class BatchTranslationService {
 
         if (retry.isFailure) return Result.fail(retry.getError());
 
-        run.record(piece, retry.getValue().get(piece) ?? result, true);
+        run.record(piece, retry.getValue().get(piece) ?? result);
       }
     }
 

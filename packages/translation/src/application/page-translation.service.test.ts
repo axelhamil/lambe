@@ -26,6 +26,7 @@ const target = language("fr");
 
 const brief: PageBrief = {
   host: "github.com",
+  url: "https://github.com/about-forks",
   title: "About forks",
   description: "A fork is a new repository that shares code with an upstream repository.",
   headings: ["About forks"],
@@ -403,6 +404,76 @@ describe("PageTranslationService", () => {
       nodes: [text("fr Pull requests flow back upstream.")],
     });
     expect(service.state()).toEqual({ kind: "translated" });
+  });
+
+  test("block_discovered_after_a_retranslate_uses_the_cache", async () => {
+    const { service, near, discover, requests, committed } = setup({ blocks: [ALPHA] });
+    await service.toggle();
+    near("alpha", 0);
+    await service.whenIdle();
+    await service.retranslate();
+    await service.whenIdle();
+
+    discover(BETA);
+    near("beta", 0);
+    await service.whenIdle();
+
+    expect(requests().map((request) => request.cachePolicy)).toEqual(["use", "refresh", "use"]);
+    expect(committed("beta")).toEqual({
+      blockId: BETA.id,
+      kind: "structured",
+      nodes: [text("fr A fork keeps its own history.")],
+    });
+  });
+
+  test("blocks_after_a_client_side_navigation_carry_the_new_brief_and_source", async () => {
+    const japanese = language("ja");
+    const { service, surface, near, discover, requests } = setup({
+      blocks: [ALPHA],
+      detect: (input) => (input.startsWith("フォーク") ? Option.some(japanese) : Option.none()),
+    });
+    await service.toggle();
+    near("alpha", 0);
+    await service.whenIdle();
+
+    surface.brief = {
+      host: "github.com",
+      url: "https://github.com/ja/about-forks",
+      title: "フォークについて",
+      description: "",
+      headings: ["フォークについて"],
+      sourceLanguage: Option.none(),
+    };
+    discover(BETA);
+    near("beta", 0);
+    await service.whenIdle();
+
+    const last = requests().at(-1);
+    expect(last?.brief.title).toBe("フォークについて");
+    expect(last?.source.map((code) => code.value).unwrapOr("")).toBe("ja");
+  });
+
+  test("block_appended_to_a_translated_page_keeps_the_session_brief_and_source", async () => {
+    const { service, surface, near, discover, detector, requests } = setup({
+      blocks: [ALPHA],
+      brief: { ...brief, sourceLanguage: Option.none() },
+      detect: (input) =>
+        input.startsWith("fr ") ? Option.some(target) : Option.some(language("en")),
+    });
+    await service.toggle();
+    near("alpha", 0);
+    await service.whenIdle();
+    const detectionsBefore = detector.detect.mock.calls.length;
+
+    surface.brief = { ...surface.brief, headings: ["fr About forks"] };
+    discover(BETA);
+    near("beta", 0);
+    await service.whenIdle();
+
+    const last = requests().at(-1);
+    expect(last?.brief.headings).toEqual(["About forks"]);
+    expect(last?.source.map((code) => code.value).unwrapOr("")).toBe("en");
+    expect(detector.detect.mock.calls.length - detectionsBefore).toBe(1);
   });
 
   test("provider_forbidden_sets_error_state_with_the_error_and_stops_pumping", async () => {

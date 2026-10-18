@@ -9,6 +9,7 @@ const parts = {
   sourceMarkup: "Fork the <g1>repository</g1>.",
   source: Option.some(language("en")),
   target: language("fr"),
+  host: "github.com",
   providerId: "ollama",
   model: "translategemma:12b",
   promptVersion: "1",

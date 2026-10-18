@@ -1,1 +1,1 @@
-export const PROMPT_VERSION = "3";
+export const PROMPT_VERSION = "4";

@@ -16,7 +16,14 @@ const payload = {
   segments: [{ id: "0", markup: "Hello" }],
   source: "en",
   target: "fr",
-  brief: { host: "x.test", title: "", description: "", headings: [], sourceLanguage: null },
+  brief: {
+    host: "x.test",
+    url: "https://x.test/",
+    title: "",
+    description: "",
+    headings: [],
+    sourceLanguage: null,
+  },
   cachePolicy: "use",
 };
 

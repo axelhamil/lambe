@@ -16,6 +16,7 @@ const batchRequestDtoSchema = z.object({
   target: z.string(),
   brief: z.object({
     host: z.string(),
+    url: z.string(),
     title: z.string(),
     description: z.string(),
     headings: z.array(z.string()),
