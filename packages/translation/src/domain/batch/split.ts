@@ -1,5 +1,5 @@
 import { Result } from "@lambe/kernel/result";
-import type { InlineNode } from "../block/inline-node";
+import { appendNode, type InlineNode } from "../block/inline-node";
 import { toMarkup } from "../markup/markup";
 import { estimateTokens } from "./budget";
 
@@ -90,16 +90,6 @@ function cutOffsets(nodes: InlineNode[]): Map<number, number[]> {
   }
 
   return cuts;
-}
-
-function appendNode(nodes: InlineNode[], node: InlineNode): InlineNode[] {
-  const last = nodes.at(-1);
-
-  if (last?.kind === "text" && node.kind === "text") {
-    return [...nodes.slice(0, -1), { kind: "text", text: last.text + node.text }];
-  }
-
-  return [...nodes, node];
 }
 
 function joinNodes(left: InlineNode[], right: InlineNode[]): InlineNode[] {

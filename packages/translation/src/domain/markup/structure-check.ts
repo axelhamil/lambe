@@ -1,5 +1,5 @@
 import { Result } from "@lambe/kernel/result";
-import type { InlineNode } from "../block/inline-node";
+import { appendNode, type InlineNode } from "../block/inline-node";
 import { type MarkupError, markupError } from "./markup";
 
 const ROOT = "root";
@@ -48,16 +48,6 @@ interface Settling {
   expected: Placements;
   kept: Set<string>;
   atoms: Placements;
-}
-
-function appendNode(nodes: InlineNode[], node: InlineNode): InlineNode[] {
-  const last = nodes.at(-1);
-
-  if (last?.kind === "text" && node.kind === "text") {
-    return [...nodes.slice(0, -1), { kind: "text", text: last.text + node.text }];
-  }
-
-  return [...nodes, node];
 }
 
 function settleGroups(nodes: InlineNode[], parent: string, settling: Settling): InlineNode[] {
