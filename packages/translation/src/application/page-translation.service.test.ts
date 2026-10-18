@@ -249,6 +249,103 @@ describe("PageTranslationService", () => {
     expect(committed("beta")).toBeUndefined();
   });
 
+  test("request_whose_blocks_all_scroll_far_is_cancelled_and_resent_when_they_come_back", async () => {
+    const controlled = controlledTranslator();
+    const { service, near, far, committed } = setup({
+      blocks: [ALPHA],
+      translate: controlled.translate,
+    });
+    await service.toggle();
+    const sent = controlled.nextCall();
+    near("alpha", 0);
+    await sent;
+
+    far("alpha");
+    const cancelled = controlled.calls[0]?.options.signal?.aborted;
+    controlled.calls[0]?.finish(Result.fail(requestCancelled()));
+    await flush();
+    const resent = controlled.nextCall();
+    near("alpha", 0);
+    await resent;
+    controlled.calls[1]?.finish(
+      Result.ok([streamedFrench("0", "Forks share code with upstream.")]),
+    );
+    await service.whenIdle();
+
+    expect(cancelled).toBe(true);
+    expect(sentBlocks(controlled.calls)).toEqual([
+      ["Forks share code with upstream."],
+      ["Forks share code with upstream."],
+    ]);
+    expect(committed("alpha")).toEqual({
+      blockId: ALPHA.id,
+      kind: "structured",
+      nodes: [text("fr Forks share code with upstream.")],
+    });
+  });
+
+  test("request_keeps_running_while_one_of_its_blocks_is_still_near", async () => {
+    const controlled = controlledTranslator();
+    const { service, near, far } = setup({
+      blocks: [ALPHA, BETA],
+      translate: controlled.translate,
+    });
+    await service.toggle();
+    const sent = controlled.nextCall();
+    near("alpha", 0);
+    near("beta", 0);
+    await sent;
+
+    far("alpha");
+    const cancelled = controlled.calls[0]?.options.signal?.aborted;
+    controlled.calls[0]?.finish(
+      Result.ok([
+        streamedFrench("0", "Forks share code with upstream."),
+        streamedFrench("1", "A fork keeps its own history."),
+      ]),
+    );
+    await service.whenIdle();
+
+    expect(cancelled).toBe(false);
+    expect(controlled.calls.length).toBe(1);
+  });
+
+  test("failed_block_that_scrolled_far_skips_its_fallback_until_it_comes_back", async () => {
+    const controlled = controlledTranslator();
+    const { service, near, far, committed } = setup({
+      blocks: [LINKED, ALPHA],
+      translate: controlled.translate,
+    });
+    await service.toggle();
+    const sent = controlled.nextCall();
+    near("linked", 0);
+    near("alpha", 0);
+    await sent;
+
+    far("linked");
+    controlled.calls[0]?.finish(
+      Result.ok([
+        { id: "0", status: "failed", code: "PLACEHOLDER_LOST" },
+        streamedFrench("1", "Forks share code with upstream."),
+      ]),
+    );
+    await flush();
+    const callsWhileFar = controlled.calls.length;
+    const linkedWhileFar = committed("linked");
+    const resent = controlled.nextCall();
+    near("linked", 0);
+    await resent;
+    controlled.calls[1]?.finish(
+      Result.ok([streamedFrench("0", "Read <g1>the docs</g1> before forking.")]),
+    );
+    await service.whenIdle();
+
+    expect(callsWhileFar).toBe(1);
+    expect(linkedWhileFar).toBeUndefined();
+    expect(sentBlocks(controlled.calls)[1]).toEqual(["Read <g1>the docs</g1> before forking."]);
+    expect(committed("linked")?.kind).toBe("structured");
+  });
+
   test("second_toggle_shows_original_without_calling_the_translator", async () => {
     const { service, surface, translator, near } = setup({ blocks: [ALPHA] });
     await service.toggle();

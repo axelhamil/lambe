@@ -158,7 +158,7 @@ export class PageTranslationService {
   private readonly positions = new Map<string, number>();
   private readonly reported = new Set<string>();
   private readonly settled = new Set<string>();
-  private readonly inFlight = new Set<string>();
+  private readonly inFlight = new Map<string, AbortController>();
   private readonly controllers = new Set<AbortController>();
   private session: Session | undefined;
   private started = false;
@@ -347,11 +347,25 @@ export class PageTranslationService {
 
       if (block !== undefined) this.queue.drop(block.id);
 
+      this.cancelIfFar(key);
+
       return;
     }
 
     this.ranks.set(key, rank.unwrap());
     this.enqueueIfPending(key);
+  }
+
+  private cancelIfFar(key: string): void {
+    const controller = this.inFlight.get(key);
+
+    if (controller === undefined) return;
+
+    const sharing = [...this.inFlight].filter(([, owner]) => owner === controller);
+
+    if (sharing.some(([other]) => this.ranks.has(other))) return;
+
+    controller.abort();
   }
 
   private enqueueIfPending(key: string): void {
@@ -479,7 +493,7 @@ export class PageTranslationService {
   private visibleContentOutstanding(): boolean {
     if (this.queue.holds(0, "content")) return true;
 
-    return [...this.inFlight].some(
+    return [...this.inFlight.keys()].some(
       (key) => this.ranks.get(key) === 0 && this.blocks.get(key)?.role !== "chrome",
     );
   }
@@ -491,7 +505,7 @@ export class PageTranslationService {
 
     this.controllers.add(controller);
 
-    for (const block of batch) this.inFlight.add(block.id.value);
+    for (const block of batch) this.inFlight.set(block.id.value, controller);
 
     const plan = await settle(this.translateBatch(batch, session, scope));
 
@@ -513,6 +527,8 @@ export class PageTranslationService {
 
     this.transportRetried = false;
     this.apply(plan.getValue());
+
+    for (const block of batch) this.enqueueIfPending(block.id.value);
 
     return Result.ok();
   }
@@ -600,11 +616,13 @@ export class PageTranslationService {
       translations.push({ blockId: block.id, kind: "structured", nodes: nodes.unwrap() });
     });
 
-    const slotted = await this.translateSlots(fallback, session, policy, scope.signal);
+    const near = fallback.filter((block) => this.ranks.has(block.id.value));
+    const far = new Set(fallback.filter((block) => !near.includes(block)));
+    const slotted = await this.translateSlots(near, session, policy, scope.signal);
 
     return slotted.map((slotTranslations) => ({
       translations: [...translations, ...slotTranslations],
-      settled: batch,
+      settled: batch.filter((block) => !far.has(block)),
     }));
   }
 
