@@ -1,0 +1,8 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+packageExtensions:
+  dependency-cruiser:
+    dependencies:
+      typescript: "^6"

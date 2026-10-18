@@ -1,0 +1,7 @@
+language js(typescript)
+
+JsStaticMemberExpression(object=$owner, member=$member) as $access where {
+  $member <: `_props`,
+  $owner <: not `this`,
+  register_diagnostic(span=$access, message="`_props` is only read inside its own class, on `this`. Read the prop from outside with `get('x')`.")
+}
