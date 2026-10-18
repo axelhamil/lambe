@@ -1,0 +1,124 @@
+<h2>Bulle lambë : page et YouTube</h2>
+<p class="subtitle">Le glyphe est la tengwa <b>lambë</b>, qui veut dire « langue » en quenya. Glisse la bulle : elle s'aimante au bord le plus proche et sa pointe se tourne vers lui. 1 clic bascule, double clic retraduit. En bas, le lecteur YouTube : clique le bouton à côté de CC.</p>
+
+<style>
+  .wrap { display: grid; gap: 18px; }
+  .frame { position: relative; height: 320px; border-radius: 8px; overflow: hidden; background: #0d1117; color: #c9d1d9; font: 13px/1.55 -apple-system, Segoe UI, sans-serif; user-select: none; }
+  .bar { height: 34px; background: #161b22; border-bottom: 1px solid #30363d; display: flex; align-items: center; padding: 0 12px; font-size: 12px; color: #8b949e; }
+  .doc { padding: 14px 70px 14px 18px; }
+  .doc h4 { margin: 0 0 6px; color: #e6edf3; font-size: 16px; }
+  .doc pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 8px; margin: 10px 0; font: 12px ui-monospace, monospace; color: #a5d6ff; }
+  .t { transition: opacity .15s; }
+  .fab { position: absolute; width: 38px; height: 38px; display: grid; place-items: center; cursor: grab; opacity: .55; color: #c9d1d9; transition: left .28s cubic-bezier(.2,.9,.3,1.2), top .28s cubic-bezier(.2,.9,.3,1.2), opacity .2s; z-index: 5; }
+  .fab:hover, .fab.on { opacity: 1; }
+  .fab.dragging { transition: none; cursor: grabbing; }
+  .fab svg { width: 38px; height: 38px; overflow: visible; }
+  .bub { fill: rgba(22,27,34,.6); stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; transition: transform .25s; transform-origin: 20px 20px; }
+  .left .bub { transform: scaleX(-1); }
+  .aa { font: 600 10px ui-monospace, monospace; fill: currentColor; transition: opacity .2s; }
+  .glyph { fill: #7ee0c3; opacity: 0; transition: opacity .25s; filter: drop-shadow(0 0 2px #7ee0c3); }
+  .on .aa { opacity: 0; }
+  .on .glyph { opacity: 1; }
+  .on .bub { stroke: #7ee0c3; }
+  .busy .aa { opacity: 0; }
+  .busy .glyph { animation: pulse .5s ease-in-out infinite alternate; }
+  .busy .bub { stroke: #7ee0c3; stroke-dasharray: 6 4; animation: dash .8s linear infinite; }
+  @keyframes pulse { from { opacity: .2; } to { opacity: 1; } }
+  @keyframes dash { to { stroke-dashoffset: -20; } }
+
+  .yt { position: relative; border-radius: 8px; overflow: hidden; background: linear-gradient(135deg, #1f2937, #0b0f14 60%, #1c1917); height: 260px; font-family: Roboto, Arial, sans-serif; user-select: none; }
+  .yt .sub { position: absolute; left: 50%; bottom: 58px; transform: translateX(-50%); background: rgba(8,8,8,.75); color: #fff; padding: 3px 8px; font-size: 15px; white-space: nowrap; transition: opacity .15s; }
+  .yt .ctrl { position: absolute; left: 0; right: 0; bottom: 0; height: 46px; background: linear-gradient(transparent, rgba(0,0,0,.7)); display: flex; align-items: center; padding: 0 10px; gap: 14px; color: #fff; font-size: 13px; }
+  .yt .prog { position: absolute; left: 10px; right: 10px; bottom: 44px; height: 3px; background: rgba(255,255,255,.25); }
+  .yt .prog i { display: block; width: 38%; height: 100%; background: #f00; }
+  .yt .sp { flex: 1; }
+  .yt .ic { width: 30px; height: 30px; display: grid; place-items: center; opacity: .9; position: relative; cursor: pointer; }
+  .yt .ic svg { width: 24px; height: 24px; }
+  .yt .ic.active::after { content: ""; position: absolute; left: 6px; right: 6px; bottom: 1px; height: 2px; background: #f00; border-radius: 1px; }
+  .yt .ic .glyph { opacity: 1; fill: #fff; filter: none; }
+  .yt .ic.active .glyph { fill: #7ee0c3; filter: drop-shadow(0 0 2px #7ee0c3); }
+  .yt .ic.busy .glyph { animation: pulse .5s ease-in-out infinite alternate; }
+  .yt .tip { position: absolute; bottom: 52px; right: 64px; background: rgba(28,28,28,.9); color: #eee; font-size: 12px; padding: 5px 8px; border-radius: 4px; opacity: 0; transition: opacity .15s; pointer-events: none; }
+  .yt .ic.me:hover ~ .tip, .yt .tip.show { opacity: 1; }
+</style>
+
+<div class="wrap">
+  <div class="frame" id="page">
+    <div class="bar">github.com / docs / pull-requests / about-forks</div>
+    <div class="doc">
+      <h4 class="t" data-k="h"></h4>
+      <div class="t" data-k="p"></div>
+      <pre>git clone https://github.com/you/repo.git
+<span class="t" data-k="c"></span>
+git remote add upstream https://github.com/org/repo.git</pre>
+      <div class="t" data-k="q"></div>
+    </div>
+    <div class="fab" id="fab"><svg viewBox="0 0 40 40">
+      <path class="bub" d="M9 7h22a5 5 0 0 1 5 5v11a5 5 0 0 1-5 5h-1l5 6-9-6H9a5 5 0 0 1-5-5V12a5 5 0 0 1 5-5z"/>
+      <text class="aa" x="20" y="21.5" text-anchor="middle">Aa</text>
+      <path class="glyph" transform="translate(9.6,-0.9) scale(0.6)" d="M 29.866563,17.192747 C 29.75987,17.51276 29.482537,17.86476 29.034563,18.248747 C 28.586538,18.611426 28.117205,18.963426 27.626563,19.304747 C 27.050539,19.688758 26.41054,20.072758 25.706563,20.456747 L 15.242563,20.456747 C 15.199885,20.478091 15.007885,20.606091 14.666563,20.840747 C 14.325219,21.05409 13.909219,21.37409 13.418563,21.800747 C 12.927887,22.206089 12.405221,22.718089 11.850563,23.336747 C 11.317222,23.955421 10.815889,24.680753 10.346563,25.512747 C 9.8772233,26.323418 9.482557,27.251417 9.1625629,28.296747 C 8.863891,29.320749 8.7145578,30.451414 8.7145629,31.688747 C 8.7145578,33.566078 9.0665574,35.166076 9.7705629,36.488747 C 10.474556,37.83274 11.317222,38.931406 12.298563,39.784747 C 13.30122,40.638071 14.314552,41.256737 15.338563,41.640747 C 16.383883,42.046069 17.247883,42.248736 17.930563,42.248747 C 18.634548,42.248736 19.317214,42.120736 19.978563,41.864747 C 20.661213,41.63007 21.269212,41.31007 21.802563,40.904747 C 22.335878,40.520737 22.762544,40.072738 23.082563,39.560747 C 23.402543,39.070072 23.562543,38.558073 23.562563,38.024747 C 23.562543,37.57674 23.455876,37.096741 23.242563,36.584747 C 23.050543,36.072742 22.826544,35.646076 22.570563,35.304747 L 24.970563,34.152747 C 25.183875,34.38741 25.375874,34.622077 25.546563,34.856747 C 25.695874,35.048743 25.823874,35.251409 25.930563,35.464747 C 26.05854,35.678076 26.12254,35.859409 26.122563,36.008747 C 26.12254,36.627408 25.941207,37.246074 25.578563,37.864747 C 25.215875,38.504739 24.735875,39.112739 24.138563,39.688747 C 23.54121,40.286071 22.847877,40.840737 22.058563,41.352747 C 21.269212,41.864736 20.447879,42.312736 19.594563,42.696747 C 18.762548,43.080735 17.919882,43.379401 17.066563,43.592747 C 16.23455,43.827401 15.455884,43.944734 14.730563,43.944747 C 13.919886,43.944734 13.01322,43.784734 12.010563,43.464747 C 11.007889,43.166068 10.058556,42.643402 9.1625629,41.896747 C 8.2878916,41.15007 7.5518923,40.136738 6.9545629,38.856747 C 6.3572268,37.598074 6.0585604,36.019409 6.0585629,34.120747 C 6.0585604,33.054078 6.1758937,32.051413 6.4105629,31.112747 C 6.6665598,30.152748 6.9865595,29.256749 7.3705629,28.424747 C 7.7758921,27.571417 8.2345583,26.792751 8.7465629,26.088747 C 9.2585572,25.363419 9.7812234,24.702087 10.314563,24.104747 C 11.573222,22.739422 13.002554,21.523423 14.602563,20.456747 L 8.2985629,20.456747 C 7.2105593,20.456757 6.2398936,20.499424 5.3865629,20.584747 C 4.5332286,20.648757 3.9252292,20.734091 3.5625629,20.840747 C 3.6692295,20.542091 3.9465626,20.200758 4.3945629,19.816747 C 4.8425617,19.432758 5.3118945,19.070092 5.8025629,18.728747 C 6.3785601,18.34476 7.0185595,17.96076 7.7225629,17.576747 L 25.130563,17.576747 C 26.21854,17.57676 27.189206,17.54476 28.042563,17.480747 C 28.895871,17.395427 29.50387,17.299427 29.866563,17.192747"/>
+    </svg></div>
+  </div>
+
+  <div class="yt" id="yt">
+    <div class="sub" id="sub"></div>
+    <div class="prog"><i></i></div>
+    <div class="ctrl">
+      <span>▶</span><span>⏭</span><span>🔊</span><span style="font-size:12px">4:12 / 11:03</span>
+      <span class="sp"></span>
+      <span class="ic" id="cc"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="#fff" stroke-width="1.8"/><text x="12" y="15" text-anchor="middle" font-size="7" font-weight="700" fill="#fff">CC</text></svg></span>
+      <span class="ic me" id="ytb"><svg viewBox="0 0 40 40"><path class="glyph" transform="translate(3.3,-10.4) scale(1.05)" d="M 29.866563,17.192747 C 29.75987,17.51276 29.482537,17.86476 29.034563,18.248747 C 28.586538,18.611426 28.117205,18.963426 27.626563,19.304747 C 27.050539,19.688758 26.41054,20.072758 25.706563,20.456747 L 15.242563,20.456747 C 15.199885,20.478091 15.007885,20.606091 14.666563,20.840747 C 14.325219,21.05409 13.909219,21.37409 13.418563,21.800747 C 12.927887,22.206089 12.405221,22.718089 11.850563,23.336747 C 11.317222,23.955421 10.815889,24.680753 10.346563,25.512747 C 9.8772233,26.323418 9.482557,27.251417 9.1625629,28.296747 C 8.863891,29.320749 8.7145578,30.451414 8.7145629,31.688747 C 8.7145578,33.566078 9.0665574,35.166076 9.7705629,36.488747 C 10.474556,37.83274 11.317222,38.931406 12.298563,39.784747 C 13.30122,40.638071 14.314552,41.256737 15.338563,41.640747 C 16.383883,42.046069 17.247883,42.248736 17.930563,42.248747 C 18.634548,42.248736 19.317214,42.120736 19.978563,41.864747 C 20.661213,41.63007 21.269212,41.31007 21.802563,40.904747 C 22.335878,40.520737 22.762544,40.072738 23.082563,39.560747 C 23.402543,39.070072 23.562543,38.558073 23.562563,38.024747 C 23.562543,37.57674 23.455876,37.096741 23.242563,36.584747 C 23.050543,36.072742 22.826544,35.646076 22.570563,35.304747 L 24.970563,34.152747 C 25.183875,34.38741 25.375874,34.622077 25.546563,34.856747 C 25.695874,35.048743 25.823874,35.251409 25.930563,35.464747 C 26.05854,35.678076 26.12254,35.859409 26.122563,36.008747 C 26.12254,36.627408 25.941207,37.246074 25.578563,37.864747 C 25.215875,38.504739 24.735875,39.112739 24.138563,39.688747 C 23.54121,40.286071 22.847877,40.840737 22.058563,41.352747 C 21.269212,41.864736 20.447879,42.312736 19.594563,42.696747 C 18.762548,43.080735 17.919882,43.379401 17.066563,43.592747 C 16.23455,43.827401 15.455884,43.944734 14.730563,43.944747 C 13.919886,43.944734 13.01322,43.784734 12.010563,43.464747 C 11.007889,43.166068 10.058556,42.643402 9.1625629,41.896747 C 8.2878916,41.15007 7.5518923,40.136738 6.9545629,38.856747 C 6.3572268,37.598074 6.0585604,36.019409 6.0585629,34.120747 C 6.0585604,33.054078 6.1758937,32.051413 6.4105629,31.112747 C 6.6665598,30.152748 6.9865595,29.256749 7.3705629,28.424747 C 7.7758921,27.571417 8.2345583,26.792751 8.7465629,26.088747 C 9.2585572,25.363419 9.7812234,24.702087 10.314563,24.104747 C 11.573222,22.739422 13.002554,21.523423 14.602563,20.456747 L 8.2985629,20.456747 C 7.2105593,20.456757 6.2398936,20.499424 5.3865629,20.584747 C 4.5332286,20.648757 3.9252292,20.734091 3.5625629,20.840747 C 3.6692295,20.542091 3.9465626,20.200758 4.3945629,19.816747 C 4.8425617,19.432758 5.3118945,19.070092 5.8025629,18.728747 C 6.3785601,18.34476 7.0185595,17.96076 7.7225629,17.576747 L 25.130563,17.576747 C 26.21854,17.57676 27.189206,17.54476 28.042563,17.480747 C 28.895871,17.395427 29.50387,17.299427 29.866563,17.192747"/></svg></span>
+      <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.8"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" stroke="#fff" stroke-width="1.8"/></svg></span>
+      <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="#fff" stroke-width="1.8"/></svg></span>
+      <div class="tip" id="tip">Traduire les sous-titres (FR)</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const EN = { h: "About forks", p: "A fork is a new repository that shares code and visibility settings with the original upstream repository. Open a pull request to merge your changes.", c: "# clone your fork locally", q: "Forks are often used to iterate on ideas before merging." };
+  const FR = { h: "À propos des forks", p: "Un fork est un nouveau dépôt qui partage le code et les paramètres de visibilité avec le dépôt upstream d'origine. Ouvre une pull request pour merger tes changements.", c: "# clone ton fork en local", q: "Les forks servent souvent à itérer sur des idées avant de merger." };
+  const page = document.getElementById('page'), fab = document.getElementById('fab');
+  let tr = false, cached = false, side = 'right', y = 150;
+  const render = () => page.querySelectorAll('.t').forEach(n => n.textContent = (tr ? FR : EN)[n.dataset.k]);
+  const place = () => {
+    fab.classList.toggle('left', side === 'left');
+    fab.style.left = (side === 'left' ? 4 : page.clientWidth - fab.offsetWidth - 4) + 'px';
+    fab.style.top = y + 'px';
+  };
+  const run = (force) => {
+    if (cached && !force) { tr = !tr; fab.classList.toggle('on', tr); render(); return; }
+    fab.classList.remove('on'); fab.classList.add('busy');
+    page.querySelectorAll('.t').forEach(n => n.style.opacity = .4);
+    setTimeout(() => { fab.classList.remove('busy'); cached = true; tr = true; fab.classList.add('on'); page.querySelectorAll('.t').forEach(n => n.style.opacity = 1); render(); }, 1200);
+  };
+  let timer = null, drag = null;
+  fab.addEventListener('pointerdown', e => { e.stopPropagation(); drag = { sx: e.clientX, sy: e.clientY, ox: fab.offsetLeft, oy: fab.offsetTop, moved: false }; fab.setPointerCapture(e.pointerId); });
+  fab.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+    drag.moved = true; fab.classList.add('dragging');
+    fab.style.left = drag.ox + dx + 'px'; fab.style.top = drag.oy + dy + 'px';
+    fab.classList.toggle('left', drag.ox + dx + 19 < page.clientWidth / 2);
+  });
+  fab.addEventListener('pointerup', e => {
+    e.stopPropagation(); const d = drag; drag = null; fab.classList.remove('dragging');
+    if (d && d.moved) { side = fab.offsetLeft + 19 < page.clientWidth / 2 ? 'left' : 'right'; y = Math.max(40, Math.min(page.clientHeight - 44, fab.offsetTop)); place(); return; }
+    if (timer) { clearTimeout(timer); timer = null; run(true); return; }
+    timer = setTimeout(() => { timer = null; run(false); }, 250);
+  });
+  render(); requestAnimationFrame(place);
+
+  const sub = document.getElementById('sub'), ytb = document.getElementById('ytb'), tip = document.getElementById('tip');
+  const S_EN = "so you fork the repo, push your branch and open a PR", S_FR = "donc tu forkes le repo, tu push ta branche et tu ouvres une PR";
+  let ytOn = false, ytCached = false;
+  sub.textContent = S_EN;
+  ytb.addEventListener('click', () => {
+    if (ytCached) { ytOn = !ytOn; ytb.classList.toggle('active', ytOn); sub.textContent = ytOn ? S_FR : S_EN; return; }
+    ytb.classList.add('busy'); sub.style.opacity = .5;
+    setTimeout(() => { ytb.classList.remove('busy'); ytCached = true; ytOn = true; ytb.classList.add('active'); sub.style.opacity = 1; sub.textContent = S_FR; }, 900);
+  });
+})();
+</script>
