@@ -360,7 +360,7 @@ export class PageTranslationService {
 
     if (this.settled.has(key) || this.inFlight.has(key)) return;
 
-    this.queue.enqueue(block.id, rank, this.positions.get(key) ?? 0);
+    this.queue.enqueue(block.id, rank, block.role, this.positions.get(key) ?? 0);
   }
 
   private canPump(): boolean {

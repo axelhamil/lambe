@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>widget/README.md at main · acme/widget</title>
+<style>
+body { margin: 0; font: 14px/1.5 system-ui, sans-serif; color: #1f2328; background: #fff; }
+a { color: #0969da; text-decoration: none; }
+button { font: inherit; border: 1px solid #d1d9e0; background: #f6f8fa; border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+.AppHeader { display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: #f6f8fa; border-bottom: 1px solid #d1d9e0; }
+.AppHeader-globalBar-start, .AppHeader-globalBar-end { display: flex; align-items: center; gap: 12px; }
+.AppHeader-globalBar-end { margin-left: auto; }
+.AppHeader-context ul, .UnderlineNav-body, .ActionList, .Breadcrumbs ol { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; }
+.UnderlineNav { padding: 0 16px; border-bottom: 1px solid #d1d9e0; background: #f6f8fa; }
+.UnderlineNav-item { display: inline-flex; gap: 6px; padding: 8px; }
+.Layout { display: grid; grid-template-columns: 300px 1fr; }
+.Layout-sidebar { border-right: 1px solid #d1d9e0; padding: 12px; }
+.Layout-sidebar .ActionList { flex-direction: column; gap: 2px; }
+.Layout-main { padding: 16px 24px; min-width: 0; }
+.file-header { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.file-actions { margin-left: auto; display: flex; gap: 6px; }
+.latest-commit { display: flex; gap: 8px; padding: 8px 12px; border: 1px solid #d1d9e0; border-radius: 6px 6px 0 0; background: #f6f8fa; }
+.Box { border: 1px solid #d1d9e0; border-top: 0; border-radius: 0 0 6px 6px; }
+.Box-header { display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #d1d9e0; }
+.markdown-body { padding: 24px 32px; font-size: 16px; }
+.markdown-body pre { background: #f6f8fa; padding: 12px; border-radius: 6px; overflow: auto; }
+.markdown-body code { background: #eff1f3; padding: 1px 4px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="logged-in env-production page-responsive">
+<header class="AppHeader" role="banner">
+  <div class="AppHeader-globalBar-start">
+    <button type="button" class="AppHeader-button" aria-label="Open global navigation menu"><span class="Button-label">Menu</span></button>
+    <a class="AppHeader-logo" href="/" aria-label="Homepage">Forge</a>
+    <nav class="AppHeader-context" aria-label="Page context">
+      <ul>
+        <li><a href="/acme"><span class="AppHeader-context-item-label">acme</span></a></li>
+        <li><a href="/acme/widget"><span class="AppHeader-context-item-label">widget</span></a></li>
+      </ul>
+    </nav>
+  </div>
+  <div class="AppHeader-globalBar-end">
+    <div class="AppHeader-search">
+      <button type="button" class="AppHeader-searchButton"><span class="Button-label">Type <kbd>/</kbd> to search</span></button>
+    </div>
+    <button type="button" aria-label="Create something new"><span class="Button-label">New</span></button>
+    <a href="/issues" aria-label="Your issues"><span>Issues</span></a>
+    <a href="/pulls" aria-label="Your pull requests"><span>Pull requests</span></a>
+    <a href="/notifications" aria-label="You have no unread notifications"><span>Notifications</span></a>
+    <button type="button" aria-label="Open user navigation menu"><span class="Button-label">Account</span></button>
+  </div>
+</header>
+<nav class="UnderlineNav js-repo-nav" aria-label="Repository">
+  <ul class="UnderlineNav-body" role="list">
+    <li><a class="UnderlineNav-item selected" href="/acme/widget" aria-current="page"><span>Code</span></a></li>
+    <li><a class="UnderlineNav-item" href="/acme/widget/issues"><span>Issues</span> <span class="Counter">42</span></a></li>
+    <li><a class="UnderlineNav-item" href="/acme/widget/pulls"><span>Pull requests</span> <span class="Counter">7</span></a></li>
+    <li><a class="UnderlineNav-item" href="/acme/widget/discussions"><span>Discussions</span></a></li>
+    <li><a class="UnderlineNav-item" href="/acme/widget/actions"><span>Actions</span></a></li>
+    <li><a class="UnderlineNav-item" href="/acme/widget/projects"><span>Projects</span></a></li>
+    <li><a class="UnderlineNav-item" href="/acme/widget/wiki"><span>Wiki</span></a></li>
+    <li><a class="UnderlineNav-item" href="/acme/widget/security"><span>Security</span></a></li>
+    <li><a class="UnderlineNav-item" href="/acme/widget/pulse"><span>Insights</span></a></li>
+    <li><a class="UnderlineNav-item" href="/acme/widget/settings"><span>Settings</span></a></li>
+  </ul>
+</nav>
+<react-app app-name="react-code-view" initial-path="/acme/widget/blob/main/README.md">
+<div class="Layout">
+  <div class="Layout-sidebar">
+    <div class="file-tree-header">
+      <button type="button" aria-label="Collapse file tree"><span>Files</span></button>
+      <button type="button" class="ref-selector" aria-label="main branch"><span class="ref-selector-button-text-container">main</span></button>
+      <button type="button" aria-label="Add file"><span>Add file</span></button>
+    </div>
+    <input type="text" placeholder="Go to file" aria-label="Go to file">
+    <nav aria-label="File Tree Navigation">
+      <ul class="ActionList" role="tree" aria-label="Files">
+        <li role="treeitem"><a href="/acme/widget/tree/main/.github"><span>.github</span></a></li>
+        <li role="treeitem"><a href="/acme/widget/tree/main/benchmarks"><span>benchmarks</span></a></li>
+        <li role="treeitem"><a href="/acme/widget/tree/main/docs"><span>docs</span></a></li>
+        <li role="treeitem"><a href="/acme/widget/tree/main/examples"><span>examples</span></a></li>
+        <li role="treeitem"><a href="/acme/widget/tree/main/scripts"><span>scripts</span></a></li>
+        <li role="treeitem"><a href="/acme/widget/tree/main/src"><span>src</span></a></li>
+        <li role="treeitem"><a href="/acme/widget/tree/main/tests"><span>tests</span></a></li>
+        <li role="treeitem"><a href="/acme/widget/blob/main/.editorconfig"><span>.editorconfig</span></a></li>
+        <li role="treeitem"><a href="/acme/widget/blob/main/.gitignore"><span>.gitignore</span></a></li>
+        <li role="treeitem"><a href="/acme/widget/blob/main/CHANGELOG.md"><span>CHANGELOG.md</span></a></li>
+        <li role="treeitem"><a href="/acme/widget/blob/main/CONTRIBUTING.md"><span>CONTRIBUTING.md</span></a></li>
+        <li role="treeitem"><a href="/acme/widget/blob/main/LICENSE"><span>LICENSE</span></a></li>
+        <li role="treeitem" aria-selected="true"><a href="/acme/widget/blob/main/README.md"><span>README.md</span></a></li>
+        <li role="treeitem"><a href="/acme/widget/blob/main/SECURITY.md"><span>SECURITY.md</span></a></li>
+        <li role="treeitem"><a href="/acme/widget/blob/main/package.json"><span>package.json</span></a></li>
+        <li role="treeitem"><a href="/acme/widget/blob/main/tsconfig.json"><span>tsconfig.json</span></a></li>
+      </ul>
+    </nav>
+  </div>
+  <div class="Layout-main">
+    <div class="file-header">
+      <nav aria-label="Breadcrumbs" class="Breadcrumbs">
+        <ol>
+          <li><a href="/acme/widget"><span>widget</span></a></li>
+          <li><span aria-hidden="true">/</span></li>
+          <li><span class="final-path">README.md</span></li>
+        </ol>
+      </nav>
+      <button type="button" aria-label="Copy path"><span>Copy path</span></button>
+      <div class="file-actions">
+        <button type="button" aria-label="More file actions"><span>More</span></button>
+      </div>
+    </div>
+    <div class="latest-commit">
+      <a href="/maintainer"><span>maintainer</span></a>
+      <span><a href="/acme/widget/commit/3f2a9c1">Document the retry policy and the new cache flags</a></span>
+      <a href="/acme/widget/commits/main/README.md"><span>History</span></a>
+    </div>
+    <div class="Box">
+      <div class="Box-header">
+        <div role="tablist" aria-label="File view">
+          <button type="button" role="tab" aria-selected="true"><span>Preview</span></button>
+          <button type="button" role="tab" aria-selected="false"><span>Code</span></button>
+          <button type="button" role="tab" aria-selected="false"><span>Blame</span></button>
+        </div>
+        <span class="file-info">128 lines (96 loc) · 4.21 KB</span>
+        <div class="file-actions">
+          <a href="/acme/widget/raw/main/README.md" role="button"><span>Raw</span></a>
+          <button type="button" aria-label="Copy raw content"><span>Copy</span></button>
+          <button type="button" aria-label="Download raw content"><span>Download</span></button>
+          <button type="button" aria-label="Edit file"><span>Edit</span></button>
+        </div>
+      </div>
+      <section aria-labelledby="file-name-id" data-hpc>
+        <article class="markdown-body entry-content container-lg" itemprop="text">
+          <h1>Widget</h1>
+          <p>Widget is a small library that renders interactive charts from plain data files. It keeps the rendering fast on large datasets by drawing only the points that change between two frames.</p>
+          <p>The library has no runtime dependencies, works in every modern browser and ships typed definitions for editors that understand them.</p>
+          <h2>Installation</h2>
+          <p>Install the package from the registry with your package manager of choice:</p>
+          <pre><code>npm install @acme/widget</code></pre>
+          <p>Then import the chart you need and mount it on an element that already has a size.</p>
+          <h2>Features</h2>
+          <ul>
+            <li>Line, bar and area charts that share one data model.</li>
+            <li>Incremental redraws that touch only the changed points.</li>
+            <li>Keyboard navigation between data points, with readable labels for screen readers.</li>
+            <li>A theme object that follows the colors of the host page.</li>
+          </ul>
+          <h2>Usage</h2>
+          <p>Create a chart, give it a data source, and call <code>render</code> once. Later updates go through the same data source, and the chart redraws itself when the data changes.</p>
+          <pre><code>import { lineChart } from "@acme/widget";
+
+// Mount the chart on an element that has a size.
+const chart = lineChart(document.querySelector("#chart"));
+chart.render(source);</code></pre>
+          <h2>Retry policy</h2>
+          <p>When a data source fails, the chart keeps the last good frame on screen and retries three times with a growing delay. After the third failure it shows a short message and stops until the source reports new data.</p>
+          <h2>Contributing</h2>
+          <p>Read the contributing guide before you open a pull request. Every change needs a test that fails without it, and the whole suite must pass on your machine first.</p>
+          <h2>License</h2>
+          <p>Widget is released under the MIT license. See the license file for the full text.</p>
+        </article>
+      </section>
+    </div>
+  </div>
+</div>
+</react-app>
+<footer class="footer" role="contentinfo">
+  <ul class="ActionList">
+    <li><a href="/terms">Terms</a></li>
+    <li><a href="/privacy">Privacy</a></li>
+    <li><a href="/status">Status</a></li>
+    <li><a href="/docs">Docs</a></li>
+    <li><a href="/contact">Contact</a></li>
+  </ul>
+</footer>
+</div>
+</body>
+</html>

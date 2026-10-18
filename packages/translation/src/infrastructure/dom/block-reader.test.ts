@@ -294,3 +294,75 @@ describe("BlockReader text and claims", () => {
     expect(reader.read(doc).map(textOf)).toEqual(["Visible text"]);
   });
 });
+
+const roleOf = (reads: ReadBlock[], text: string): string | undefined =>
+  blockWithText(reads, text)?.block.role;
+
+describe("BlockReader roles", () => {
+  test("nav_header_aside_and_role_landmarks_are_chrome", () => {
+    const doc = htmlDocument(
+      '<header><span>Site name here</span></header><nav><span>Products overview</span></nav><aside>Related reading</aside><div role="toolbar">Bold and italic</div><div role="search">Search the docs</div><footer>Copyright notice</footer><label>Your email</label><main><p>Body text</p></main>',
+    );
+
+    const reads = readerFor(doc).read(doc);
+
+    for (const text of [
+      "Site name here",
+      "Products overview",
+      "Related reading",
+      "Bold and italic",
+      "Search the docs",
+      "Copyright notice",
+      "Your email",
+    ])
+      expect(roleOf(reads, text)).toBe("chrome");
+
+    expect(roleOf(reads, "Body text")).toBe("content");
+  });
+
+  test("article_header_is_article_and_section_footer_is_content", () => {
+    const doc = htmlDocument(
+      "<article><header><h1>Release notes</h1></header><p>What changed</p></article><main><section><footer>Section summary</footer></section></main>",
+    );
+
+    const reads = readerFor(doc).read(doc);
+
+    expect(roleOf(reads, "Release notes")).toBe("article");
+    expect(roleOf(reads, "What changed")).toBe("article");
+    expect(roleOf(reads, "Section summary")).toBe("content");
+  });
+
+  test("block_made_only_of_links_is_chrome", () => {
+    const doc = htmlDocument(
+      '<main><div><a href="/a">Home</a> <a href="/b">Guides</a></div><p><button>Show more</button></p></main>',
+    );
+
+    const reads = readerFor(doc).read(doc);
+
+    expect(roleOf(reads, "Home")).toBe("chrome");
+    expect(roleOf(reads, "Show more")).toBe("chrome");
+  });
+
+  test("paragraph_with_an_inline_link_is_content", () => {
+    const doc = htmlDocument(
+      '<main><p>Read the <a href="/guide">setup guide</a> first.</p></main>',
+    );
+
+    const reads = readerFor(doc).read(doc);
+
+    expect(roleOf(reads, "setup guide")).toBe("content");
+  });
+
+  test("markdown_body_is_article_and_goes_before_other_content", async () => {
+    const doc = await fixture("repo-blob-readme.html");
+
+    const reads = readerFor(doc).read(doc);
+
+    expect(roleOf(reads, "Widget is a small library")).toBe("article");
+    expect(roleOf(reads, "Incremental redraws")).toBe("article");
+    expect(roleOf(reads, "128 lines")).toBe("content");
+
+    for (const text of ["Pull requests", "README.md", "Raw", "Edit", "main", "Document the retry"])
+      expect(roleOf(reads, text)).toBe("chrome");
+  });
+});

@@ -35,7 +35,11 @@ const brief: PageBrief = {
 
 const blockId = (value: string): BlockId => BlockId.create(value).getValue();
 
-const block = (id: string, ...nodes: InlineNode[]): Block => ({ id: blockId(id), nodes });
+const block = (id: string, ...nodes: InlineNode[]): Block => ({
+  id: blockId(id),
+  nodes,
+  role: "content",
+});
 
 const text = (value: string): InlineNode => ({ kind: "text", text: value });
 
@@ -46,6 +50,8 @@ const group = (key: number, ...children: InlineNode[]): InlineNode => ({
 });
 
 const paragraph = (id: string, sentence: string): Block => block(id, text(sentence));
+
+const chrome = (id: string, label: string): Block => ({ ...paragraph(id, label), role: "chrome" });
 
 type Translate = (
   request: BatchRequest,
@@ -800,6 +806,25 @@ describe("PageTranslationService", () => {
     expect(sentMarkup()).toEqual([
       ["Forks share code with upstream.", "A fork keeps its own history."],
       ["Pull requests flow back upstream.", "Deleting a fork is permanent."],
+    ]);
+  });
+
+  test("first_request_takes_visible_content_before_visible_chrome", async () => {
+    const { service, near, sentMarkup } = setup({
+      blocks: [chrome("navbar", "Pricing"), chrome("search", "Search docs"), ALPHA, BETA, GAMMA],
+      firstRequestSegments: 2,
+    });
+
+    await service.toggle();
+
+    for (const id of ["navbar", "search", "alpha", "beta"]) near(id, 0);
+
+    near("gamma", 1);
+    await service.whenIdle();
+
+    expect(sentMarkup()).toEqual([
+      ["Forks share code with upstream.", "A fork keeps its own history."],
+      ["Pricing", "Search docs", "Pull requests flow back upstream."],
     ]);
   });
 

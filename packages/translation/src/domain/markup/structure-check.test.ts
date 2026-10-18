@@ -59,6 +59,15 @@ describe("checkAgainstSource", () => {
     );
   });
 
+  test("drops_an_invented_leading_atom_from_a_plain_text_segment", () => {
+    const plain = parseMarkup("Merge and close").getValue();
+    const answer = parseMarkup("<x4/> Fusionner et fermer").getValue();
+
+    expect(checkAgainstSource(plain, answer).getValue()).toEqual([
+      { kind: "text", text: "Fusionner et fermer" },
+    ]);
+  });
+
   test("rejects_group_moved_into_another_group", () => {
     const twoGroups = parseMarkup("<g1>a</g1> <g2>b</g2>").getValue();
     const moved = parseMarkup("<g1>a <g2>b</g2></g1>").getValue();

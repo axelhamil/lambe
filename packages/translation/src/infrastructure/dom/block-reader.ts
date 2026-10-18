@@ -3,6 +3,7 @@ import { textSlots } from "../../domain/block/block-translation";
 import type { InlineNode } from "../../domain/block/inline-node";
 import type { BlockId } from "../../domain/block/value-objects/block-id.vo";
 import { splitCommentMarker } from "../../domain/markup/comment-marker";
+import { blockRole } from "./block-role";
 import {
   EXCLUDED_SELECTOR,
   HARD_EXCLUDED_SELECTOR,
@@ -269,7 +270,9 @@ export class BlockReader {
 
   private flush(run: ChildNode[], out: ReadBlock[]): void {
     const scope = trimBlankEdges(run);
-    if (scope.length === 0) return;
+    const [first] = scope;
+
+    if (first === undefined) return;
 
     const builder = new RunBuilder();
     const nodes = builder.nodesOf(scope);
@@ -278,7 +281,7 @@ export class BlockReader {
 
     this.claim(builder.textNodes);
     out.push({
-      block: { id: this.ids(), nodes },
+      block: { id: this.ids(), nodes, role: blockRole(first, builder.textNodes) },
       scope,
       atoms: builder.atoms,
       groups: builder.groups,
@@ -329,7 +332,7 @@ export class BlockReader {
 
     this.claim(textNodes);
     out.push({
-      block: { id: this.ids(), nodes },
+      block: { id: this.ids(), nodes, role: "content" },
       scope: [comment],
       atoms: new Map(),
       groups: new Map(),

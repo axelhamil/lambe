@@ -32,11 +32,24 @@ function collectPlacements(
   return placements;
 }
 
+function withoutLeadingPhantomAtom(expected: Placements, translated: InlineNode[]): InlineNode[] {
+  const [head, next, ...rest] = translated;
+
+  if (head?.kind !== "atom" || expected.has(`<x${head.key}/>`)) return translated;
+
+  if (next?.kind !== "text") return translated.slice(1);
+
+  const text = next.text.trimStart();
+
+  return text === "" ? rest : [{ kind: "text", text }, ...rest];
+}
+
 export function checkAgainstSource(
   source: InlineNode[],
-  translated: InlineNode[],
+  answer: InlineNode[],
 ): Result<InlineNode[], MarkupError> {
   const expected = collectPlacements(source);
+  const translated = withoutLeadingPhantomAtom(expected, answer);
   const actual = collectPlacements(translated);
 
   for (const [id, parents] of actual) {
