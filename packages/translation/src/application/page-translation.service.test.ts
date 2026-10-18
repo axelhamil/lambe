@@ -6,9 +6,17 @@ import type { InlineNode } from "../domain/block/inline-node";
 import { BlockId } from "../domain/block/value-objects/block-id.vo";
 import { LanguageCode } from "../domain/language/value-objects/language-code.vo";
 import type { PageBrief } from "../domain/page/page-brief";
-import { type ProviderError, providerError } from "../domain/provider/provider-error";
+import {
+  type ProviderError,
+  providerError,
+  requestCancelled,
+} from "../domain/provider/provider-error";
 import type { ProximityRank } from "../domain/queue/translation-queue";
-import type { BatchRequest, SegmentOutcome } from "./batch-translation.service";
+import type {
+  BatchRequest,
+  BatchTranslateOptions,
+  SegmentOutcome,
+} from "./batch-translation.service";
 import { PageTranslationService } from "./page-translation.service";
 import { InMemoryPageSurface } from "./testing/in-memory-page-surface";
 
@@ -38,7 +46,10 @@ const group = (key: number, ...children: InlineNode[]): InlineNode => ({
 
 const paragraph = (id: string, sentence: string): Block => block(id, text(sentence));
 
-type Translate = (request: BatchRequest) => Promise<Result<SegmentOutcome[], ProviderError>>;
+type Translate = (
+  request: BatchRequest,
+  options?: BatchTranslateOptions,
+) => Promise<Result<SegmentOutcome[], ProviderError>>;
 
 const translatedWith =
   (render: (markup: string, request: BatchRequest) => string | undefined): Translate =>
@@ -67,6 +78,7 @@ function setup(
     translate?: Translate;
     detect?: (text: string) => Option<LanguageCode>;
     maxSegmentsPerRequest?: number;
+    firstRequestSegments?: number;
   } = {},
 ) {
   const surface = new InMemoryPageSurface(options.brief ?? brief, options.blocks ?? []);
@@ -79,6 +91,7 @@ function setup(
     detector,
     target,
     maxSegmentsPerRequest: options.maxSegmentsPerRequest ?? 8,
+    firstRequestSegments: options.firstRequestSegments ?? 8,
   });
 
   const near = (id: string, rank: ProximityRank): void => {
@@ -137,6 +150,37 @@ function heldTranslator() {
   return { translate, nextRequest, releaseNext };
 }
 
+interface ControlledCall {
+  request: BatchRequest;
+  options: BatchTranslateOptions;
+  finish: (result: Result<SegmentOutcome[], ProviderError>) => void;
+}
+
+function controlledTranslator() {
+  const calls: ControlledCall[] = [];
+  const arrivals: Array<() => void> = [];
+
+  const translate: Translate = (request, options = {}) =>
+    new Promise((finish) => {
+      calls.push({ request, options, finish });
+      arrivals.shift()?.();
+    });
+
+  const nextCall = (): Promise<void> =>
+    new Promise((resolve) => {
+      arrivals.push(resolve);
+    });
+
+  return { translate, calls, nextCall };
+}
+
+const streamedFrench = (id: string, markup: string): SegmentOutcome => ({
+  id,
+  status: "translated",
+  markup: `fr ${markup}`,
+  fromCache: false,
+});
+
 const ALPHA = paragraph("alpha", "Forks share code with upstream.");
 
 const BETA = paragraph("beta", "A fork keeps its own history.");
@@ -161,8 +205,8 @@ describe("PageTranslationService", () => {
     await service.whenIdle();
 
     expect(sentMarkup()).toEqual([
-      ["Pull requests flow back upstream.", "Forks share code with upstream."],
-      ["A fork keeps its own history."],
+      ["Pull requests flow back upstream."],
+      ["Forks share code with upstream.", "A fork keeps its own history."],
     ]);
     expect(committed("gamma")).toEqual({
       blockId: GAMMA.id,
@@ -332,7 +376,8 @@ describe("PageTranslationService", () => {
 
     const refreshed = requests().filter((request) => request.cachePolicy === "refresh");
     expect(refreshed.map((request) => request.segments.map((segment) => segment.markup))).toEqual([
-      ["Forks share code with upstream.", "A fork keeps its own history."],
+      ["Forks share code with upstream."],
+      ["A fork keeps its own history."],
     ]);
     expect(committed("alpha")).toEqual({
       blockId: ALPHA.id,
@@ -586,5 +631,124 @@ describe("PageTranslationService", () => {
         message: expect.stringContaining("Detector crashed."),
       },
     });
+  });
+
+  test("first_request_holds_at_most_firstRequestSegments_rank_zero_blocks", async () => {
+    const { service, near, sentMarkup } = setup({
+      blocks: [ALPHA, BETA, GAMMA, DELTA],
+      firstRequestSegments: 2,
+    });
+
+    await service.toggle();
+    near("delta", 1);
+    near("alpha", 0);
+    near("beta", 0);
+    near("gamma", 0);
+    await service.whenIdle();
+
+    expect(sentMarkup()).toEqual([
+      ["Forks share code with upstream.", "A fork keeps its own history."],
+      ["Pull requests flow back upstream.", "Deleting a fork is permanent."],
+    ]);
+  });
+
+  test("streamed_outcome_is_committed_before_the_request_ends_and_not_twice", async () => {
+    const control = controlledTranslator();
+    const { service, surface, near, committed } = setup({
+      blocks: [ALPHA, BETA],
+      translate: control.translate,
+    });
+    const commit = spyOn(surface, "commit");
+    await service.toggle();
+    const arrived = control.nextCall();
+    near("alpha", 0);
+    near("beta", 0);
+    await arrived;
+    const [call] = control.calls;
+    const alpha = streamedFrench("0", "Forks share code with upstream.");
+    const beta = streamedFrench("1", "A fork keeps its own history.");
+
+    call?.options.onOutcome?.(alpha);
+    const streamed = committed("alpha");
+    call?.finish(Result.ok([alpha, beta]));
+    await service.whenIdle();
+
+    expect(streamed).toEqual({
+      blockId: ALPHA.id,
+      kind: "structured",
+      nodes: [text("fr Forks share code with upstream.")],
+    });
+    expect(commit).toHaveBeenCalledTimes(2);
+    expect(committed("beta")).toBeDefined();
+    expect(service.state()).toEqual({ kind: "translated" });
+  });
+
+  test("cancelled_request_does_not_set_error_state_and_commits_nothing_after_cancel", async () => {
+    const control = controlledTranslator();
+    const { service, near, committed } = setup({
+      blocks: [ALPHA, BETA],
+      translate: control.translate,
+    });
+    await service.toggle();
+    const arrived = control.nextCall();
+    near("alpha", 0);
+    near("beta", 0);
+    await arrived;
+    const [call] = control.calls;
+
+    call?.options.onOutcome?.(streamedFrench("0", "Forks share code with upstream."));
+    await service.toggle();
+    call?.options.onOutcome?.(streamedFrench("1", "A fork keeps its own history."));
+    call?.finish(Result.fail(requestCancelled()));
+    await service.whenIdle();
+
+    expect(service.state()).toEqual({ kind: "original" });
+    expect(committed("alpha")).toBeDefined();
+    expect(committed("beta")).toBeUndefined();
+  });
+
+  test("cancelled_request_without_a_toggle_requeues_its_blocks_instead_of_failing", async () => {
+    const { service, near, translator, committed } = setup({ blocks: [ALPHA] });
+    translator.translate.mockImplementationOnce(async () => Result.fail(requestCancelled()));
+
+    await service.toggle();
+    near("alpha", 0);
+    await service.whenIdle();
+
+    expect(translator.translate).toHaveBeenCalledTimes(2);
+    expect(committed("alpha")).toBeDefined();
+    expect(service.state()).toEqual({ kind: "translated" });
+  });
+
+  test("worker_that_disconnects_on_every_request_ends_in_unreachable_error_after_one_retry", async () => {
+    const { service, near, translator, committed } = setup({ blocks: [ALPHA] });
+    translator.translate.mockImplementation(async () => Result.fail(requestCancelled()));
+
+    await service.toggle();
+    near("alpha", 0);
+    await service.whenIdle();
+
+    expect(translator.translate).toHaveBeenCalledTimes(2);
+    expect(committed("alpha")).toBeUndefined();
+    expect(service.state()).toMatchObject({
+      kind: "error",
+      error: { code: "PROVIDER_UNREACHABLE" },
+    });
+  });
+
+  test("toggle_to_original_aborts_the_in_flight_request", async () => {
+    const control = controlledTranslator();
+    const { service, near } = setup({ blocks: [ALPHA], translate: control.translate });
+    await service.toggle();
+    const arrived = control.nextCall();
+    near("alpha", 0);
+    await arrived;
+    const signal = control.calls[0]?.options.signal;
+    const abortedBefore = signal?.aborted;
+
+    await service.toggle();
+
+    expect(abortedBefore).toBe(false);
+    expect(signal?.aborted).toBe(true);
   });
 });

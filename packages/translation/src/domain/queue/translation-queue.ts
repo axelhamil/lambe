@@ -25,8 +25,9 @@ export class TranslationQueue {
     this.entries.delete(id.value);
   }
 
-  public take(max: number): BlockId[] {
+  public take(max: number, maxRank: ProximityRank = 1): BlockId[] {
     const taken = [...this.entries.values()]
+      .filter((entry) => entry.rank <= maxRank)
       .sort((left, right) => left.rank - right.rank || left.order - right.order)
       .slice(0, Math.max(0, max));
 

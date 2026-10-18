@@ -8,7 +8,7 @@ import { LanguageCode } from "@lambe/translation/domain/language/value-objects/l
 import type { ProviderError } from "@lambe/translation/domain/provider/provider-error";
 import { z } from "zod";
 
-const TRANSLATE_BATCH_TYPE = "lambe/translate-batch";
+export const TRANSLATE_PORT_NAME = "lambe/translate";
 
 const batchRequestDtoSchema = z.object({
   segments: z.array(z.object({ id: z.string(), markup: z.string() })),
@@ -26,16 +26,22 @@ const batchRequestDtoSchema = z.object({
 
 export type BatchRequestDto = z.infer<typeof batchRequestDtoSchema>;
 
-export const translateBatchEnvelopeSchema = z.object({
-  type: z.literal(TRANSLATE_BATCH_TYPE),
-  payload: z.unknown(),
-});
+const requestIdSchema = z.string().min(1);
 
-export const translateBatchRequestSchema = translateBatchEnvelopeSchema.extend({
+export const clientMessageSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("translate"), requestId: requestIdSchema, payload: z.unknown() }),
+  z.object({ type: z.literal("cancel"), requestId: requestIdSchema }),
+]);
+
+export const translateMessageSchema = z.object({
+  type: z.literal("translate"),
+  requestId: requestIdSchema,
   payload: batchRequestDtoSchema,
 });
 
-export type TranslateBatchRequest = z.infer<typeof translateBatchRequestSchema>;
+export type TranslateMessage = z.infer<typeof translateMessageSchema>;
+
+export type CancelMessage = Extract<z.infer<typeof clientMessageSchema>, { type: "cancel" }>;
 
 const providerErrorSchema = z.object({
   code: z.enum([
@@ -44,6 +50,7 @@ const providerErrorSchema = z.object({
     "PROVIDER_MODEL_MISSING",
     "PROVIDER_BAD_RESPONSE",
     "PROVIDER_TIMEOUT",
+    "REQUEST_CANCELLED",
   ]),
   message: z.string(),
 }) satisfies z.ZodType<ProviderError>;
@@ -75,6 +82,23 @@ export const translateBatchResponseSchema = z.discriminatedUnion("ok", [
 ]);
 
 export type TranslateBatchResponse = z.infer<typeof translateBatchResponseSchema>;
+
+export const workerMessageSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("outcome"),
+    requestId: requestIdSchema,
+    outcome: segmentOutcomeSchema,
+  }),
+  z.object({
+    type: z.literal("done"),
+    requestId: requestIdSchema,
+    response: translateBatchResponseSchema,
+  }),
+]);
+
+export type WorkerMessage = z.infer<typeof workerMessageSchema>;
+
+export const addressedMessageSchema = z.object({ requestId: requestIdSchema });
 
 function optionalCode(value: string | null): Result<Option<LanguageCode>, string> {
   if (value === null) return Result.ok(Option.none());
@@ -110,6 +134,6 @@ export function fromBatchRequestDto(dto: BatchRequestDto): Result<BatchRequest, 
   );
 }
 
-export function translateBatchMessage(request: BatchRequest): TranslateBatchRequest {
-  return { type: TRANSLATE_BATCH_TYPE, payload: toBatchRequestDto(request) };
+export function translateMessage(requestId: string, request: BatchRequest): TranslateMessage {
+  return { type: "translate", requestId, payload: toBatchRequestDto(request) };
 }

@@ -4,10 +4,13 @@ import type { BatchRequest } from "@lambe/translation/application/batch-translat
 import { LanguageCode } from "@lambe/translation/domain/language/value-objects/language-code.vo";
 import type { ProviderError } from "@lambe/translation/domain/provider/provider-error";
 import {
+  clientMessageSchema,
   fromBatchRequestDto,
   toBatchRequestDto,
-  translateBatchRequestSchema,
   translateBatchResponseSchema,
+  translateMessage,
+  translateMessageSchema,
+  workerMessageSchema,
 } from "./translate-batch.contract";
 
 const code = (value: string): LanguageCode => LanguageCode.create(value).getValue();
@@ -28,10 +31,8 @@ const request: BatchRequest = {
 
 describe("translate batch contract", () => {
   test("request_dto_roundtrips_language_codes_and_policy", () => {
-    const message = JSON.parse(
-      JSON.stringify({ type: "lambe/translate-batch", payload: toBatchRequestDto(request) }),
-    );
-    const parsed = translateBatchRequestSchema.parse(message);
+    const message = JSON.parse(JSON.stringify(translateMessage("7", request)));
+    const parsed = translateMessageSchema.parse(message);
     const restored = fromBatchRequestDto(parsed.payload).getValue();
 
     expect(restored.source.unwrap().value).toBe("en");
@@ -42,13 +43,16 @@ describe("translate batch contract", () => {
     expect(restored.segments).toEqual(request.segments);
   });
 
-  test("rejects_unknown_message_type", () => {
-    const parsed = translateBatchRequestSchema.safeParse({
+  test("rejects_unknown_message_types_on_both_sides", () => {
+    const client = clientMessageSchema.safeParse({
       type: "lambe/unknown",
+      requestId: "1",
       payload: toBatchRequestDto(request),
     });
+    const worker = workerMessageSchema.safeParse({ type: "progress", requestId: "1" });
 
-    expect(parsed.success).toBe(false);
+    expect(client.success).toBe(false);
+    expect(worker.success).toBe(false);
   });
 
   test("error_response_keeps_code_and_message", () => {

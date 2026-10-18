@@ -3,6 +3,7 @@ import { Result } from "@lambe/kernel/result";
 import type { Block } from "../domain/block/block";
 import { type BlockTranslation, textSlots } from "../domain/block/block-translation";
 import type { InlineNode } from "../domain/block/inline-node";
+import type { BlockId } from "../domain/block/value-objects/block-id.vo";
 import type { CachePolicy } from "../domain/cache/cache-policy";
 import { shouldSkipBlock } from "../domain/language/skip-policy";
 import type { LanguageCode } from "../domain/language/value-objects/language-code.vo";
@@ -10,7 +11,11 @@ import { parseMarkup, toMarkup } from "../domain/markup/markup";
 import type { PageBrief } from "../domain/page/page-brief";
 import { type ProviderError, providerError } from "../domain/provider/provider-error";
 import { type ProximityRank, TranslationQueue } from "../domain/queue/translation-queue";
-import type { SegmentOutcome, SegmentRequest } from "./batch-translation.service";
+import type {
+  BatchTranslateOptions,
+  SegmentOutcome,
+  SegmentRequest,
+} from "./batch-translation.service";
 import type { BatchTranslator } from "./ports/batch-translator";
 import type { LanguageDetector } from "./ports/language-detector";
 import type { PageSurface } from "./ports/page-surface";
@@ -27,6 +32,7 @@ export interface PageTranslationDeps {
   detector: LanguageDetector;
   target: LanguageCode;
   maxSegmentsPerRequest: number;
+  firstRequestSegments: number;
 }
 
 type StateListener = (state: ViewState) => void;
@@ -39,6 +45,11 @@ interface Session {
 interface BatchPlan {
   translations: BlockTranslation[];
   settled: Block[];
+}
+
+interface RequestScope {
+  epoch: number;
+  signal: AbortSignal;
 }
 
 type Outcomes = Map<string, SegmentOutcome>;
@@ -83,6 +94,13 @@ function settle<T>(pending: Promise<Result<T, ProviderError>>): Promise<Result<T
   return pending.catch((cause: unknown) => Result.fail(unreachable(cause)));
 }
 
+function workerDisconnected(): ProviderError {
+  return providerError(
+    "PROVIDER_UNREACHABLE",
+    "The extension worker disconnected twice in a row. Toggle the translation to try again.",
+  );
+}
+
 function chunks<T>(items: T[], size: number): T[][] {
   const step = Math.max(1, size);
 
@@ -100,10 +118,13 @@ export class PageTranslationService {
   private readonly reported = new Set<string>();
   private readonly settled = new Set<string>();
   private readonly inFlight = new Set<string>();
+  private readonly controllers = new Set<AbortController>();
   private session: Session | undefined;
   private started = false;
   private cachePolicy: CachePolicy = "use";
   private epoch = 0;
+  private firstRequestPending = true;
+  private transportRetried = false;
   private pumping = false;
   private drained: Promise<void> = Promise.resolve();
 
@@ -127,7 +148,8 @@ export class PageTranslationService {
 
     if (!this.started) return this.start();
 
-    this.epoch += 1;
+    this.cancelInFlight();
+    this.firstRequestPending = true;
     this.deps.surface.show("original");
     this.settled.clear();
 
@@ -202,12 +224,22 @@ export class PageTranslationService {
   }
 
   private showOriginal(): void {
-    this.epoch += 1;
+    this.cancelInFlight();
     this.deps.surface.show("original");
     this.setView({ kind: "original" });
   }
 
+  private cancelInFlight(): void {
+    this.epoch += 1;
+    this.transportRetried = false;
+
+    for (const controller of this.controllers) controller.abort();
+
+    this.controllers.clear();
+  }
+
   private resume(): void {
+    this.transportRetried = false;
     this.setView({ kind: this.isComplete() ? "translated" : "translating" });
     this.schedule();
   }
@@ -298,7 +330,7 @@ export class PageTranslationService {
     await Promise.resolve();
 
     while (this.canPump()) {
-      const ids = this.queue.take(Math.max(1, this.deps.maxSegmentsPerRequest));
+      const ids = this.takeNext();
 
       if (ids.length === 0) break;
 
@@ -313,22 +345,56 @@ export class PageTranslationService {
     return Option.none();
   }
 
+  private takeNext(): BlockId[] {
+    const max = Math.max(1, this.deps.maxSegmentsPerRequest);
+
+    if (!this.firstRequestPending) return this.queue.take(max);
+
+    const first = this.queue.take(Math.min(max, Math.max(1, this.deps.firstRequestSegments)), 0);
+
+    if (first.length === 0) return this.queue.take(max);
+
+    this.firstRequestPending = false;
+
+    return first;
+  }
+
   private async process(batch: Block[], session: Session): Promise<Result<void, ProviderError>> {
-    const epoch = this.epoch;
+    const controller = new AbortController();
+    const scope = { epoch: this.epoch, signal: controller.signal };
+
+    this.controllers.add(controller);
 
     for (const block of batch) this.inFlight.add(block.id.value);
 
-    const plan = await settle(this.translateBatch(batch, session));
+    const plan = await settle(this.translateBatch(batch, session, scope));
+
+    this.controllers.delete(controller);
 
     for (const block of batch) this.inFlight.delete(block.id.value);
 
-    if (epoch !== this.epoch || plan.isFailure) {
+    const stale = scope.epoch !== this.epoch || scope.signal.aborted;
+
+    if (stale || plan.isFailure) {
       for (const block of batch) this.enqueueIfPending(block.id.value);
 
-      return epoch === this.epoch ? Result.fail(plan.getError()) : Result.ok();
+      if (stale) return Result.ok();
+
+      return this.transportFailure(plan.getError());
     }
 
+    this.transportRetried = false;
     this.apply(plan.getValue());
+
+    return Result.ok();
+  }
+
+  private transportFailure(error: ProviderError): Result<void, ProviderError> {
+    if (error.code !== "REQUEST_CANCELLED") return Result.fail(error);
+
+    if (this.transportRetried) return Result.fail(workerDisconnected());
+
+    this.transportRetried = true;
 
     return Result.ok();
   }
@@ -346,15 +412,32 @@ export class PageTranslationService {
   private async translateBatch(
     batch: Block[],
     session: Session,
+    scope: RequestScope,
   ): Promise<Result<BatchPlan, ProviderError>> {
     const skips = await Promise.all(batch.map((block) => this.isInTargetLanguage(block)));
     const sendable = batch.filter((_, index) => skips[index] !== true);
 
     if (sendable.length === 0) return Result.ok({ translations: [], settled: batch });
 
+    const committed = new Set<string>();
     const structured = await this.request(
       sendable.map((block, index) => ({ id: `${index}`, markup: toMarkup(block.nodes) })),
       session,
+      {
+        signal: scope.signal,
+        onOutcome: (outcome) => {
+          const block = sendable[Number(outcome.id)];
+          const nodes = structuredNodes(outcome);
+
+          if (scope.epoch !== this.epoch || block === undefined || nodes.isNone()) return;
+
+          committed.add(outcome.id);
+          this.apply({
+            translations: [{ blockId: block.id, kind: "structured", nodes: nodes.unwrap() }],
+            settled: [block],
+          });
+        },
+      },
     );
 
     if (structured.isFailure) return Result.fail(structured.getError());
@@ -363,6 +446,8 @@ export class PageTranslationService {
     const fallback: Block[] = [];
 
     sendable.forEach((block, index) => {
+      if (committed.has(`${index}`)) return;
+
       const nodes = structuredNodes(structured.getValue().get(`${index}`));
 
       if (nodes.isNone()) {
@@ -374,7 +459,7 @@ export class PageTranslationService {
       translations.push({ blockId: block.id, kind: "structured", nodes: nodes.unwrap() });
     });
 
-    const slotted = await this.translateSlots(fallback, session);
+    const slotted = await this.translateSlots(fallback, session, scope.signal);
 
     return slotted.map((slotTranslations) => ({
       translations: [...translations, ...slotTranslations],
@@ -385,6 +470,7 @@ export class PageTranslationService {
   private async translateSlots(
     blocks: Block[],
     session: Session,
+    signal: AbortSignal,
   ): Promise<Result<BlockTranslation[], ProviderError>> {
     const slots = blocks.map((block) => textSlots(block.nodes));
     const segments = slots.flatMap((texts, blockIndex) =>
@@ -402,7 +488,7 @@ export class PageTranslationService {
     const outcomes: Outcomes = new Map();
 
     for (const chunk of chunks(segments, this.deps.maxSegmentsPerRequest)) {
-      const result = await this.request(chunk, session);
+      const result = await this.request(chunk, session, { signal });
 
       if (result.isFailure) return Result.fail(result.getError());
 
@@ -440,14 +526,18 @@ export class PageTranslationService {
   private async request(
     segments: SegmentRequest[],
     session: Session,
+    options: BatchTranslateOptions,
   ): Promise<Result<Outcomes, ProviderError>> {
-    const result = await this.deps.translator.translate({
-      segments,
-      source: session.source,
-      target: this.deps.target,
-      brief: session.brief,
-      cachePolicy: this.cachePolicy,
-    });
+    const result = await this.deps.translator.translate(
+      {
+        segments,
+        source: session.source,
+        target: this.deps.target,
+        brief: session.brief,
+        cachePolicy: this.cachePolicy,
+      },
+      options,
+    );
 
     return result.map((outcomes) => new Map(outcomes.map((outcome) => [outcome.id, outcome])));
   }

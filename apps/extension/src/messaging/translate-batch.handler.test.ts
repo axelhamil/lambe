@@ -1,8 +1,16 @@
 import { describe, expect, mock, test } from "bun:test";
 import { Result } from "@lambe/kernel/result";
-import type { SegmentOutcome } from "@lambe/translation/application/batch-translation.service";
+import type {
+  BatchRequest,
+  BatchTranslateOptions,
+  SegmentOutcome,
+} from "@lambe/translation/application/batch-translation.service";
 import type { ProviderError } from "@lambe/translation/domain/provider/provider-error";
-import { respondToTranslateBatch } from "./translate-batch.handler";
+import { requestCancelled } from "@lambe/translation/domain/provider/provider-error";
+import { fakeRuntimePort } from "./testing/fake-runtime-port";
+import { respondToTranslateBatch, serveTranslatePort } from "./translate-batch.handler";
+
+const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
 const payload = {
   segments: [{ id: "0", markup: "Hello" }],
@@ -34,5 +42,45 @@ describe("respondToTranslateBatch", () => {
 
     expect(invalid).toMatchObject({ ok: false, error: { code: "PROVIDER_BAD_RESPONSE" } });
     expect(thrown).toMatchObject({ ok: false, error: { code: "PROVIDER_UNREACHABLE" } });
+  });
+
+  test("worker_aborts_provider_on_cancel_message_and_on_disconnect", async () => {
+    const { port, deliver, disconnect, posted } = fakeRuntimePort();
+    const signals: AbortSignal[] = [];
+    const translate = mock(
+      (_request: BatchRequest, options?: BatchTranslateOptions) =>
+        new Promise<Result<SegmentOutcome[], ProviderError>>((resolve) => {
+          const signal = options?.signal;
+
+          if (signal === undefined) return;
+
+          signals.push(signal);
+          options?.onOutcome?.({ id: "0", status: "translated", markup: "Bon", fromCache: false });
+          signal.addEventListener("abort", () => resolve(Result.fail(requestCancelled())));
+        }),
+    );
+    serveTranslatePort(port, (body, options) =>
+      respondToTranslateBatch(body, { translate }, options),
+    );
+
+    deliver({ type: "translate", requestId: "1", payload });
+    deliver({ type: "translate", requestId: "2", payload });
+    deliver({ type: "cancel", requestId: "1" });
+    await tick();
+    const abortedByCancel = signals.map((signal) => signal.aborted);
+    disconnect();
+    await tick();
+
+    expect(abortedByCancel).toEqual([true, false]);
+    expect(signals.map((signal) => signal.aborted)).toEqual([true, true]);
+    expect(posted()).toEqual([
+      { type: "outcome", requestId: "1", outcome: expect.objectContaining({ markup: "Bon" }) },
+      { type: "outcome", requestId: "2", outcome: expect.objectContaining({ markup: "Bon" }) },
+      {
+        type: "done",
+        requestId: "1",
+        response: { ok: false, error: expect.objectContaining({ code: "REQUEST_CANCELLED" }) },
+      },
+    ]);
   });
 });

@@ -35,6 +35,7 @@ const runtimeConfigSchema = z.object({
   contextTokens: positiveInt,
   maxSegmentsPerBatch: positiveInt,
   maxSegmentsPerRequest: positiveInt,
+  firstRequestSegments: positiveInt,
 });
 
 const overridesSchema = runtimeConfigSchema
@@ -72,6 +73,7 @@ function defaultsFor(uiLanguage: string): RuntimeConfig {
     contextTokens: contextTokensFor(DEFAULT_PROVIDER.model),
     maxSegmentsPerBatch: 8,
     maxSegmentsPerRequest: 12,
+    firstRequestSegments: 3,
   };
 }
 

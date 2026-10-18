@@ -20,6 +20,7 @@ describe("loadRuntimeConfig", () => {
     expect(config.contextTokens).toBe(2048);
     expect(config.maxSegmentsPerBatch).toBe(8);
     expect(config.maxSegmentsPerRequest).toBe(12);
+    expect(config.firstRequestSegments).toBe(3);
   });
 
   test("partial_override_is_merged", async () => {

@@ -12,12 +12,18 @@ import type { PageBrief } from "../domain/page/page-brief";
 import type { ChatMessage } from "../domain/prompt/prompt-adapter";
 import { PROMPT_VERSION } from "../domain/prompt/prompt-version";
 import { translateGemmaPrompt } from "../domain/prompt/translategemma-prompt";
-import { type ProviderError, providerError } from "../domain/provider/provider-error";
+import {
+  type ProviderError,
+  providerError,
+  requestCancelled,
+} from "../domain/provider/provider-error";
 import {
   type BatchRequest,
   BatchTranslationService,
+  type SegmentOutcome,
   type SegmentRequest,
 } from "./batch-translation.service";
+import type { ChatOptions } from "./ports/translation-provider";
 
 const CONTEXT_TOKENS = 2048;
 
@@ -68,7 +74,7 @@ function setup(options: { cached?: Map<string, string>; maxSegmentsPerBatch?: nu
   const provider = {
     id: "ollama",
     model: "translategemma:12b",
-    chat: mock(echo(french)),
+    chat: mock((messages: ChatMessage[], _options: ChatOptions) => echo(french)(messages)),
   };
   const cache = {
     getMany: mock(async (_keys: string[]) => new Map(options.cached)),
@@ -112,6 +118,22 @@ const request = (segments: SegmentRequest[], cachePolicy: CachePolicy = "use"): 
 });
 
 const RUN = "Run <x1/> now.";
+
+const streaming =
+  (deltas: string[], onDelta: () => void = () => {}) =>
+  async (
+    _messages: ChatMessage[],
+    options: ChatOptions,
+  ): Promise<Result<string, ProviderError>> => {
+    for (const delta of deltas) {
+      options.onText?.(delta);
+      onDelta();
+    }
+
+    return Result.ok(deltas.join(""));
+  };
+
+const emitted = () => mock((_outcome: SegmentOutcome) => {});
 
 describe("BatchTranslationService", () => {
   test("cache_hit_returns_cached_markup_and_makes_no_provider_call", async () => {
@@ -254,6 +276,7 @@ describe("BatchTranslationService", () => {
   test("unsplittable_segment_is_failed_SEGMENT_TOO_LONG_without_provider_call", async () => {
     const { provider, service, written } = setup();
     const markup = toMarkup([
+      { kind: "text", text: "See " },
       { kind: "group", key: 1, children: [{ kind: "text", text: sentences(250) }] },
     ]);
 
@@ -288,7 +311,7 @@ describe("BatchTranslationService", () => {
     );
   });
 
-  test("provider_forbidden_fails_the_whole_call_with_PROVIDER_FORBIDDEN_ORIGIN_and_writes_nothing", async () => {
+  test("provider_forbidden_fails_the_whole_call_and_keeps_only_validated_segments_cached", async () => {
     const { provider, service, written } = setup({ maxSegmentsPerBatch: 1 });
     provider.chat.mockResolvedValueOnce(Result.ok(seg("Bonjour.")));
     provider.chat.mockResolvedValueOnce(
@@ -303,7 +326,7 @@ describe("BatchTranslationService", () => {
     );
 
     expect(result.getError().code).toBe("PROVIDER_FORBIDDEN_ORIGIN");
-    expect(written().size).toBe(0);
+    expect(written()).toEqual(new Map([[keyOf("Hello."), "Bonjour."]]));
   });
 
   test("ten_segments_at_the_budget_boundary_never_exceed_max_input_tokens", async () => {
@@ -341,5 +364,133 @@ describe("BatchTranslationService", () => {
 
     for (const batch of batchesSent())
       expect(estimateTokens(batch)).toBeLessThanOrEqual(inputBudget);
+  });
+
+  test("segments_are_emitted_as_soon_as_their_closing_tag_streams_in", async () => {
+    const { provider, service } = setup();
+    const onOutcome = emitted();
+    const seenAfterEachDelta: number[] = [];
+    provider.chat.mockImplementationOnce(
+      streaming(
+        ['<seg n="1">Bon', "jour.</se", 'g>\n<seg n="2">Lancez <x1', "/> maintenant.</seg>"],
+        () => seenAfterEachDelta.push(onOutcome.mock.calls.length),
+      ),
+    );
+
+    const result = await service.translate(
+      request([
+        { id: "a", markup: "Hello." },
+        { id: "b", markup: RUN },
+      ]),
+      { onOutcome },
+    );
+
+    expect(seenAfterEachDelta).toEqual([0, 0, 1, 2]);
+    expect(onOutcome.mock.calls.map(([outcome]) => outcome)).toEqual(result.getValue());
+    expect(result.getValue()).toEqual([
+      { id: "a", status: "translated", markup: "Bonjour.", fromCache: false },
+      { id: "b", status: "translated", markup: "Lancez <x1/> maintenant.", fromCache: false },
+    ]);
+  });
+
+  test("invalid_streamed_segment_is_retried_after_the_stream_and_emitted_once", async () => {
+    const { provider, service, written } = setup();
+    const onOutcome = emitted();
+    let emittedDuringStream = 0;
+    provider.chat.mockImplementationOnce(
+      streaming(['<seg n="1">Lancez maintenant.</seg>\n', '<seg n="2">Bonjour.</seg>'], () => {
+        emittedDuringStream = onOutcome.mock.calls.length;
+      }),
+    );
+    provider.chat.mockResolvedValueOnce(Result.ok(seg("Lancez <x1/> maintenant.")));
+
+    await service.translate(
+      request([
+        { id: "a", markup: RUN },
+        { id: "b", markup: "Hello." },
+      ]),
+      { onOutcome },
+    );
+
+    expect(emittedDuringStream).toBe(1);
+    expect(onOutcome.mock.calls.map(([outcome]) => outcome)).toEqual([
+      { id: "b", status: "translated", markup: "Bonjour.", fromCache: false },
+      { id: "a", status: "translated", markup: "Lancez <x1/> maintenant.", fromCache: false },
+    ]);
+    expect(provider.chat).toHaveBeenCalledTimes(2);
+    expect(written()).toEqual(
+      new Map([
+        [keyOf("Hello."), "Bonjour."],
+        [keyOf(RUN), "Lancez <x1/> maintenant."],
+      ]),
+    );
+  });
+
+  test("identical_markup_is_sent_once_and_fanned_out", async () => {
+    const { service, batchesSent } = setup();
+    const onOutcome = emitted();
+
+    const result = await service.translate(
+      request([
+        { id: "a", markup: "Hello." },
+        { id: "b", markup: RUN },
+        { id: "c", markup: "Hello." },
+      ]),
+      { onOutcome },
+    );
+
+    expect(batchesSent()).toEqual([
+      encodeBatch([
+        { n: 1, markup: "Hello." },
+        { n: 2, markup: RUN },
+      ]),
+    ]);
+    expect(result.getValue()).toEqual([
+      { id: "a", status: "translated", markup: "fr: Hello.", fromCache: false },
+      { id: "b", status: "translated", markup: `fr: ${RUN}`, fromCache: false },
+      { id: "c", status: "translated", markup: "fr: Hello.", fromCache: false },
+    ]);
+    expect(onOutcome.mock.calls.map(([outcome]) => outcome.id).sort()).toEqual(["a", "b", "c"]);
+  });
+
+  test("cancelled_signal_stops_before_the_next_batch_and_returns_REQUEST_CANCELLED", async () => {
+    const { provider, service, written } = setup({ maxSegmentsPerBatch: 1 });
+    const controller = new AbortController();
+    provider.chat.mockImplementationOnce(async () => {
+      controller.abort();
+
+      return Result.ok(seg("Bonjour."));
+    });
+
+    const result = await service.translate(
+      request([
+        { id: "a", markup: "Hello." },
+        { id: "b", markup: RUN },
+      ]),
+      { signal: controller.signal },
+    );
+
+    expect(result.getError()).toEqual(requestCancelled());
+    expect(provider.chat).toHaveBeenCalledTimes(1);
+    expect(provider.chat.mock.calls[0]?.[1].signal).toBe(controller.signal);
+    expect(written()).toEqual(new Map([[keyOf("Hello."), "Bonjour."]]));
+  });
+
+  test("segment_wrapped_in_one_group_is_sent_unwrapped_and_rewrapped", async () => {
+    const { service, batchesSent, written } = setup();
+    const markup = "<g1><g2>Pull requests</g2></g1>";
+
+    const result = await service.translate(request([{ id: "a", markup }]));
+
+    expect(batchesSent()).toEqual([seg("Pull requests")]);
+    expect(result.getValue()).toEqual([
+      {
+        id: "a",
+        status: "translated",
+        markup: "<g1><g2>fr: Pull requests</g2></g1>",
+        fromCache: false,
+      },
+    ]);
+    expect(written()).toEqual(new Map([[keyOf(markup), "<g1><g2>fr: Pull requests</g2></g1>"]]));
   });
 });

@@ -1,8 +1,15 @@
 import { Result } from "@lambe/kernel/result";
 import { z } from "zod";
-import type { TranslationProvider } from "../../application/ports/translation-provider";
+import type {
+  ChatOptions,
+  TranslationProvider,
+} from "../../application/ports/translation-provider";
 import type { ChatMessage } from "../../domain/prompt/prompt-adapter";
-import { type ProviderError, providerError } from "../../domain/provider/provider-error";
+import {
+  type ProviderError,
+  providerError,
+  requestCancelled,
+} from "../../domain/provider/provider-error";
 
 export type FetchFn = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -75,6 +82,8 @@ class ChunkAccumulator {
   private content = "";
   private finished = false;
 
+  public constructor(private readonly onText: (delta: string) => void) {}
+
   public push(line: string): Result<void, ProviderError> {
     if (line.trim() === "" || this.finished) return Result.ok();
 
@@ -85,8 +94,12 @@ class ChunkAccumulator {
         );
       }
 
-      this.content += chunk.message.content;
+      const delta = chunk.message.content;
+
+      this.content += delta;
       this.finished = chunk.done;
+
+      if (delta !== "") this.onText(delta);
 
       return Result.ok();
     });
@@ -128,24 +141,42 @@ export class OllamaProvider implements TranslationProvider {
     this.model = config.model;
   }
 
-  public async chat(
-    messages: ChatMessage[],
-    options: { contextTokens: number },
-  ): Promise<ChatResult> {
+  public async chat(messages: ChatMessage[], options: ChatOptions): Promise<ChatResult> {
+    const { signal } = options;
+
+    if (signal?.aborted) return Result.fail(requestCancelled());
+
     const controller = new AbortController();
     const idle = idleTimer(this.config.timeoutMs, () => controller.abort());
+    const cancel = () => controller.abort();
+
+    signal?.addEventListener("abort", cancel, { once: true });
 
     try {
-      const sent = await this.send(messages, options.contextTokens, controller.signal);
+      const result = await this.exchange(messages, options, idle, controller.signal);
 
-      if (sent.isFailure) return Result.fail(sent.getError());
+      if (result.isFailure && signal?.aborted) return Result.fail(requestCancelled());
 
-      idle.reset();
-
-      return await this.read(sent.getValue(), idle, controller.signal);
+      return result;
     } finally {
       idle.clear();
+      signal?.removeEventListener("abort", cancel);
     }
+  }
+
+  private async exchange(
+    messages: ChatMessage[],
+    options: ChatOptions,
+    idle: IdleTimer,
+    signal: AbortSignal,
+  ): Promise<ChatResult> {
+    const sent = await this.send(messages, options.contextTokens, signal);
+
+    if (sent.isFailure) return Result.fail(sent.getError());
+
+    idle.reset();
+
+    return this.read(sent.getValue(), idle, signal, options.onText ?? (() => undefined));
   }
 
   private async send(
@@ -158,7 +189,7 @@ export class OllamaProvider implements TranslationProvider {
       model,
       messages,
       stream: true,
-      keep_alive: "10m",
+      keep_alive: "5m",
       options: { temperature: 0, num_ctx: contextTokens },
     };
 
@@ -180,6 +211,7 @@ export class OllamaProvider implements TranslationProvider {
     response: Response,
     idle: IdleTimer,
     signal: AbortSignal,
+    onText: (delta: string) => void,
   ): Promise<ChatResult> {
     const statusError = this.statusError(response.status);
 
@@ -192,7 +224,7 @@ export class OllamaProvider implements TranslationProvider {
     const reader = response.body.getReader();
 
     try {
-      const streamed = await this.accumulate(reader, idle, signal);
+      const streamed = await this.accumulate(reader, idle, signal, onText);
 
       if (!streamed.done) void reader.cancel().catch(() => undefined);
 
@@ -215,9 +247,10 @@ export class OllamaProvider implements TranslationProvider {
     reader: ReadableStreamDefaultReader<Uint8Array>,
     idle: IdleTimer,
     signal: AbortSignal,
+    onText: (delta: string) => void,
   ): Promise<{ result: ChatResult; done: boolean }> {
     const decoder = new TextDecoder();
-    const chunks = new ChunkAccumulator();
+    const chunks = new ChunkAccumulator(onText);
     let buffer = "";
 
     for (;;) {

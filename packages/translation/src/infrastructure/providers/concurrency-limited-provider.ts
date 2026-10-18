@@ -1,5 +1,8 @@
 import { Result } from "@lambe/kernel/result";
-import type { TranslationProvider } from "../../application/ports/translation-provider";
+import type {
+  ChatOptions,
+  TranslationProvider,
+} from "../../application/ports/translation-provider";
 import type { ChatMessage } from "../../domain/prompt/prompt-adapter";
 import { type ProviderError, providerError } from "../../domain/provider/provider-error";
 
@@ -25,7 +28,7 @@ export class ConcurrencyLimitedProvider implements TranslationProvider {
 
   public async chat(
     messages: ChatMessage[],
-    options: { contextTokens: number },
+    options: ChatOptions,
   ): Promise<Result<string, ProviderError>> {
     await this.acquire();
 

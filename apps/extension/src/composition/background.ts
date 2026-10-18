@@ -1,4 +1,7 @@
-import { BatchTranslationService } from "@lambe/translation/application/batch-translation.service";
+import {
+  type BatchTranslateOptions,
+  BatchTranslationService,
+} from "@lambe/translation/application/batch-translation.service";
 import { instructionPrompt } from "@lambe/translation/domain/prompt/instruction-prompt";
 import { modelFamilyOf } from "@lambe/translation/domain/prompt/prompt-adapter";
 import { translateGemmaPrompt } from "@lambe/translation/domain/prompt/translategemma-prompt";
@@ -8,9 +11,15 @@ import { OllamaProvider } from "@lambe/translation/infrastructure/providers/olla
 import { StorageTranslationCache } from "../adapters/chrome/storage-translation-cache";
 import { loadRuntimeConfig } from "../config/runtime-config";
 import { TOGGLE_MESSAGE } from "../messaging/toggle.contract";
-import type { TranslateBatchResponse } from "../messaging/translate-batch.contract";
-import { translateBatchEnvelopeSchema } from "../messaging/translate-batch.contract";
-import { respondToTranslateBatch, unexpectedFailure } from "../messaging/translate-batch.handler";
+import {
+  TRANSLATE_PORT_NAME,
+  type TranslateBatchResponse,
+} from "../messaging/translate-batch.contract";
+import {
+  respondToTranslateBatch,
+  serveTranslatePort,
+  unexpectedFailure,
+} from "../messaging/translate-batch.handler";
 
 const TOGGLE_COMMAND = "toggle-translation";
 
@@ -73,9 +82,12 @@ export function startBackground(): void {
     return service;
   };
 
-  const answer = async (payload: unknown): Promise<TranslateBatchResponse> => {
+  const answer = async (
+    payload: unknown,
+    options: BatchTranslateOptions,
+  ): Promise<TranslateBatchResponse> => {
     try {
-      return await respondToTranslateBatch(payload, await batchService());
+      return await respondToTranslateBatch(payload, await batchService(), options);
     } catch (cause) {
       service = undefined;
 
@@ -83,16 +95,10 @@ export function startBackground(): void {
     }
   };
 
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    const envelope = translateBatchEnvelopeSchema.safeParse(message);
+  chrome.runtime.onConnect.addListener((port) => {
+    if (port.name !== TRANSLATE_PORT_NAME) return;
 
-    if (!envelope.success) return false;
-
-    void answer(envelope.data.payload)
-      .then(sendResponse)
-      .catch((cause: unknown) => console.warn("Lambë could not answer the tab.", cause));
-
-    return true;
+    serveTranslatePort(port, answer);
   });
 
   chrome.action.onClicked.addListener((tab) => {

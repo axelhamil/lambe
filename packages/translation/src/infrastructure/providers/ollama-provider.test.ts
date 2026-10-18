@@ -74,7 +74,7 @@ describe("OllamaProvider", () => {
       model: "translategemma:12b",
       messages,
       stream: true,
-      keep_alive: "10m",
+      keep_alive: "5m",
       options: { temperature: 0, num_ctx: 2048 },
     });
   });
@@ -227,6 +227,37 @@ describe("OllamaProvider", () => {
     const error = await errorOf(fetchReturning(() => reply("")));
 
     expect(error.code).toBe("PROVIDER_BAD_RESPONSE");
+  });
+
+  test("ollama_provider_calls_onText_per_delta_and_aborts_on_signal", async () => {
+    const lines = ["Bon", "jour", ""].map(
+      (content, index) =>
+        `${JSON.stringify({ message: { role: "assistant", content }, done: index === 2 })}\n`,
+    );
+    const onText = mock((_delta: string) => {});
+    const streamed = await providerWith(fetchReturning(() => streamOf(lines, 1))).chat(messages, {
+      contextTokens: 2048,
+      onText,
+    });
+    const controller = new AbortController();
+    const fetch = mock(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+        }),
+    );
+    const pending = providerWith(fetch).chat(messages, {
+      contextTokens: 2048,
+      signal: controller.signal,
+    });
+
+    controller.abort();
+    const cancelled = await pending;
+
+    expect(streamed.getValue()).toBe("Bonjour");
+    expect(onText.mock.calls.map(([delta]) => delta)).toEqual(["Bon", "jour"]);
+    expect(fetch.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+    expect(cancelled.getError().code).toBe("REQUEST_CANCELLED");
   });
 
   test("does_not_retry_on_403", async () => {
