@@ -9,8 +9,13 @@ import type { CachePolicy } from "../domain/cache/cache-policy";
 import type { LanguageCode } from "../domain/language/value-objects/language-code.vo";
 import { type EdgeShell, peelEdges, rewrapEdges } from "../domain/markup/edge-shell";
 import { restoreEmptyGroups, withoutEmptyGroups } from "../domain/markup/empty-groups";
-import { type MarkupErrorCode, parseMarkup, toMarkup } from "../domain/markup/markup";
-import { checkAgainstSource } from "../domain/markup/structure-check";
+import {
+  type MarkupErrorCode,
+  parseMarkup,
+  parseTolerant,
+  toMarkup,
+} from "../domain/markup/markup";
+import { checkAgainstSource, missingGroups } from "../domain/markup/structure-check";
 import type { PageBrief } from "../domain/page/page-brief";
 import type { PromptAdapter } from "../domain/prompt/prompt-adapter";
 import { PROMPT_VERSION } from "../domain/prompt/prompt-version";
@@ -35,7 +40,7 @@ export interface BatchRequest {
 export type SegmentFailureCode = MarkupErrorCode | "SEGMENT_TOO_LONG" | "RESPONSE_MISSING_SEGMENT";
 
 export type SegmentOutcome =
-  | { id: string; status: "translated"; markup: string; fromCache: boolean }
+  | { id: string; status: "translated"; markup: string; fromCache: boolean; lostGroups?: number }
   | { id: string; status: "failed"; code: SegmentFailureCode };
 
 export interface BatchTranslateOptions {
@@ -87,9 +92,7 @@ function rewrap(shell: EdgeShell, markup: string): PieceResult {
 function validate(piece: Piece, response: string | undefined): PieceResult {
   if (response === undefined) return Result.fail("RESPONSE_MISSING_SEGMENT");
 
-  return parseMarkup(response)
-    .map((nodes) => restoreEmptyGroups(piece.nodes, nodes))
-    .flatMap((nodes) => checkAgainstSource(piece.nodes, nodes))
+  return checkAgainstSource(piece.nodes, restoreEmptyGroups(piece.nodes, parseTolerant(response)))
     .map(toMarkup)
     .mapError((error): SegmentFailureCode => error.code);
 }
@@ -131,11 +134,34 @@ function joinPieces(pieces: Piece[], results: PieceResults): PieceResult {
   return Result.ok(translated);
 }
 
-function outcomeOf(id: string, result: GroupResult | undefined): SegmentOutcome {
-  if (result === undefined) return { id, status: "failed", code: "RESPONSE_MISSING_SEGMENT" };
+function lostGroupsOf(source: string, markup: string): number {
+  const nodes = (text: string): InlineNode[] => parseMarkup(text).unwrapOr([]);
+
+  return missingGroups(nodes(source), nodes(markup));
+}
+
+function translatedOutcome(
+  id: string,
+  group: SegmentGroup,
+  markup: string,
+  fromCache: boolean,
+): SegmentOutcome {
+  const lostGroups = lostGroupsOf(group.markup, markup);
+  const outcome: SegmentOutcome = { id, status: "translated", markup, fromCache };
+
+  return lostGroups > 0 ? { ...outcome, lostGroups } : outcome;
+}
+
+function outcomeOf(
+  id: string,
+  group: SegmentGroup | undefined,
+  result: GroupResult | undefined,
+): SegmentOutcome {
+  if (group === undefined || result === undefined)
+    return { id, status: "failed", code: "RESPONSE_MISSING_SEGMENT" };
 
   return result.match<SegmentOutcome>({
-    ok: ({ markup, fromCache }) => ({ id, status: "translated", markup, fromCache }),
+    ok: ({ markup, fromCache }) => translatedOutcome(id, group, markup, fromCache),
     fail: (code) => ({ id, status: "failed", code }),
   });
 }
@@ -175,7 +201,7 @@ class BatchRun {
     if (previewed !== undefined && result.isSuccess && result.getValue().markup === previewed)
       return;
 
-    for (const id of group.ids) this.onOutcome(outcomeOf(id, result));
+    for (const id of group.ids) this.onOutcome(outcomeOf(id, group, result));
   }
 
   public preview(piece: Piece, result: PieceResult): void {
@@ -198,7 +224,7 @@ class BatchRun {
     this.previewed.set(group, markup);
 
     for (const id of group.ids) {
-      this.onOutcome({ id, status: "translated", markup, fromCache: false });
+      this.onOutcome(translatedOutcome(id, group, markup, false));
     }
   }
 
@@ -250,7 +276,7 @@ class BatchRun {
     return segments.map((segment) => {
       const group = byMarkup.get(segment.markup);
 
-      return outcomeOf(segment.id, group && this.settled.get(group));
+      return outcomeOf(segment.id, group, group && this.settled.get(group));
     });
   }
 

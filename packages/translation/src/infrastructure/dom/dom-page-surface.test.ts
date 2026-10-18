@@ -343,6 +343,36 @@ describe("DomPageSurface commit and restore", () => {
     expect(doc.getElementById("c")?.innerHTML).toBe("Hello <a>link</a> and <b>bold</b> world");
   });
 
+  test("dropped_group_shows_its_translated_text_once_and_comes_back_on_restore", () => {
+    const { doc, surface, blocks } = bodySurface(
+      '<p id="p">Read <a href="/docs">the docs</a> and <a href="/guide">the guide</a>.</p>',
+    );
+    const block = blocks[0];
+    const paragraph = doc.getElementById("p");
+    const original = paragraph?.innerHTML;
+    const second = block?.nodes.find((node) => node.kind === "group" && node.key === 2);
+
+    if (block && second?.kind === "group") {
+      surface.commit({
+        blockId: block.id,
+        kind: "structured",
+        nodes: [
+          { kind: "text", text: "Lisez la doc et " },
+          { ...second, children: [{ kind: "text", text: "le guide" }] },
+          { kind: "text", text: "." },
+        ],
+      });
+    }
+    const translated = paragraph?.innerHTML;
+    surface.show("original");
+    const restored = paragraph?.innerHTML;
+    surface.show("translated");
+
+    expect(translated).toBe('Lisez la doc et <a href="/guide">le guide</a>.');
+    expect(restored).toBe(original);
+    expect(paragraph?.innerHTML).toBe(translated);
+  });
+
   test("extra_removed_by_the_framework_is_not_reinserted", () => {
     const { doc, surface, blocks } = bodySurface('<p id="p">Hello <b>x</b></p>');
     const block = blocks[0];

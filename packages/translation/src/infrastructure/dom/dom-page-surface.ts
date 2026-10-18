@@ -30,6 +30,7 @@ interface Arrangement {
 interface Layout {
   arrangements: Arrangement[];
   data: Map<Text, string>;
+  dropped: Node[];
 }
 
 interface Patch {
@@ -58,7 +59,7 @@ function rangeOf(scope: Node[]): Node[] {
 function snapshot(read: ReadBlock): Layout {
   const data = new Map(read.textNodes.map((text): [Text, string] => [text, text.data]));
 
-  if (read.commentAffixes.size > 0) return { arrangements: [], data };
+  if (read.commentAffixes.size > 0) return { arrangements: [], data, dropped: [] };
 
   const nodes = rangeOf(read.scope);
   const parent = nodes[0]?.parentNode;
@@ -70,9 +71,9 @@ function snapshot(read: ReadBlock): Layout {
     }),
   );
 
-  if (!parent) return { arrangements: groups, data };
+  if (!parent) return { arrangements: groups, data, dropped: [] };
 
-  return { arrangements: [{ parent, nodes, extras: NO_EXTRAS }, ...groups], data };
+  return { arrangements: [{ parent, nodes, extras: NO_EXTRAS }, ...groups], data, dropped: [] };
 }
 
 function commentText(affix: CommentAffix, translation: string): string {
@@ -96,13 +97,14 @@ function slotLayout(read: ReadBlock, texts: string[]): Layout {
     data.set(node, affix ? commentText(affix, text) : text);
   });
 
-  return { arrangements: [], data };
+  return { arrangements: [], data, dropped: [] };
 }
 
 class StructuredLayout {
   private readonly arrangements: Arrangement[] = [];
   private readonly data = new Map<Text, string>();
   private readonly visited = new Set<Node>();
+  private readonly dropped: Node[] = [];
   readonly extras: Text[] = [];
 
   public constructor(
@@ -117,7 +119,7 @@ class StructuredLayout {
 
     if (scope) this.arrange(scope, nodes);
 
-    return { arrangements: this.arrangements, data: this.data };
+    return { arrangements: this.arrangements, data: this.data, dropped: this.dropped };
   }
 
   private arrange(container: Arrangement, children: InlineNode[]): void {
@@ -149,7 +151,11 @@ class StructuredLayout {
     for (const text of pool) this.data.set(text, "");
 
     const placedSet = new Set(placed);
-    const rest = container.nodes.filter((node) => !placedSet.has(node));
+    const groups = new Set<Node>(this.read.groups.values());
+    const unplaced = container.nodes.filter((node) => !placedSet.has(node));
+    const rest = unplaced.filter((node) => !groups.has(node));
+
+    this.dropped.push(...unplaced.filter((node) => groups.has(node)));
 
     this.arrangements.push({ ...container, nodes: [...placed, ...rest], extras });
   }
@@ -209,6 +215,13 @@ function place(arrangement: Arrangement, parked: WeakSet<Node>): void {
 function apply(layout: Layout, parked: WeakSet<Node>): void {
   for (const [text, value] of layout.data) {
     if (text.data !== value) text.data = value;
+  }
+
+  for (const node of layout.dropped) {
+    if (!node.parentNode) continue;
+
+    node.parentNode.removeChild(node);
+    parked.add(node);
   }
 
   for (const arrangement of layout.arrangements) place(arrangement, parked);

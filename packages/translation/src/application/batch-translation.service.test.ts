@@ -190,9 +190,9 @@ describe("BatchTranslationService", () => {
     expect(written()).toEqual(new Map([[keyOf(RUN), `fr: ${RUN}`]]));
   });
 
-  test("invented_tag_on_plain_text_is_retried_alone_then_succeeds", async () => {
+  test("invented_atom_on_plain_text_is_retried_alone_then_succeeds", async () => {
     const { provider, service, written } = setup();
-    provider.chat.mockResolvedValueOnce(Result.ok(seg("<g1>Bonjour</g1>.")));
+    provider.chat.mockResolvedValueOnce(Result.ok(seg("Bonjour <x2/>.")));
     provider.chat.mockResolvedValueOnce(Result.ok(seg("Bonjour.")));
 
     const result = await service.translate(request([{ id: "a", markup: "Hello." }]));
@@ -202,6 +202,89 @@ describe("BatchTranslationService", () => {
     ]);
     expect(provider.chat).toHaveBeenCalledTimes(2);
     expect(written()).toEqual(new Map([[keyOf("Hello."), "Bonjour."]]));
+  });
+
+  test("merged_adjacent_links_keep_the_first_and_text_of_both", async () => {
+    const { provider, service, written } = setup();
+    const source = "Read <g1>the docs</g1> and <g2>the guides</g2> first.";
+    provider.chat.mockResolvedValueOnce(
+      Result.ok(seg("Lisez <g1>la documentation et les guides</g1> d'abord.")),
+    );
+
+    const result = await service.translate(request([{ id: "a", markup: source }]));
+
+    expect(result.getValue()).toEqual([
+      {
+        id: "a",
+        status: "translated",
+        markup: "Lisez <g1>la documentation et les guides</g1> d'abord.",
+        fromCache: false,
+        lostGroups: 1,
+      },
+    ]);
+    expect(provider.chat).toHaveBeenCalledTimes(1);
+    expect(written()).toEqual(
+      new Map([[keyOf(source), "Lisez <g1>la documentation et les guides</g1> d'abord."]]),
+    );
+  });
+
+  test("missing_group_keeps_translated_text_as_plain_text", async () => {
+    const { provider, service } = setup();
+    provider.chat.mockResolvedValueOnce(
+      Result.ok(seg("Lisez la documentation, puis <g2>forkez</g2> et <g3>clonez</g3>.")),
+    );
+
+    const result = await service.translate(
+      request([
+        { id: "a", markup: "Read <g1>the docs</g1>, then <g2>fork</g2> and <g3>clone</g3>." },
+      ]),
+    );
+
+    expect(result.getValue()).toEqual([
+      {
+        id: "a",
+        status: "translated",
+        markup: "Lisez la documentation, puis <g2>forkez</g2> et <g3>clonez</g3>.",
+        fromCache: false,
+        lostGroups: 1,
+      },
+    ]);
+  });
+
+  test("lost_atom_still_fails_the_segment", async () => {
+    const { provider, service, written } = setup();
+    provider.chat.mockResolvedValueOnce(Result.ok(seg("Lisez <g1>la doc</g1> puis lancez.")));
+
+    const result = await service.translate(
+      request([{ id: "a", markup: "Read <g1>the docs</g1> then run <x1/>." }]),
+    );
+
+    expect(result.getValue()).toEqual([{ id: "a", status: "failed", code: "PLACEHOLDER_LOST" }]);
+    expect(written().size).toBe(0);
+  });
+
+  test("malformed_group_tag_is_repaired_or_unwrapped", async () => {
+    const { provider, service } = setup();
+    provider.chat.mockResolvedValueOnce(
+      Result.ok("[1] Lisez <g1]la doc</g1> et <g2>le guide.\n[2] Puis <g>forkez</g1>."),
+    );
+
+    const result = await service.translate(
+      request([
+        { id: "a", markup: "Read <g1>the docs</g1> and <g2>the guide</g2>." },
+        { id: "b", markup: "Then <g1>fork</g1>." },
+      ]),
+    );
+
+    expect(result.getValue()).toEqual([
+      {
+        id: "a",
+        status: "translated",
+        markup: "Lisez <g1>la doc</g1> et <g2>le guide.</g2>",
+        fromCache: false,
+      },
+      { id: "b", status: "failed", code: "PLACEHOLDER_LOST" },
+    ]);
   });
 
   test("lost_placeholder_fails_PLACEHOLDER_LOST_without_a_retry_and_caches_nothing_for_it", async () => {

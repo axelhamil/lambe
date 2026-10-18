@@ -5,7 +5,8 @@ export type MarkupErrorCode =
   | "MARKUP_MALFORMED"
   | "PLACEHOLDER_LOST"
   | "PLACEHOLDER_DUPLICATED"
-  | "STRUCTURE_MOVED";
+  | "STRUCTURE_MOVED"
+  | "TRANSLATION_EMPTY";
 
 export interface MarkupError {
   code: MarkupErrorCode;
@@ -17,6 +18,8 @@ export function markupError(code: MarkupErrorCode, detail: string): MarkupError 
 }
 
 const TAG_PATTERN = /<x(\d+)\/>|<g(\d+)>|<\/g(\d+)>/y;
+
+const LOOSE_TAG_PATTERN = /<\s*(\/)?\s*([gx])\s*(\d+)\s*\/?\s*[>\])}]?/y;
 
 const ENTITY_PATTERN = /&(?:#(\d+)|#[xX]([0-9a-fA-F]+)|([a-zA-Z][a-zA-Z0-9]*));/g;
 
@@ -163,4 +166,80 @@ export function parseMarkup(markup: string): Result<InlineNode[], MarkupError> {
   }
 
   return Result.ok(root);
+}
+
+function appendLoose(target: InlineNode[], raw: string): void {
+  if (raw === "") return;
+
+  const text = unescapeText(raw).unwrapOr(raw);
+  const last = target.at(-1);
+
+  if (last?.kind === "text") {
+    last.text += text;
+
+    return;
+  }
+
+  target.push({ kind: "text", text });
+}
+
+function closeGroup(stack: OpenGroup[], root: InlineNode[], key: number): void {
+  const depth = stack.findLastIndex((open) => open.key === key);
+
+  if (depth === -1) return;
+
+  while (stack.length > depth) {
+    const open = stack.pop();
+
+    if (open === undefined) return;
+
+    const group: GroupNode = { kind: "group", key: open.key, children: open.children };
+    (stack.at(-1)?.children ?? root).push(group);
+  }
+}
+
+export function parseTolerant(markup: string): InlineNode[] {
+  const root: InlineNode[] = [];
+  const stack: OpenGroup[] = [];
+  const current = (): InlineNode[] => stack.at(-1)?.children ?? root;
+  let cursor = 0;
+
+  while (cursor < markup.length) {
+    const tagStart = markup.indexOf("<", cursor);
+
+    appendLoose(current(), markup.slice(cursor, tagStart === -1 ? markup.length : tagStart));
+
+    if (tagStart === -1) break;
+
+    LOOSE_TAG_PATTERN.lastIndex = tagStart;
+    const tag = LOOSE_TAG_PATTERN.exec(markup);
+
+    if (!tag) {
+      appendLoose(current(), "<");
+      cursor = tagStart + 1;
+      continue;
+    }
+
+    const [whole, closing, kind, digits] = tag;
+    const key = Number(digits);
+    cursor = tagStart + whole.length;
+
+    if (kind === "x") {
+      if (closing === undefined) current().push({ kind: "atom", key });
+      continue;
+    }
+
+    if (closing === undefined) {
+      stack.push({ key, children: [] });
+      continue;
+    }
+
+    closeGroup(stack, root, key);
+  }
+
+  const outermost = stack[0];
+
+  if (outermost !== undefined) closeGroup(stack, root, outermost.key);
+
+  return root;
 }

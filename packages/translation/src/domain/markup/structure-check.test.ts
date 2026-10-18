@@ -68,10 +68,12 @@ describe("checkAgainstSource", () => {
     ]);
   });
 
-  test("rejects_group_moved_into_another_group", () => {
+  test("unwraps_a_group_moved_into_another_group", () => {
     const twoGroups = parseMarkup("<g1>a</g1> <g2>b</g2>").getValue();
     const moved = parseMarkup("<g1>a <g2>b</g2></g1>").getValue();
 
-    expect(checkAgainstSource(twoGroups, moved).getError().code).toBe("STRUCTURE_MOVED");
+    expect(checkAgainstSource(twoGroups, moved).getValue()).toEqual([
+      { kind: "group", key: 1, children: [{ kind: "text", text: "a b" }] },
+    ]);
   });
 });
