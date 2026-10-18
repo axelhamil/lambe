@@ -1,8 +1,13 @@
+import "../bubble/bubble.css";
 import { PageTranslationService } from "@lambe/translation/application/page-translation.service";
 import { BlockId } from "@lambe/translation/domain/block/value-objects/block-id.vo";
 import { DomPageSurface } from "@lambe/translation/infrastructure/dom/dom-page-surface";
+import type { ContentScriptContext } from "wxt/utils/content-script-context";
+import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root";
 import { ChromeLanguageDetector } from "../adapters/chrome/chrome-language-detector";
 import { PortBatchTranslator } from "../adapters/chrome/port-batch-translator";
+import { type Bubble, mountBubble } from "../bubble/bubble-view";
+import type { ClickHandlers } from "../bubble/click-classifier";
 import { loadRuntimeConfig } from "../config/runtime-config";
 import type { RuntimePort } from "../messaging/runtime-port";
 import { toggleMessageSchema } from "../messaging/toggle.contract";
@@ -46,16 +51,65 @@ async function buildPageService(): Promise<PageTranslationService> {
   return service;
 }
 
-export function startContent(): void {
+interface MountedBubble {
+  bubble: Bubble;
+  unsubscribe(): void;
+}
+
+type PageAction = (page: PageTranslationService) => Promise<void>;
+
+function isTopFrame(): boolean {
+  return window.top === window.self;
+}
+
+async function showBubble(
+  ctx: ContentScriptContext,
+  page: PageTranslationService,
+  handlers: ClickHandlers,
+): Promise<void> {
+  const ui = await createShadowRootUi<MountedBubble>(ctx, {
+    name: "lambe-bubble",
+    mode: "open",
+    position: "inline",
+    anchor: () => document.documentElement,
+    onMount: (_container, shadow) => {
+      const bubble = mountBubble(shadow, handlers);
+      const unsubscribe = page.subscribe((state) => bubble.render(state));
+
+      bubble.render(page.state());
+
+      return { bubble, unsubscribe };
+    },
+    onRemove: (mounted) => {
+      mounted?.unsubscribe();
+      mounted?.bubble.destroy();
+    },
+  });
+
+  ui.mount();
+}
+
+export function startContent(ctx: ContentScriptContext): void {
   const service = buildPageService();
+  const run = (action: PageAction, failure: string): void => {
+    void service.then(action).catch((cause: unknown) => console.error(failure, cause));
+  };
+  const toggle = () => run((page) => page.toggle(), "Lambë could not toggle the page.");
+  const retranslate = () =>
+    run((page) => page.retranslate(), "Lambë could not translate the page again.");
 
   chrome.runtime.onMessage.addListener((message) => {
     if (!toggleMessageSchema.safeParse(message).success) return false;
 
-    void service
-      .then((page) => page.toggle())
-      .catch((cause: unknown) => console.error("Lambë could not toggle the page.", cause));
+    toggle();
 
     return false;
   });
+
+  if (!isTopFrame()) return;
+
+  run(
+    (page) => showBubble(ctx, page, { onSingle: toggle, onDouble: retranslate }),
+    "Lambë could not show its bubble.",
+  );
 }

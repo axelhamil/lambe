@@ -47,6 +47,9 @@ importers:
         specifier: 4.6.7
         version: 4.6.7
     devDependencies:
+      '@happy-dom/global-registrator':
+        specifier: 21.0.3
+        version: 21.0.3
       '@lambe/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config

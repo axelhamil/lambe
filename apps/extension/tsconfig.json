@@ -1,5 +1,11 @@
 {
   "extends": "@lambe/typescript-config/base.json",
-  "compilerOptions": { "types": ["bun", "chrome"] },
-  "include": ["src/**/*.ts", "entrypoints/**/*.ts", "scripts/**/*.ts", "wxt.config.ts"]
+  "compilerOptions": { "types": ["bun", "chrome", "vite/client"] },
+  "include": [
+    "src/**/*.ts",
+    "entrypoints/**/*.ts",
+    "scripts/**/*.ts",
+    "test-setup/**/*.ts",
+    "wxt.config.ts"
+  ]
 }

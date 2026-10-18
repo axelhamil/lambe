@@ -5,7 +5,8 @@ import { PAGE_MATCHES } from "../src/permissions";
 export default defineContentScript({
   matches: PAGE_MATCHES,
   runAt: "document_idle",
-  main() {
-    startContent();
+  cssInjectionMode: "ui",
+  main(ctx) {
+    startContent(ctx);
   },
 });
