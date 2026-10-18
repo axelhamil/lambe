@@ -183,19 +183,27 @@ function appendLoose(target: InlineNode[], raw: string): void {
   target.push({ kind: "text", text });
 }
 
+function unwrapInnermost(stack: OpenGroup[], root: InlineNode[]): void {
+  const open = stack.pop();
+
+  if (open === undefined) return;
+
+  (stack.at(-1)?.children ?? root).push(...open.children);
+}
+
 function closeGroup(stack: OpenGroup[], root: InlineNode[], key: number): void {
   const depth = stack.findLastIndex((open) => open.key === key);
 
   if (depth === -1) return;
 
-  while (stack.length > depth) {
-    const open = stack.pop();
+  while (stack.length > depth + 1) unwrapInnermost(stack, root);
 
-    if (open === undefined) return;
+  const open = stack.pop();
 
-    const group: GroupNode = { kind: "group", key: open.key, children: open.children };
-    (stack.at(-1)?.children ?? root).push(group);
-  }
+  if (open === undefined) return;
+
+  const group: GroupNode = { kind: "group", key: open.key, children: open.children };
+  (stack.at(-1)?.children ?? root).push(group);
 }
 
 export function parseTolerant(markup: string): InlineNode[] {
@@ -237,9 +245,7 @@ export function parseTolerant(markup: string): InlineNode[] {
     closeGroup(stack, root, key);
   }
 
-  const outermost = stack[0];
-
-  if (outermost !== undefined) closeGroup(stack, root, outermost.key);
+  while (stack.length > 0) unwrapInnermost(stack, root);
 
   return root;
 }

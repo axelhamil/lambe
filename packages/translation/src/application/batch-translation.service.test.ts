@@ -280,8 +280,9 @@ describe("BatchTranslationService", () => {
       {
         id: "a",
         status: "translated",
-        markup: "Lisez <g1>la doc</g1> et <g2>le guide.</g2>",
+        markup: "Lisez <g1>la doc</g1> et le guide.",
         fromCache: false,
+        lostGroups: 1,
       },
       { id: "b", status: "failed", code: "PLACEHOLDER_LOST" },
     ]);
