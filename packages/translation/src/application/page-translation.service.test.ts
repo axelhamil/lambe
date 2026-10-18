@@ -546,7 +546,7 @@ describe("PageTranslationService", () => {
     await service.whenIdle();
 
     expect(service.state()).toEqual({ kind: "error", error: forbidden });
-    expect(translator.translate).toHaveBeenCalledTimes(2);
+    expect(translator.translate).toHaveBeenCalledTimes(1);
     expect(surface.translations.size).toBe(0);
   });
 
@@ -860,6 +860,43 @@ describe("PageTranslationService", () => {
     ]);
   });
 
+  test("next_request_is_sent_once_the_first_request_streams_its_first_outcome", async () => {
+    const control = controlledTranslator();
+    const { service, near } = setup({
+      blocks: [ALPHA, BETA, GAMMA, DELTA],
+      translate: control.translate,
+      firstRequestSegments: 2,
+    });
+    await service.toggle();
+    const arrived = control.nextCall();
+
+    for (const id of ["alpha", "beta", "gamma", "delta"]) near(id, 0);
+
+    await arrived;
+    await flush();
+    const beforeStreaming = control.calls.length;
+    const [first] = control.calls;
+    const alpha = streamedFrench("0", "Forks share code with upstream.");
+    const beta = streamedFrench("1", "A fork keeps its own history.");
+    first?.options.onOutcome?.(alpha);
+    await flush();
+    const afterStreaming = sentBlocks(control.calls);
+    first?.finish(Result.ok([alpha, beta]));
+    control.calls[1]?.finish(
+      Result.ok([
+        streamedFrench("0", "Pull requests flow back upstream."),
+        streamedFrench("1", "Deleting a fork is permanent."),
+      ]),
+    );
+    await service.whenIdle();
+
+    expect(beforeStreaming).toBe(1);
+    expect(afterStreaming).toEqual([
+      ["Forks share code with upstream.", "A fork keeps its own history."],
+      ["Pull requests flow back upstream.", "Deleting a fork is permanent."],
+    ]);
+  });
+
   test("first_request_takes_visible_content_before_visible_chrome", async () => {
     const { service, near, sentMarkup } = setup({
       blocks: [chrome("navbar", "Pricing"), chrome("search", "Search docs"), ALPHA, BETA, GAMMA],
@@ -964,23 +1001,34 @@ describe("PageTranslationService", () => {
   });
 
   test("one_disconnect_cancelling_two_pipelined_requests_is_retried_once", async () => {
-    const { service, near, translator, committed } = setup({
-      blocks: [ALPHA, BETA],
-      maxSegmentsPerRequest: 1,
-      firstRequestSegments: 1,
+    const control = controlledTranslator();
+    const fresh = translatedWith((markup) => `fr ${markup}`);
+    const { service, near, committed } = setup({
+      blocks: [ALPHA, BETA, GAMMA],
+      translate: (request, options) =>
+        control.calls.length < 2 ? control.translate(request, options) : fresh(request),
+      maxSegmentsPerRequest: 2,
+      firstRequestSegments: 2,
     });
-    translator.translate
-      .mockImplementationOnce(async () => Result.fail(requestCancelled()))
-      .mockImplementationOnce(async () => Result.fail(requestCancelled()));
-
     await service.toggle();
-    near("alpha", 0);
-    near("beta", 0);
+    const arrived = control.nextCall();
+
+    for (const id of ["alpha", "beta", "gamma"]) near(id, 0);
+
+    await arrived;
+    const [first] = control.calls;
+    first?.options.onOutcome?.(streamedFrench("0", "Forks share code with upstream."));
+    await flush();
+    const pipelined = control.calls.length;
+    first?.finish(Result.fail(requestCancelled()));
+    control.calls[1]?.finish(Result.fail(requestCancelled()));
     await service.whenIdle();
 
+    expect(pipelined).toBe(2);
     expect(service.state()).toEqual({ kind: "translated" });
     expect(committed("alpha")).toBeDefined();
     expect(committed("beta")).toBeDefined();
+    expect(committed("gamma")).toBeDefined();
   });
 
   test("toggle_to_original_aborts_the_in_flight_request", async () => {

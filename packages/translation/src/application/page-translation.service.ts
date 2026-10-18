@@ -166,6 +166,7 @@ export class PageTranslationService {
   private refreshScan = false;
   private epoch = 0;
   private firstRequestPending = true;
+  private leading = false;
   private transportRetried = false;
   private transportGeneration = 0;
   private nextPosition = 0;
@@ -196,6 +197,7 @@ export class PageTranslationService {
 
     this.cancelInFlight();
     this.firstRequestPending = true;
+    this.leading = false;
     this.deps.surface.show("original");
     this.settled.clear();
 
@@ -407,7 +409,7 @@ export class PageTranslationService {
     let failure: Option<ProviderError> = Option.none();
 
     for (;;) {
-      const free = this.laneCount() - lanes.size;
+      const free = this.leading ? 0 : this.laneCount() - lanes.size;
       const requests = failure.isNone() && this.canPump() && free > 0 ? this.takeNext(free) : [];
 
       for (const ids of requests) {
@@ -452,6 +454,7 @@ export class PageTranslationService {
 
       if (first.length > 0) {
         this.firstRequestPending = false;
+        this.leading = true;
 
         return [first];
       }
@@ -496,6 +499,8 @@ export class PageTranslationService {
 
     for (const block of batch) this.inFlight.delete(block.id.value);
 
+    this.leading = false;
+
     const stale = scope.epoch !== this.epoch || scope.signal.aborted;
 
     if (stale || plan.isFailure) {
@@ -526,6 +531,11 @@ export class PageTranslationService {
   }
 
   private apply(plan: BatchPlan): void {
+    if (this.leading) {
+      this.leading = false;
+      this.wake();
+    }
+
     for (const block of plan.settled) {
       this.settled.add(block.id.value);
       this.refreshing.delete(block.id.value);
