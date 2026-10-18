@@ -36,9 +36,11 @@ function connectWorker(): RuntimePort {
 
 async function buildPageService(): Promise<PageTranslationService> {
   const config = await loadRuntimeConfig(chrome.storage.local, chrome.i18n.getUILanguage());
+  const translator = new PortBatchTranslator(connectWorker);
   const service = new PageTranslationService({
     surface: new DomPageSurface({ doc: document, window, ids: blockIds() }),
-    translator: new PortBatchTranslator(connectWorker),
+    translator,
+    capacity: translator,
     detector: new ChromeLanguageDetector((text) => chrome.i18n.detectLanguage(text)),
     target: config.target,
     maxSegmentsPerRequest: config.maxSegmentsPerRequest,

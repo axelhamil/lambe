@@ -2,12 +2,16 @@ import {
   type BatchTranslateOptions,
   BatchTranslationService,
 } from "@lambe/translation/application/batch-translation.service";
+import type { ProviderCapacity } from "@lambe/translation/application/ports/provider-capacity";
 import { instructionPrompt } from "@lambe/translation/domain/prompt/instruction-prompt";
 import { modelFamilyOf } from "@lambe/translation/domain/prompt/prompt-adapter";
 import { translateGemmaPrompt } from "@lambe/translation/domain/prompt/translategemma-prompt";
 import { sha256Hasher } from "@lambe/translation/infrastructure/hashing/sha256-hasher";
-import { ConcurrencyLimitedProvider } from "@lambe/translation/infrastructure/providers/concurrency-limited-provider";
-import { OllamaProvider } from "@lambe/translation/infrastructure/providers/ollama-provider";
+import { AdaptiveConcurrencyProvider } from "@lambe/translation/infrastructure/providers/adaptive-concurrency-provider";
+import {
+  KEEP_ALIVE_MS,
+  OllamaProvider,
+} from "@lambe/translation/infrastructure/providers/ollama-provider";
 import { StorageTranslationCache } from "../adapters/chrome/storage-translation-cache";
 import { loadRuntimeConfig } from "../config/runtime-config";
 import { TOGGLE_MESSAGE } from "../messaging/toggle.contract";
@@ -25,7 +29,12 @@ const TOGGLE_COMMAND = "toggle-translation";
 
 const MISSING_RECEIVER = "Receiving end does not exist";
 
-async function buildBatchService(): Promise<BatchTranslationService> {
+interface Worker {
+  service: BatchTranslationService;
+  capacity: ProviderCapacity;
+}
+
+async function buildWorker(): Promise<Worker> {
   const config = await loadRuntimeConfig(chrome.storage.local, chrome.i18n.getUILanguage());
   const { provider } = config;
   const ollama = new OllamaProvider({
@@ -36,8 +45,14 @@ async function buildBatchService(): Promise<BatchTranslationService> {
     forbiddenHint: `chrome-extension://${chrome.runtime.id}`,
   });
 
-  return new BatchTranslationService({
-    provider: new ConcurrencyLimitedProvider(ollama, provider.concurrency),
+  const adaptive = new AdaptiveConcurrencyProvider(ollama, {
+    maxConcurrency: provider.concurrency,
+    forgetAfterIdleMs: KEEP_ALIVE_MS,
+    now: Date.now,
+    onStats: (stats) => console.debug("Lambë: ollama stats", stats),
+  });
+  const service = new BatchTranslationService({
+    provider: adaptive,
     cache: new StorageTranslationCache(chrome.storage.local),
     hasher: sha256Hasher,
     prompt:
@@ -45,6 +60,8 @@ async function buildBatchService(): Promise<BatchTranslationService> {
     contextTokens: config.contextTokens,
     maxSegmentsPerBatch: config.maxSegmentsPerBatch,
   });
+
+  return { service, capacity: adaptive };
 }
 
 function isMissingReceiver(cause: unknown): boolean {
@@ -74,12 +91,19 @@ async function toggleActiveTab(): Promise<void> {
 }
 
 export function startBackground(): void {
-  let service: Promise<BatchTranslationService> | undefined;
+  let worker: Promise<Worker> | undefined;
+  let capacity: ProviderCapacity | undefined;
 
-  const batchService = (): Promise<BatchTranslationService> => {
-    service ??= buildBatchService();
+  const reported: ProviderCapacity = { concurrency: () => capacity?.concurrency() ?? 1 };
 
-    return service;
+  const batchService = async (): Promise<BatchTranslationService> => {
+    worker ??= buildWorker();
+
+    const built = await worker;
+
+    capacity = built.capacity;
+
+    return built.service;
   };
 
   const answer = async (
@@ -89,7 +113,7 @@ export function startBackground(): void {
     try {
       return await respondToTranslateBatch(payload, await batchService(), options);
     } catch (cause) {
-      service = undefined;
+      worker = undefined;
 
       return unexpectedFailure(cause);
     }
@@ -98,7 +122,7 @@ export function startBackground(): void {
   chrome.runtime.onConnect.addListener((port) => {
     if (port.name !== TRANSLATE_PORT_NAME) return;
 
-    serveTranslatePort(port, answer);
+    serveTranslatePort(port, answer, reported);
   });
 
   chrome.action.onClicked.addListener((tab) => {

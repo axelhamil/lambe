@@ -29,7 +29,7 @@ describe("instructionPrompt", () => {
     const messages = instructionPrompt.build(input);
 
     expect(messages.map((message) => message.role)).toEqual(["system", "user"]);
-    expect(messages[1]?.content).toEndWith('<seg n="1">Fork the <g1>repository</g1>.</seg>');
+    expect(messages[1]?.content).toEndWith("[1] Fork the <g1>repository</g1>.");
   });
 
   test("system_contains_domain_brief_title_host_and_headings", () => {

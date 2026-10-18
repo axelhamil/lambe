@@ -5,20 +5,18 @@ export type ProximityRank = 0 | 1;
 interface QueueEntry {
   id: BlockId;
   rank: ProximityRank;
-  order: number;
+  position: number;
 }
 
 export class TranslationQueue {
   private readonly entries = new Map<string, QueueEntry>();
-  private nextOrder = 0;
 
-  public enqueue(id: BlockId, rank: ProximityRank): void {
+  public enqueue(id: BlockId, rank: ProximityRank, position: number): void {
     const existing = this.entries.get(id.value);
 
     if (existing !== undefined && existing.rank <= rank) return;
 
-    this.entries.set(id.value, { id, rank, order: this.nextOrder });
-    this.nextOrder += 1;
+    this.entries.set(id.value, { id, rank, position });
   }
 
   public drop(id: BlockId): void {
@@ -28,7 +26,7 @@ export class TranslationQueue {
   public take(max: number, maxRank: ProximityRank = 1): BlockId[] {
     const taken = [...this.entries.values()]
       .filter((entry) => entry.rank <= maxRank)
-      .sort((left, right) => left.rank - right.rank || left.order - right.order)
+      .sort((left, right) => left.rank - right.rank || left.position - right.position)
       .slice(0, Math.max(0, max));
 
     for (const entry of taken) this.entries.delete(entry.id.value);

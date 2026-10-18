@@ -1,12 +1,13 @@
 import type { Option } from "@lambe/kernel/option";
 import { Result } from "@lambe/kernel/result";
-import { decodeBatch, encodeBatch } from "../domain/batch/batch-format";
+import { decodeBatch, decodeStreamedBatch, encodeBatch } from "../domain/batch/batch-format";
 import { estimateTokens, maxInputTokens, planBatches } from "../domain/batch/budget";
 import { splitNodes } from "../domain/batch/split";
 import type { InlineNode } from "../domain/block/inline-node";
 import { cacheKey } from "../domain/cache/cache-key";
 import type { CachePolicy } from "../domain/cache/cache-policy";
 import type { LanguageCode } from "../domain/language/value-objects/language-code.vo";
+import { type EdgeShell, peelEdges, rewrapEdges } from "../domain/markup/edge-shell";
 import { restoreEmptyGroups, withoutEmptyGroups } from "../domain/markup/empty-groups";
 import { type MarkupErrorCode, parseMarkup, toMarkup } from "../domain/markup/markup";
 import { checkAgainstSource } from "../domain/markup/structure-check";
@@ -71,43 +72,15 @@ type PieceResults = Map<Piece, PieceResult>;
 type GroupResult = Result<{ markup: string; fromCache: boolean }, SegmentFailureCode>;
 
 interface PiecePlan {
-  outer: number[];
+  shell: EdgeShell;
   pieces: Piece[];
 }
 
-interface Peeled {
-  outer: number[];
-  inner: InlineNode[];
-}
-
-function peel(nodes: InlineNode[]): Peeled {
-  const outer: number[] = [];
-  let inner = nodes;
-
-  for (;;) {
-    const [only] = inner;
-
-    if (inner.length !== 1 || only?.kind !== "group" || only.children.length === 0) {
-      return { outer, inner };
-    }
-
-    outer.push(only.key);
-    inner = only.children;
-  }
-}
-
-function rewrap(outer: number[], markup: string): PieceResult {
-  if (outer.length === 0) return Result.ok(markup);
+function rewrap(shell: EdgeShell, markup: string): PieceResult {
+  if (shell.length === 0) return Result.ok(markup);
 
   return parseMarkup(markup)
-    .map((nodes) =>
-      toMarkup(
-        outer.reduceRight<InlineNode[]>(
-          (children, key) => [{ kind: "group", key, children }],
-          nodes,
-        ),
-      ),
-    )
+    .map((nodes) => toMarkup(rewrapEdges(shell, nodes)))
     .mapError((error): SegmentFailureCode => error.code);
 }
 
@@ -205,14 +178,14 @@ class BatchRun {
 
     this.pieces.set(piece, result);
 
-    const { outer, pieces } = this.plans.get(group) ?? { outer: [], pieces: [piece] };
+    const { shell, pieces } = this.plans.get(group) ?? { shell: [], pieces: [piece] };
 
     if (!pieces.every((member) => this.pieces.get(member)?.isSuccess)) return;
 
     this.settle(
       group,
       joinPieces(pieces, this.pieces)
-        .flatMap((markup) => rewrap(outer, markup))
+        .flatMap((markup) => rewrap(shell, markup))
         .map((markup) => ({ markup, fromCache: false })),
     );
   }
@@ -239,9 +212,9 @@ function streamedSegments(pieces: Piece[], run: BatchRun): (delta: string) => vo
   return (delta) => {
     streamed += delta;
 
-    if (!delta.includes(">")) return;
+    if (!delta.includes("]")) return;
 
-    for (const [n, markup] of decodeBatch(streamed)) {
+    for (const [n, markup] of decodeStreamedBatch(streamed)) {
       const piece = pieces[n - 1];
 
       if (seen.has(n) || piece === undefined) continue;
@@ -355,12 +328,12 @@ export class BatchTranslationService {
     return parseMarkup(group.markup)
       .mapError((error): SegmentFailureCode => error.code)
       .flatMap((nodes) => {
-        const { outer, inner } = peel(nodes);
+        const { shell, core } = peelEdges(nodes);
 
-        return splitNodes(inner, budget)
+        return splitNodes(core, budget)
           .mapError((error): SegmentFailureCode => error.code)
           .map((parts) => ({
-            outer,
+            shell,
             pieces: parts.map((part, index) => ({
               group,
               nodes: part,

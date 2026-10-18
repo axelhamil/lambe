@@ -19,6 +19,7 @@ import type {
 import type { BatchTranslator } from "./ports/batch-translator";
 import type { LanguageDetector } from "./ports/language-detector";
 import type { PageSurface } from "./ports/page-surface";
+import type { ProviderCapacity } from "./ports/provider-capacity";
 
 export type ViewState =
   | { kind: "original" }
@@ -29,6 +30,7 @@ export type ViewState =
 export interface PageTranslationDeps {
   surface: PageSurface;
   translator: BatchTranslator;
+  capacity: ProviderCapacity;
   detector: LanguageDetector;
   target: LanguageCode;
   maxSegmentsPerRequest: number;
@@ -53,6 +55,8 @@ interface RequestScope {
 }
 
 type Outcomes = Map<string, SegmentOutcome>;
+
+const REQUESTS_AHEAD = 1;
 
 function structuredNodes(outcome: SegmentOutcome | undefined): Option<InlineNode[]> {
   if (outcome?.status !== "translated") return Option.none();
@@ -109,12 +113,45 @@ function chunks<T>(items: T[], size: number): T[][] {
   );
 }
 
+function balancedRuns<T>(
+  items: T[],
+  parts: number,
+  maxSize: number,
+  weight: (item: T) => number,
+): T[][] {
+  const weights = items.map(weight);
+  const total = weights.reduce((sum, value) => sum + value, 0);
+  const runs: T[][] = [];
+  let run: T[] = [];
+  let reached = 0;
+
+  items.forEach((item, index) => {
+    run.push(item);
+    reached += weights[index] ?? 0;
+
+    const left = items.length - index - 1;
+    const partsLeft = parts - runs.length - 1;
+    const target = (total * (runs.length + 1)) / parts - (weights[index + 1] ?? 0) / 2;
+    const balanced = reached >= target && left <= partsLeft * maxSize;
+
+    if (left === 0 || !(run.length >= maxSize || balanced || left <= partsLeft)) return;
+
+    runs.push(run);
+    run = [];
+  });
+
+  if (run.length > 0) runs.push(run);
+
+  return runs;
+}
+
 export class PageTranslationService {
   private view: ViewState = { kind: "original" };
   private readonly listeners = new Set<StateListener>();
   private readonly queue = new TranslationQueue();
   private readonly blocks = new Map<string, Block>();
   private readonly ranks = new Map<string, ProximityRank>();
+  private readonly positions = new Map<string, number>();
   private readonly reported = new Set<string>();
   private readonly settled = new Set<string>();
   private readonly inFlight = new Set<string>();
@@ -125,7 +162,10 @@ export class PageTranslationService {
   private epoch = 0;
   private firstRequestPending = true;
   private transportRetried = false;
+  private transportGeneration = 0;
+  private nextPosition = 0;
   private pumping = false;
+  private wake: () => void = () => undefined;
   private drained: Promise<void> = Promise.resolve();
 
   public constructor(private readonly deps: PageTranslationDeps) {}
@@ -255,6 +295,7 @@ export class PageTranslationService {
       const key = block.id.value;
 
       this.blocks.set(key, block);
+      this.positions.set(key, this.positions.get(key) ?? this.nextPosition++);
       this.settled.delete(key);
       this.enqueueIfPending(key);
     }
@@ -263,6 +304,7 @@ export class PageTranslationService {
   private forget(key: string): void {
     this.blocks.delete(key);
     this.ranks.delete(key);
+    this.positions.delete(key);
     this.reported.delete(key);
     this.settled.delete(key);
   }
@@ -292,7 +334,7 @@ export class PageTranslationService {
 
     if (this.settled.has(key) || this.inFlight.has(key)) return;
 
-    this.queue.enqueue(block.id, rank);
+    this.queue.enqueue(block.id, rank, this.positions.get(key) ?? 0);
   }
 
   private canPump(): boolean {
@@ -302,7 +344,13 @@ export class PageTranslationService {
   private schedule(): void {
     const session = this.session;
 
-    if (this.pumping || session === undefined || !this.canPump()) return;
+    if (this.pumping) {
+      this.wake();
+
+      return;
+    }
+
+    if (session === undefined || !this.canPump()) return;
 
     this.pumping = true;
     this.drained = this.pump(session);
@@ -329,39 +377,76 @@ export class PageTranslationService {
   private async drain(session: Session): Promise<Option<ProviderError>> {
     await Promise.resolve();
 
-    while (this.canPump()) {
-      const ids = this.takeNext();
+    const lanes = new Set<Promise<void>>();
+    let failure: Option<ProviderError> = Option.none();
 
-      if (ids.length === 0) break;
+    for (;;) {
+      const free = this.laneCount() - lanes.size;
+      const requests = failure.isNone() && this.canPump() && free > 0 ? this.takeNext(free) : [];
 
-      const processed = await this.process(
-        ids.flatMap((id) => this.blocks.get(id.value) ?? []),
-        session,
-      );
+      for (const ids of requests) {
+        const lane = this.process(
+          ids.flatMap((id) => this.blocks.get(id.value) ?? []),
+          session,
+        ).then((processed) => {
+          lanes.delete(lane);
 
-      if (processed.isFailure) return Option.some(processed.getError());
+          if (processed.isFailure && failure.isNone()) failure = Option.some(processed.getError());
+        });
+
+        lanes.add(lane);
+      }
+
+      if (requests.length > 0) continue;
+
+      if (lanes.size === 0) return failure;
+
+      await Promise.race([
+        ...lanes,
+        new Promise<void>((resolve) => {
+          this.wake = resolve;
+        }),
+      ]);
     }
-
-    return Option.none();
   }
 
-  private takeNext(): BlockId[] {
+  private laneCount(): number {
+    return Math.max(1, this.deps.capacity.concurrency()) + REQUESTS_AHEAD;
+  }
+
+  private takeNext(free: number): BlockId[][] {
     const max = Math.max(1, this.deps.maxSegmentsPerRequest);
 
-    if (!this.firstRequestPending) return this.queue.take(max);
+    if (this.firstRequestPending) {
+      const first = this.queue.take(Math.min(max, Math.max(1, this.deps.firstRequestSegments)), 0);
 
-    const first = this.queue.take(Math.min(max, Math.max(1, this.deps.firstRequestSegments)), 0);
+      if (first.length > 0) {
+        this.firstRequestPending = false;
 
-    if (first.length === 0) return this.queue.take(max);
+        return [first];
+      }
+    }
 
-    this.firstRequestPending = false;
+    const parts = Math.min(free, Math.max(1, this.deps.capacity.concurrency()));
+    const visible = parts > 1 ? this.queue.take(parts * max, 0) : [];
 
-    return first;
+    if (visible.length > 0) {
+      return balancedRuns(visible, parts, max, (id) => {
+        const block = this.blocks.get(id.value);
+
+        return block === undefined ? 0 : toMarkup(block.nodes).length;
+      });
+    }
+
+    const next = this.queue.take(max);
+
+    return next.length > 0 ? [next] : [];
   }
 
   private async process(batch: Block[], session: Session): Promise<Result<void, ProviderError>> {
     const controller = new AbortController();
     const scope = { epoch: this.epoch, signal: controller.signal };
+    const generation = this.transportGeneration;
 
     this.controllers.add(controller);
 
@@ -380,7 +465,7 @@ export class PageTranslationService {
 
       if (stale) return Result.ok();
 
-      return this.transportFailure(plan.getError());
+      return this.transportFailure(plan.getError(), generation);
     }
 
     this.transportRetried = false;
@@ -389,12 +474,15 @@ export class PageTranslationService {
     return Result.ok();
   }
 
-  private transportFailure(error: ProviderError): Result<void, ProviderError> {
+  private transportFailure(error: ProviderError, generation: number): Result<void, ProviderError> {
     if (error.code !== "REQUEST_CANCELLED") return Result.fail(error);
+
+    if (generation !== this.transportGeneration) return Result.ok();
 
     if (this.transportRetried) return Result.fail(workerDisconnected());
 
     this.transportRetried = true;
+    this.transportGeneration += 1;
 
     return Result.ok();
   }

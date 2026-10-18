@@ -9,35 +9,35 @@ const values = (ids: BlockId[]): string[] => ids.map((blockId) => blockId.value)
 describe("TranslationQueue", () => {
   test("visible_before_next_screen_regardless_of_insertion_order", () => {
     const queue = new TranslationQueue();
-    queue.enqueue(id("ahead-1"), 1);
-    queue.enqueue(id("visible-1"), 0);
-    queue.enqueue(id("ahead-2"), 1);
-    queue.enqueue(id("visible-2"), 0);
+    queue.enqueue(id("ahead-1"), 1, 0);
+    queue.enqueue(id("visible-1"), 0, 1);
+    queue.enqueue(id("ahead-2"), 1, 2);
+    queue.enqueue(id("visible-2"), 0, 3);
 
     const taken = queue.take(4);
 
     expect(values(taken)).toEqual(["visible-1", "visible-2", "ahead-1", "ahead-2"]);
   });
 
-  test("fifo_within_a_rank", () => {
+  test("document_order_within_a_rank_regardless_of_insertion_order", () => {
     const queue = new TranslationQueue();
-    queue.enqueue(id("c"), 1);
-    queue.enqueue(id("a"), 1);
-    queue.enqueue(id("b"), 1);
+    queue.enqueue(id("c"), 0, 2);
+    queue.enqueue(id("a"), 0, 0);
+    queue.enqueue(id("b"), 0, 1);
 
     const taken = queue.take(3);
 
-    expect(values(taken)).toEqual(["c", "a", "b"]);
+    expect(values(taken)).toEqual(["a", "b", "c"]);
   });
 
   test("reenqueue_upgrades_but_never_downgrades", () => {
     const queue = new TranslationQueue();
-    queue.enqueue(id("upgraded"), 1);
-    queue.enqueue(id("visible"), 0);
-    queue.enqueue(id("ahead"), 1);
+    queue.enqueue(id("upgraded"), 1, 1);
+    queue.enqueue(id("visible"), 0, 0);
+    queue.enqueue(id("ahead"), 1, 2);
 
-    queue.enqueue(id("upgraded"), 0);
-    queue.enqueue(id("visible"), 1);
+    queue.enqueue(id("upgraded"), 0, 1);
+    queue.enqueue(id("visible"), 1, 0);
 
     expect(values(queue.take(3))).toEqual(["visible", "upgraded", "ahead"]);
     expect(queue.size()).toBe(0);
@@ -45,8 +45,8 @@ describe("TranslationQueue", () => {
 
   test("drop_removes_and_ignores_absent", () => {
     const queue = new TranslationQueue();
-    queue.enqueue(id("kept"), 0);
-    queue.enqueue(id("far"), 1);
+    queue.enqueue(id("kept"), 0, 0);
+    queue.enqueue(id("far"), 1, 1);
 
     queue.drop(id("far"));
     queue.drop(id("never-enqueued"));
@@ -56,9 +56,9 @@ describe("TranslationQueue", () => {
 
   test("take_removes_returned_ids", () => {
     const queue = new TranslationQueue();
-    queue.enqueue(id("a"), 0);
-    queue.enqueue(id("b"), 0);
-    queue.enqueue(id("c"), 1);
+    queue.enqueue(id("a"), 0, 0);
+    queue.enqueue(id("b"), 0, 1);
+    queue.enqueue(id("c"), 1, 2);
 
     const first = queue.take(2);
 

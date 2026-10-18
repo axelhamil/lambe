@@ -59,8 +59,10 @@ describe("respondToTranslateBatch", () => {
           signal.addEventListener("abort", () => resolve(Result.fail(requestCancelled())));
         }),
     );
-    serveTranslatePort(port, (body, options) =>
-      respondToTranslateBatch(body, { translate }, options),
+    serveTranslatePort(
+      port,
+      (body, options) => respondToTranslateBatch(body, { translate }, options),
+      { concurrency: () => 2 },
     );
 
     deliver({ type: "translate", requestId: "1", payload });
@@ -80,6 +82,7 @@ describe("respondToTranslateBatch", () => {
         type: "done",
         requestId: "1",
         response: { ok: false, error: expect.objectContaining({ code: "REQUEST_CANCELLED" }) },
+        concurrency: 2,
       },
     ]);
   });

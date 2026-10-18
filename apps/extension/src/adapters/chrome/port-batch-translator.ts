@@ -5,6 +5,7 @@ import type {
   SegmentOutcome,
 } from "@lambe/translation/application/batch-translation.service";
 import type { BatchTranslator } from "@lambe/translation/application/ports/batch-translator";
+import type { ProviderCapacity } from "@lambe/translation/application/ports/provider-capacity";
 import {
   type ProviderError,
   providerError,
@@ -41,8 +42,9 @@ const unreachable = (cause: unknown): ProviderError =>
 
 const ignoreOutcome = (): void => undefined;
 
-export class PortBatchTranslator implements BatchTranslator {
+export class PortBatchTranslator implements BatchTranslator, ProviderCapacity {
   private port: RuntimePort | undefined;
+  private reportedConcurrency = 1;
   private readonly pending = new Map<string, Pending>();
   private nextId = 0;
 
@@ -84,6 +86,10 @@ export class PortBatchTranslator implements BatchTranslator {
 
       if (posted.isFailure) this.settle(requestId, Result.fail(posted.getError()));
     });
+  }
+
+  public concurrency(): number {
+    return this.reportedConcurrency;
   }
 
   private connected(): Result<RuntimePort, ProviderError> {
@@ -146,8 +152,9 @@ export class PortBatchTranslator implements BatchTranslator {
       return;
     }
 
-    const { response } = parsed.data;
+    const { response, concurrency } = parsed.data;
 
+    this.reportedConcurrency = concurrency;
     this.settle(
       requestId,
       response.ok ? Result.ok(response.outcomes) : Result.fail(response.error),

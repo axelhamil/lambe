@@ -13,7 +13,7 @@ describe("loadRuntimeConfig", () => {
       kind: "ollama",
       baseUrl: "http://localhost:11434",
       model: "translategemma:12b",
-      concurrency: 1,
+      concurrency: 8,
       timeoutMs: 120000,
     });
     expect(config.target.value).toBe("fr");
@@ -46,7 +46,7 @@ describe("loadRuntimeConfig", () => {
       "12-unknown",
     );
 
-    expect(wrongTypes.provider.concurrency).toBe(1);
+    expect(wrongTypes.provider.concurrency).toBe(8);
     expect(wrongTypes.target.value).toBe("de");
     expect(notAnObject.target.value).toBe("de");
     expect(failing.target.value).toBe("en");

@@ -56,10 +56,20 @@ describe("PortBatchTranslator", () => {
 
     const pending = translator.translate(request, { onOutcome });
     first?.deliver({ type: "outcome", requestId: "1", outcome: bonjour });
-    first?.deliver({ type: "done", requestId: "1", response: { ok: true, outcomes: [bonjour] } });
+    first?.deliver({
+      type: "done",
+      requestId: "1",
+      response: { ok: true, outcomes: [bonjour] },
+      concurrency: 1,
+    });
     const result = await pending;
     const second = translator.translate(request);
-    first?.deliver({ type: "done", requestId: "2", response: { ok: true, outcomes: [] } });
+    first?.deliver({
+      type: "done",
+      requestId: "2",
+      response: { ok: true, outcomes: [] },
+      concurrency: 1,
+    });
     await second;
 
     expect(onOutcome.mock.calls).toEqual([[bonjour]]);
@@ -72,6 +82,24 @@ describe("PortBatchTranslator", () => {
     });
   });
 
+  test("reports_the_concurrency_carried_by_the_last_done_message", async () => {
+    const { ports, translator } = setup();
+    const [first] = ports;
+    const before = translator.concurrency();
+
+    const pending = translator.translate(request);
+    first?.deliver({
+      type: "done",
+      requestId: "1",
+      response: { ok: true, outcomes: [] },
+      concurrency: 3,
+    });
+    await pending;
+
+    expect(before).toBe(1);
+    expect(translator.concurrency()).toBe(3);
+  });
+
   test("error_and_malformed_done_messages_map_to_failures", async () => {
     const { ports, translator } = setup();
     const [first] = ports;
@@ -79,7 +107,12 @@ describe("PortBatchTranslator", () => {
 
     const failing = translator.translate(request);
     const malformed = translator.translate(request);
-    first?.deliver({ type: "done", requestId: "1", response: { ok: false, error } });
+    first?.deliver({
+      type: "done",
+      requestId: "1",
+      response: { ok: false, error },
+      concurrency: 1,
+    });
     first?.deliver({ type: "done", requestId: "2", response: "nope" });
 
     expect((await failing).getError()).toEqual(error);
@@ -105,7 +138,12 @@ describe("PortBatchTranslator", () => {
     first?.disconnect();
     const cancelled = await pending;
     const retried = translator.translate(request);
-    second?.deliver({ type: "done", requestId: "2", response: { ok: true, outcomes: [bonjour] } });
+    second?.deliver({
+      type: "done",
+      requestId: "2",
+      response: { ok: true, outcomes: [bonjour] },
+      concurrency: 1,
+    });
 
     expect(cancelled.getError().code).toBe("REQUEST_CANCELLED");
     expect((await retried).getValue()).toEqual([bonjour]);

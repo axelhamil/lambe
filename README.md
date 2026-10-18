@@ -42,6 +42,10 @@ Environment="OLLAMA_ORIGINS=chrome-extension://dccgcoohbalgmgkflpndagoallbcgnch"
 
 Save, then run `sudo systemctl restart ollama`.
 
+## Optional: parallel requests
+
+Nothing else is required. Lambë keeps one request queued ahead of the one streaming, so the GPU never waits between requests, and asks Ollama to keep the model loaded for 30 s (`keep_alive`). If you also add `Environment="OLLAMA_NUM_PARALLEL=4"` to the same `[Service]` block, Lambë sees the replies stream side by side, raises its concurrency up to `provider.concurrency` (default 8) and splits the visible screen across the slots. Without it, Lambë stays at 1 request at a time.
+
 ## Configuration override
 
 There is no settings page yet. Defaults: Ollama on `http://localhost:11434`, `translategemma:12b`, target language from the browser UI. To override, open the service worker console (`chrome://extensions`, Lambë, **service worker**) and run:
@@ -50,7 +54,7 @@ There is no settings page yet. Defaults: Ollama on `http://localhost:11434`, `tr
 chrome.storage.local.set({ "lambe:config": { target: "fr" } })
 ```
 
-Other keys: `provider` (`baseUrl`, `model`, `concurrency`, `timeoutMs`), `contextTokens`, `maxSegmentsPerBatch`, `maxSegmentsPerRequest`, `firstRequestSegments`. Reload the extension after changing the provider and the page after changing the target. An invalid override falls back to the defaults.
+Other keys: `provider` (`baseUrl`, `model`, `concurrency` as an upper bound, `timeoutMs`), `contextTokens`, `maxSegmentsPerBatch`, `maxSegmentsPerRequest`, `firstRequestSegments`. Reload the extension after changing the provider and the page after changing the target. An invalid override falls back to the defaults.
 
 ## Use
 

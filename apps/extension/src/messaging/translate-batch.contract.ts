@@ -93,6 +93,7 @@ export const workerMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("done"),
     requestId: requestIdSchema,
     response: translateBatchResponseSchema,
+    concurrency: z.int().positive(),
   }),
 ]);
 

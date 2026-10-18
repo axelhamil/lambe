@@ -2,9 +2,19 @@ import type { Result } from "@lambe/kernel/result";
 import type { ChatMessage } from "../../domain/prompt/prompt-adapter";
 import type { ProviderError } from "../../domain/provider/provider-error";
 
+export interface GenerationStats {
+  loadMs: number;
+  promptTokens: number;
+  promptMs: number;
+  outputTokens: number;
+  outputMs: number;
+  totalMs: number;
+}
+
 export interface ChatOptions {
   contextTokens: number;
   onText?: (delta: string) => void;
+  onStats?: (stats: GenerationStats) => void;
   signal?: AbortSignal;
 }
 

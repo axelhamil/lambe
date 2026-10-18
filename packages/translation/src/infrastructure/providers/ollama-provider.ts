@@ -2,6 +2,7 @@ import { Result } from "@lambe/kernel/result";
 import { z } from "zod";
 import type {
   ChatOptions,
+  GenerationStats,
   TranslationProvider,
 } from "../../application/ports/translation-provider";
 import type { ChatMessage } from "../../domain/prompt/prompt-adapter";
@@ -10,6 +11,8 @@ import {
   providerError,
   requestCancelled,
 } from "../../domain/provider/provider-error";
+
+export const KEEP_ALIVE_MS = 30_000;
 
 export type FetchFn = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -23,12 +26,45 @@ export interface OllamaConfig {
 
 type ChatResult = Result<string, ProviderError>;
 
+const counter = z.number().nonnegative().default(0);
+
 const chatChunkSchema = z.union([
   z.object({ error: z.string() }),
-  z.object({ message: z.object({ content: z.string() }), done: z.boolean() }),
+  z.object({
+    message: z.object({ content: z.string() }),
+    done: z.boolean(),
+    load_duration: counter,
+    prompt_eval_count: counter,
+    prompt_eval_duration: counter,
+    eval_count: counter,
+    eval_duration: counter,
+    total_duration: counter,
+  }),
 ]);
 
 type ChatChunk = z.infer<typeof chatChunkSchema>;
+
+type ContentChunk = Exclude<ChatChunk, { error: string }>;
+
+const NANOS_PER_MS = 1_000_000;
+
+function statsOf(chunk: ContentChunk): GenerationStats {
+  const ms = (nanos: number) => Math.round(nanos / NANOS_PER_MS);
+
+  return {
+    loadMs: ms(chunk.load_duration),
+    promptTokens: chunk.prompt_eval_count,
+    promptMs: ms(chunk.prompt_eval_duration),
+    outputTokens: chunk.eval_count,
+    outputMs: ms(chunk.eval_duration),
+    totalMs: ms(chunk.total_duration),
+  };
+}
+
+interface StreamListeners {
+  onText: (delta: string) => void;
+  onStats: (stats: GenerationStats) => void;
+}
 
 interface IdleTimer {
   reset(): void;
@@ -82,7 +118,7 @@ class ChunkAccumulator {
   private content = "";
   private finished = false;
 
-  public constructor(private readonly onText: (delta: string) => void) {}
+  public constructor(private readonly listeners: StreamListeners) {}
 
   public push(line: string): Result<void, ProviderError> {
     if (line.trim() === "" || this.finished) return Result.ok();
@@ -99,7 +135,9 @@ class ChunkAccumulator {
       this.content += delta;
       this.finished = chunk.done;
 
-      if (delta !== "") this.onText(delta);
+      if (delta !== "") this.listeners.onText(delta);
+
+      if (chunk.done) this.listeners.onStats(statsOf(chunk));
 
       return Result.ok();
     });
@@ -176,7 +214,10 @@ export class OllamaProvider implements TranslationProvider {
 
     idle.reset();
 
-    return this.read(sent.getValue(), idle, signal, options.onText ?? (() => undefined));
+    return this.read(sent.getValue(), idle, signal, {
+      onText: options.onText ?? (() => undefined),
+      onStats: options.onStats ?? (() => undefined),
+    });
   }
 
   private async send(
@@ -189,7 +230,7 @@ export class OllamaProvider implements TranslationProvider {
       model,
       messages,
       stream: true,
-      keep_alive: "5m",
+      keep_alive: `${KEEP_ALIVE_MS / 1000}s`,
       options: { temperature: 0, num_ctx: contextTokens },
     };
 
@@ -211,7 +252,7 @@ export class OllamaProvider implements TranslationProvider {
     response: Response,
     idle: IdleTimer,
     signal: AbortSignal,
-    onText: (delta: string) => void,
+    listeners: StreamListeners,
   ): Promise<ChatResult> {
     const statusError = this.statusError(response.status);
 
@@ -224,7 +265,7 @@ export class OllamaProvider implements TranslationProvider {
     const reader = response.body.getReader();
 
     try {
-      const streamed = await this.accumulate(reader, idle, signal, onText);
+      const streamed = await this.accumulate(reader, idle, signal, listeners);
 
       if (!streamed.done) void reader.cancel().catch(() => undefined);
 
@@ -247,10 +288,10 @@ export class OllamaProvider implements TranslationProvider {
     reader: ReadableStreamDefaultReader<Uint8Array>,
     idle: IdleTimer,
     signal: AbortSignal,
-    onText: (delta: string) => void,
+    listeners: StreamListeners,
   ): Promise<{ result: ChatResult; done: boolean }> {
     const decoder = new TextDecoder();
-    const chunks = new ChunkAccumulator(onText);
+    const chunks = new ChunkAccumulator(listeners);
     let buffer = "";
 
     for (;;) {

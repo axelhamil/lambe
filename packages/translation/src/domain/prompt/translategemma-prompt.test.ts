@@ -52,7 +52,7 @@ describe("translateGemmaPrompt", () => {
     const content = contentOf(input());
 
     expect(content).toContain(
-      'Keep every <seg n="N"> wrapper and every <xN/> and <gN>...</gN> tag exactly as given',
+      "Keep the [N] number at the start of every line and every <xN/> and <gN>...</gN> tag exactly as given",
     );
   });
 
@@ -68,7 +68,7 @@ describe("translateGemmaPrompt", () => {
     const content = contentOf(input());
 
     expect(content).toEndWith(
-      'into French:\n\n\n<seg n="1">Open a <g1>pull request</g1>.</seg>\n<seg n="2">Run <x1/> first.</seg>',
+      "into French:\n\n\n[1] Open a <g1>pull request</g1>.\n[2] Run <x1/> first.",
     );
   });
 });

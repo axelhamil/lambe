@@ -26,7 +26,7 @@ function build({ source, target, brief, segments }: PromptInput): ChatMessage[] 
     JARGON_RULE,
     "Keep the tone, register and formatting of the source.",
     TAG_RULE,
-    'Return exactly the segments you received, one <seg n="N">...</seg> line each, with the same numbers, and nothing else.',
+    "Return exactly the segments you received, one [N] line each, with the same numbers, and nothing else.",
   ].join("\n");
 
   return [

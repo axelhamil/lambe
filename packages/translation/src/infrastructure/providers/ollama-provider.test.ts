@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import type { GenerationStats } from "../../application/ports/translation-provider";
 import type { ChatMessage } from "../../domain/prompt/prompt-adapter";
 import { type FetchFn, OllamaProvider } from "./ollama-provider";
 
@@ -74,7 +75,7 @@ describe("OllamaProvider", () => {
       model: "translategemma:12b",
       messages,
       stream: true,
-      keep_alive: "5m",
+      keep_alive: "30s",
       options: { temperature: 0, num_ctx: 2048 },
     });
   });
@@ -258,6 +259,40 @@ describe("OllamaProvider", () => {
     expect(onText.mock.calls.map(([delta]) => delta)).toEqual(["Bon", "jour"]);
     expect(fetch.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
     expect(cancelled.getError().code).toBe("REQUEST_CANCELLED");
+  });
+
+  test("reports_the_final_chunk_stats_in_milliseconds", async () => {
+    const onStats = mock((_stats: GenerationStats) => {});
+    const fetch = fetchReturning(() =>
+      ndjson(
+        { message: { role: "assistant", content: "Bonjour" }, done: false },
+        {
+          message: { role: "assistant", content: "" },
+          done: true,
+          load_duration: 120_400_000,
+          prompt_eval_count: 322,
+          prompt_eval_duration: 76_000_000,
+          eval_count: 79,
+          eval_duration: 930_000_000,
+          total_duration: 1_180_000_000,
+        },
+      ),
+    );
+
+    await providerWith(fetch).chat(messages, { contextTokens: 2048, onStats });
+
+    expect(onStats.mock.calls).toEqual([
+      [
+        {
+          loadMs: 120,
+          promptTokens: 322,
+          promptMs: 76,
+          outputTokens: 79,
+          outputMs: 930,
+          totalMs: 1180,
+        },
+      ],
+    ]);
   });
 
   test("does_not_retry_on_403", async () => {

@@ -50,7 +50,7 @@ const DEFAULT_PROVIDER: ProviderConfig = {
   kind: "ollama",
   baseUrl: "http://localhost:11434",
   model: "translategemma:12b",
-  concurrency: 1,
+  concurrency: 8,
   timeoutMs: 120000,
 };
 

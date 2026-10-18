@@ -65,7 +65,7 @@ const echo =
 
 const french = (markup: string): string => `fr: ${markup}`;
 
-const seg = (markup: string): string => `<seg n="1">${markup}</seg>`;
+const seg = (markup: string): string => `[1] ${markup}`;
 
 const sentences = (count: number): string =>
   Array.from({ length: count }, (_, index) => `Sentence ${index + 1} talks about forks.`).join(" ");
@@ -191,9 +191,7 @@ describe("BatchTranslationService", () => {
 
   test("lost_placeholder_twice_yields_failed_PLACEHOLDER_LOST_and_caches_nothing_for_it", async () => {
     const { provider, service, written } = setup();
-    provider.chat.mockResolvedValueOnce(
-      Result.ok('<seg n="1">Lancez maintenant.</seg>\n<seg n="2">Bonjour.</seg>'),
-    );
+    provider.chat.mockResolvedValueOnce(Result.ok("[1] Lancez maintenant.\n[2] Bonjour."));
     provider.chat.mockResolvedValueOnce(Result.ok(seg("Lancez maintenant.")));
 
     const result = await service.translate(
@@ -289,7 +287,7 @@ describe("BatchTranslationService", () => {
 
   test("missing_segment_in_response_is_retried_alone", async () => {
     const { provider, service, written, batchesSent } = setup();
-    provider.chat.mockResolvedValueOnce(Result.ok('<seg n="2">Bonjour.</seg>'));
+    provider.chat.mockResolvedValueOnce(Result.ok("[2] Bonjour."));
 
     const result = await service.translate(
       request([
@@ -360,20 +358,19 @@ describe("BatchTranslationService", () => {
     const result = await service.translate(request(segments));
 
     expect(result.getValue().every((outcome) => outcome.status === "translated")).toBe(true);
-    expect(batchesSent()).toHaveLength(7);
+    expect(batchesSent()).toHaveLength(6);
 
     for (const batch of batchesSent())
       expect(estimateTokens(batch)).toBeLessThanOrEqual(inputBudget);
   });
 
-  test("segments_are_emitted_as_soon_as_their_closing_tag_streams_in", async () => {
+  test("segments_are_emitted_as_soon_as_the_next_numbered_line_streams_in", async () => {
     const { provider, service } = setup();
     const onOutcome = emitted();
     const seenAfterEachDelta: number[] = [];
     provider.chat.mockImplementationOnce(
-      streaming(
-        ['<seg n="1">Bon', "jour.</se", 'g>\n<seg n="2">Lancez <x1', "/> maintenant.</seg>"],
-        () => seenAfterEachDelta.push(onOutcome.mock.calls.length),
+      streaming(["[1] Bon", "jour.\n", "[2", "] Lancez <x1", "/> maintenant."], () =>
+        seenAfterEachDelta.push(onOutcome.mock.calls.length),
       ),
     );
 
@@ -385,7 +382,7 @@ describe("BatchTranslationService", () => {
       { onOutcome },
     );
 
-    expect(seenAfterEachDelta).toEqual([0, 0, 1, 2]);
+    expect(seenAfterEachDelta).toEqual([0, 0, 0, 1, 1]);
     expect(onOutcome.mock.calls.map(([outcome]) => outcome)).toEqual(result.getValue());
     expect(result.getValue()).toEqual([
       { id: "a", status: "translated", markup: "Bonjour.", fromCache: false },
@@ -398,7 +395,7 @@ describe("BatchTranslationService", () => {
     const onOutcome = emitted();
     let emittedDuringStream = 0;
     provider.chat.mockImplementationOnce(
-      streaming(['<seg n="1">Lancez maintenant.</seg>\n', '<seg n="2">Bonjour.</seg>'], () => {
+      streaming(["[1] Lancez maintenant.\n", "[2] Bonjour.\n", "[3] Au revoir."], () => {
         emittedDuringStream = onOutcome.mock.calls.length;
       }),
     );
@@ -408,6 +405,7 @@ describe("BatchTranslationService", () => {
       request([
         { id: "a", markup: RUN },
         { id: "b", markup: "Hello." },
+        { id: "c", markup: "Bye." },
       ]),
       { onOutcome },
     );
@@ -416,12 +414,14 @@ describe("BatchTranslationService", () => {
     expect(onOutcome.mock.calls.map(([outcome]) => outcome)).toEqual([
       { id: "b", status: "translated", markup: "Bonjour.", fromCache: false },
       { id: "a", status: "translated", markup: "Lancez <x1/> maintenant.", fromCache: false },
+      { id: "c", status: "translated", markup: "Au revoir.", fromCache: false },
     ]);
     expect(provider.chat).toHaveBeenCalledTimes(2);
     expect(written()).toEqual(
       new Map([
         [keyOf("Hello."), "Bonjour."],
         [keyOf(RUN), "Lancez <x1/> maintenant."],
+        [keyOf("Bye."), "Au revoir."],
       ]),
     );
   });
@@ -514,7 +514,7 @@ describe("BatchTranslationService", () => {
 
   test("empty_group_after_text_stays_after_the_text_and_not_after_the_previous_atom", async () => {
     const { provider, service } = setup();
-    provider.chat.mockResolvedValue(Result.ok(seg("<x1/>À propos des forks")));
+    provider.chat.mockResolvedValue(Result.ok(seg("À propos des forks")));
 
     const result = await service.translate(
       request([{ id: "a", markup: "<x1/>About forks<g2></g2>" }]),
@@ -532,7 +532,7 @@ describe("BatchTranslationService", () => {
 
   test("empty_group_at_the_start_before_text_stays_at_the_start", async () => {
     const { provider, service } = setup();
-    provider.chat.mockResolvedValue(Result.ok(seg("À propos des forks<x1/>")));
+    provider.chat.mockResolvedValue(Result.ok(seg("À propos des forks")));
 
     const result = await service.translate(
       request([{ id: "a", markup: "<g2></g2>About forks<x1/>" }]),
@@ -564,5 +564,49 @@ describe("BatchTranslationService", () => {
       },
     ]);
     expect(written()).toEqual(new Map([[keyOf(markup), "<g1><g2>fr: Pull requests</g2></g1>"]]));
+  });
+
+  test("edge_atoms_and_wrapping_groups_are_sent_as_bare_text_and_restored", async () => {
+    const { service, batchesSent, written } = setup();
+    const markup = "<x1/> <g2><g3>Get <g4>started</g4> now</g3></g2> <x5/>";
+    const translated = "<x1/> <g2><g3>fr: Get <g4>started</g4> now</g3></g2> <x5/>";
+
+    const result = await service.translate(request([{ id: "a", markup }]));
+
+    expect(batchesSent()).toEqual([seg("Get <g4>started</g4> now")]);
+    expect(result.getValue()).toEqual([
+      { id: "a", status: "translated", markup: translated, fromCache: false },
+    ]);
+    expect(written()).toEqual(new Map([[keyOf(markup), translated]]));
+  });
+
+  test("space_between_an_edge_atom_and_its_text_survives_peeling", async () => {
+    const { service, batchesSent } = setup();
+
+    const result = await service.translate(
+      request([
+        { id: "a", markup: "<x1/> Fork" },
+        { id: "b", markup: "Star <x2/>" },
+        { id: "c", markup: "<x3/> <g4> Watch </g4>" },
+      ]),
+    );
+
+    expect(batchesSent()).toEqual(["[1] Fork\n[2] Star\n[3] Watch"]);
+    expect(
+      result.getValue().map((outcome) => outcome.status === "translated" && outcome.markup),
+    ).toEqual(["<x1/> fr: Fork", "fr: Star <x2/>", "<x3/> <g4> fr: Watch </g4>"]);
+  });
+
+  test("structure_check_still_guards_the_core_left_after_edge_peeling", async () => {
+    const { provider, service, written } = setup();
+    provider.chat.mockResolvedValue(Result.ok(seg("Démarrez maintenant")));
+
+    const result = await service.translate(
+      request([{ id: "a", markup: "<x1/> <g2><g3>Get <g4>started</g4> now</g3></g2>" }]),
+    );
+
+    expect(result.getValue()).toEqual([{ id: "a", status: "failed", code: "PLACEHOLDER_LOST" }]);
+    expect(provider.chat).toHaveBeenCalledTimes(2);
+    expect(written().size).toBe(0);
   });
 });

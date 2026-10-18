@@ -1,5 +1,6 @@
 import type { BatchTranslateOptions } from "@lambe/translation/application/batch-translation.service";
 import type { BatchTranslator } from "@lambe/translation/application/ports/batch-translator";
+import type { ProviderCapacity } from "@lambe/translation/application/ports/provider-capacity";
 import { providerError } from "@lambe/translation/domain/provider/provider-error";
 import type { RuntimePort } from "./runtime-port";
 import {
@@ -60,7 +61,11 @@ export async function respondToTranslateBatch(
   }
 }
 
-export function serveTranslatePort(port: RuntimePort, respond: RespondToTranslate): void {
+export function serveTranslatePort(
+  port: RuntimePort,
+  respond: RespondToTranslate,
+  capacity: ProviderCapacity,
+): void {
   const running = new Map<string, AbortController>();
   let connected = true;
 
@@ -106,7 +111,7 @@ export function serveTranslatePort(port: RuntimePort, respond: RespondToTranslat
       .then((response) => {
         if (running.get(requestId) === controller) running.delete(requestId);
 
-        post({ type: "done", requestId, response });
+        post({ type: "done", requestId, response, concurrency: capacity.concurrency() });
       });
   });
 }
