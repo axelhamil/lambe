@@ -1,6 +1,6 @@
 import { Option } from "@lambe/kernel/option";
 import { Result } from "@lambe/kernel/result";
-import type { Block } from "../domain/block/block";
+import type { Block, BlockRole } from "../domain/block/block";
 import { type BlockTranslation, textSlots } from "../domain/block/block-translation";
 import type { InlineNode } from "../domain/block/inline-node";
 import type { BlockId } from "../domain/block/value-objects/block-id.vo";
@@ -169,7 +169,6 @@ export class PageTranslationService {
   private transportRetried = false;
   private transportGeneration = 0;
   private nextPosition = 0;
-  private visibleFallbacks = 0;
   private pumping = false;
   private wake: () => void = () => undefined;
   private drained: Promise<void> = Promise.resolve();
@@ -443,15 +442,13 @@ export class PageTranslationService {
 
   private takeNext(free: number): BlockId[][] {
     const max = Math.max(1, this.deps.maxSegmentsPerRequest);
-
-    if (this.visibleFallbacks > 0) {
-      const visible = this.queue.take(max, 0, "content");
-
-      return visible.length > 0 ? [visible] : [];
-    }
+    const urgent = this.visibleContentOutstanding();
+    const maxRank: ProximityRank = urgent ? 0 : 1;
+    const maxRole: BlockRole = urgent ? "content" : "chrome";
 
     if (this.firstRequestPending) {
-      const first = this.queue.take(Math.min(max, Math.max(1, this.deps.firstRequestSegments)), 0);
+      const firstSize = Math.min(max, Math.max(1, this.deps.firstRequestSegments));
+      const first = this.queue.take(firstSize, 0, maxRole);
 
       if (first.length > 0) {
         this.firstRequestPending = false;
@@ -461,7 +458,7 @@ export class PageTranslationService {
     }
 
     const parts = Math.min(free, Math.max(1, this.deps.capacity.concurrency()));
-    const visible = parts > 1 ? this.queue.take(parts * max, 0) : [];
+    const visible = parts > 1 ? this.queue.take(parts * max, 0, maxRole) : [];
 
     if (visible.length > 0) {
       return balancedRuns(visible, parts, max, (id) => {
@@ -471,9 +468,17 @@ export class PageTranslationService {
       });
     }
 
-    const next = this.queue.take(max);
+    const next = this.queue.take(max, maxRank, maxRole);
 
     return next.length > 0 ? [next] : [];
+  }
+
+  private visibleContentOutstanding(): boolean {
+    if (this.queue.holds(0, "content")) return true;
+
+    return [...this.inFlight].some(
+      (key) => this.ranks.get(key) === 0 && this.blocks.get(key)?.role !== "chrome",
+    );
   }
 
   private async process(batch: Block[], session: Session): Promise<Result<void, ProviderError>> {
@@ -585,31 +590,12 @@ export class PageTranslationService {
       translations.push({ blockId: block.id, kind: "structured", nodes: nodes.unwrap() });
     });
 
-    const slotted = await this.translateFallback(fallback, session, policy, scope.signal);
+    const slotted = await this.translateSlots(fallback, session, policy, scope.signal);
 
     return slotted.map((slotTranslations) => ({
       translations: [...translations, ...slotTranslations],
       settled: batch,
     }));
-  }
-
-  private async translateFallback(
-    blocks: Block[],
-    session: Session,
-    policy: CachePolicy,
-    signal: AbortSignal,
-  ): Promise<Result<BlockTranslation[], ProviderError>> {
-    const visible = blocks.some((block) => this.ranks.get(block.id.value) === 0);
-
-    if (!visible) return this.translateSlots(blocks, session, policy, signal);
-
-    this.visibleFallbacks += 1;
-
-    try {
-      return await this.translateSlots(blocks, session, policy, signal);
-    } finally {
-      this.visibleFallbacks -= 1;
-    }
   }
 
   private async translateSlots(

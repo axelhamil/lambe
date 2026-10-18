@@ -20,6 +20,10 @@ function compare(left: QueueEntry, right: QueueEntry): number {
   );
 }
 
+function within(entry: QueueEntry, maxRank: ProximityRank, maxRole: BlockRole): boolean {
+  return entry.rank <= maxRank && ROLE_ORDER[entry.role] <= ROLE_ORDER[maxRole];
+}
+
 export class TranslationQueue {
   private readonly entries = new Map<string, QueueEntry>();
 
@@ -35,9 +39,13 @@ export class TranslationQueue {
     this.entries.delete(id.value);
   }
 
+  public holds(maxRank: ProximityRank, maxRole: BlockRole): boolean {
+    return [...this.entries.values()].some((entry) => within(entry, maxRank, maxRole));
+  }
+
   public take(max: number, maxRank: ProximityRank = 1, maxRole: BlockRole = "chrome"): BlockId[] {
     const taken = [...this.entries.values()]
-      .filter((entry) => entry.rank <= maxRank && ROLE_ORDER[entry.role] <= ROLE_ORDER[maxRole])
+      .filter((entry) => within(entry, maxRank, maxRole))
       .sort(compare)
       .slice(0, Math.max(0, max));
 

@@ -364,13 +364,13 @@ describe("PageTranslationService", () => {
     expect(service.state()).toEqual({ kind: "translated" });
   });
 
-  test("visible_fallback_runs_before_queued_next_screen_work", async () => {
+  test("chrome_and_next_screen_wait_for_visible_content_and_its_fallback", async () => {
     const control = controlledTranslator();
     const linkFails = translatedWith((markup) =>
       markup.includes("<") ? undefined : `fr ${markup}`,
     );
     const { service, near, committed } = setup({
-      blocks: [LINKED, ALPHA, BETA, GAMMA, DELTA],
+      blocks: [LINKED, chrome("navbar", "Pricing"), ALPHA, BETA],
       translate: control.translate,
       maxSegmentsPerRequest: 3,
       firstRequestSegments: 1,
@@ -385,27 +385,28 @@ describe("PageTranslationService", () => {
     await service.toggle();
     const arrived = control.nextCall();
     near("linked", 0);
-    for (const id of ["alpha", "beta", "gamma", "delta"]) near(id, 1);
+    near("navbar", 0);
+    near("alpha", 1);
+    near("beta", 1);
     await arrived;
     await flush();
+    const whileVisibleInFlight = control.calls.length;
     await finish(0);
+    const whileFallbackInFlight = sentBlocks(control.calls);
     await finish(1);
-
-    expect(sentBlocks(control.calls)).toEqual([
-      ["Read <g1>the docs</g1> before forking."],
-      [
-        "Forks share code with upstream.",
-        "A fork keeps its own history.",
-        "Pull requests flow back upstream.",
-      ],
-      ["Read", "the docs", "before forking."],
-    ]);
-
     await finish(2);
-    await finish(3);
     await service.whenIdle();
 
-    expect(sentBlocks(control.calls).at(3)).toEqual(["Deleting a fork is permanent."]);
+    expect(whileVisibleInFlight).toBe(1);
+    expect(whileFallbackInFlight).toEqual([
+      ["Read <g1>the docs</g1> before forking."],
+      ["Read", "the docs", "before forking."],
+    ]);
+    expect(sentBlocks(control.calls).at(2)).toEqual([
+      "Pricing",
+      "Forks share code with upstream.",
+      "A fork keeps its own history.",
+    ]);
     expect(committed("linked")).toEqual({
       blockId: LINKED.id,
       kind: "text-slots",
@@ -854,7 +855,8 @@ describe("PageTranslationService", () => {
 
     expect(sentMarkup()).toEqual([
       ["Forks share code with upstream.", "A fork keeps its own history."],
-      ["Pull requests flow back upstream.", "Deleting a fork is permanent."],
+      ["Pull requests flow back upstream."],
+      ["Deleting a fork is permanent."],
     ]);
   });
 
