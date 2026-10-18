@@ -17,11 +17,19 @@ module.exports = {
       },
     },
     {
-      name: "application-stays-off-infrastructure",
-      comment: "Application imports domain, application and kernel, never infrastructure.",
+      name: "application-imports-only-domain-and-kernel",
+      comment: "Application imports only domain, application, @lambe/kernel and zod.",
       severity: "error",
       from: { path: `${PACKAGE_SRC}/application/` },
-      to: { path: `${PACKAGE_SRC}/infrastructure/` },
+      to: {
+        pathNot: [
+          `${PACKAGE_SRC}/domain/`,
+          `${PACKAGE_SRC}/application/`,
+          "^packages/kernel/src/",
+          "node_modules/zod/",
+          "^bun:test$",
+        ],
+      },
     },
     {
       name: "packages-never-import-apps",
