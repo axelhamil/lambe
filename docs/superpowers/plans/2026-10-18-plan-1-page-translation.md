@@ -55,7 +55,7 @@ packages/translation/src/
   infrastructure/providers/{ollama-provider.ts, concurrency-limited-provider.ts}
   infrastructure/hashing/sha256-hasher.ts
   infrastructure/dom/{block-reader.ts, protected-nodes.ts, page-brief-reader.ts, dom-page-surface.ts, block-watcher.ts}
-packages/translation/fixtures/{github-about-forks.html, spa-feed.html, react-like-page.html}
+packages/translation/fixtures/{github-fork-a-repo.html, spa-feed.html, react-like-page.html}
 apps/extension/
   wxt.config.ts  src/permissions.ts  src/config/runtime-config.ts
   src/messaging/{translate-batch.contract.ts, toggle.contract.ts}
@@ -296,7 +296,7 @@ Boundaries (enforced by dependency-cruiser from Task 2): `domain` imports only `
 
 **Files:**
 - Create: `infrastructure/dom/{block-reader.ts, protected-nodes.ts, page-brief-reader.ts}`
-- Create: `packages/translation/fixtures/github-about-forks.html`, `fixtures/spa-feed.html`, `fixtures/react-like-page.html`
+- Create: `packages/translation/fixtures/github-fork-a-repo.html`, `fixtures/spa-feed.html`, `fixtures/react-like-page.html`
 - Test: mirrored; `packages/translation/test-setup/happy-dom.ts` registers happy-dom (`GlobalRegistrator`) and is passed to `bun test --preload` in the package `test` script (same for `apps/extension`, whose dev dependencies include `@types/chrome` 0.3.5)
 
 **Interfaces:**
@@ -307,7 +307,7 @@ Boundaries (enforced by dependency-cruiser from Task 2): `domain` imports only `
   - `class BlockReader { constructor(doc: Document, ids: () => BlockId); read(root: ParentNode): ReadBlock[] }`: a block is a maximal run of sibling inline nodes under a parent, split by block level children (`p`, `li`, `h1` to `h6`, `td`, `th`, `dt`, `dd`, `blockquote`, `figcaption`, `summary`, `caption`, `div`, `section`, `ul`, `ol`, `table`, `tr` and the like); runs without a letter are ignored; a run is not re-read once seen (a `WeakSet` of scope heads). Highlighted comments inside `pre` (`.pl-c`, `.hljs-comment`, `.token.comment`, Shiki and CodeMirror comment classes) are read as one block each, text node body only (marker split off by `splitCommentMarker`); unhighlighted code produces no block.
   - `readPageBrief(doc: Document): PageBrief`: host, `<title>`, meta description, `h1` and first 5 headings (`h2`, `h3`), `documentElement.lang` as source language (`Option`).
 
-- [ ] **Step 1: Capture the GitHub fixture.** In Chrome open `https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/about-forks`, run via the Chrome `javascript_tool` (or DevTools console): clone `document.documentElement`, remove every `script`, `iframe`, `link[rel=preload|modulepreload|prefetch]` and tracking `img`, rewrite relative `href`/`src` of `link[rel=stylesheet]` to absolute URLs, serialize with `outerHTML`, save to `packages/translation/fixtures/github-about-forks.html` (target under 400 KB). The page must contain at least one fenced `pre` with highlighted comments and several inline `code` and `kbd` elements; if not, pick the "Fork a repository" page instead. Add a header line in the README fixtures section: GitHub docs content is CC BY 4.0, source URL and capture date. Write `spa-feed.html`: an empty `<main id="feed">` plus an inline script appending an `<article><h2>` and `<p>` with inline `<code>` every call of `window.__append(n)`, and removing the oldest one when asked by `window.__trim()`. Write `react-like-page.html`: a static tree plus a tiny inline script `window.__frame` that stores references to every text node of `#app` and exposes `rerender()` which calls `parent.removeChild(textNode)` then `parent.appendChild(newTextNode)` on the stored references, mimicking keyed reconciliation.
+- [ ] **Step 1: Capture the GitHub fixture.** In Chrome open `https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/about-forks`, run via the Chrome `javascript_tool` (or DevTools console): clone `document.documentElement`, remove every `script`, `iframe`, `link[rel=preload|modulepreload|prefetch]` and tracking `img`, rewrite relative `href`/`src` of `link[rel=stylesheet]` to absolute URLs, serialize with `outerHTML`, save to `packages/translation/fixtures/github-fork-a-repo.html` (target under 400 KB). The page must contain at least one fenced `pre` with highlighted comments and several inline `code` and `kbd` elements; if not, pick the "Fork a repository" page instead. Add a header line in the README fixtures section: GitHub docs content is CC BY 4.0, source URL and capture date. Write `spa-feed.html`: an empty `<main id="feed">` plus an inline script appending an `<article><h2>` and `<p>` with inline `<code>` every call of `window.__append(n)`, and removing the oldest one when asked by `window.__trim()`. Write `react-like-page.html`: a static tree plus a tiny inline script `window.__frame` that stores references to every text node of `#app` and exposes `rerender()` which calls `parent.removeChild(textNode)` then `parent.appendChild(newTextNode)` on the stored references, mimicking keyed reconciliation.
 - [ ] **Step 2: Failing tests on the GitHub fixture** (`block-reader.test.ts`, document loaded into happy-dom):
   - `finds_headings_paragraphs_and_list_items` (the `h1` text is a block; number of blocks above 20).
   - `no_block_scope_is_inside_pre_code_kbd_samp_or_svg`.
@@ -421,7 +421,7 @@ Boundaries (enforced by dependency-cruiser from Task 2): `domain` imports only `
 
 **Interfaces:**
 - Consumes: the whole system built with `LAMBE_ALL_FRAMES=1 pnpm --filter @lambe/extension build`.
-- `proof.html`: three same origin `<iframe>` elements titled by width, `width` 390, 768 and 1440 px, each `src="/github-about-forks.html"`, laid out in a scrolling row (Hyprland: `resize_window` does not work, so widths come from iframes).
+- `proof.html`: three same origin `<iframe>` elements titled by width, `width` 390, 768 and 1440 px, each `src="/github-fork-a-repo.html"`, laid out in a scrolling row (Hyprland: `resize_window` does not work, so widths come from iframes).
 - README sections: what it is, requirements, `pnpm install`, build and load unpacked, the extension id derived from the manifest `key`, the Ollama fix, how to set a config override in the service worker console (`chrome.storage.local.set({"lambe:config": { target: "fr" }})`), fixtures licence note, scripts, release flow. Ollama fix text, verbatim: `sudo systemctl edit ollama`, then add `[Service]` and `Environment="OLLAMA_ORIGINS=chrome-extension://<id>"`, save, `sudo systemctl restart ollama`.
 - Release: `release-please-config.json` with a `node` release type at the root package, `bump-minor-pre-major: true`, no manual version anywhere; `.release-please-manifest.json` `{ ".": "0.0.0" }`; CI workflow runs `pnpm install --frozen-lockfile` and `pnpm verify`; a release workflow using a GitHub App token (`BOT_CLIENT_ID`, `BOT_PRIVATE_KEY`) is added but only documented in the README until a remote exists.
 

@@ -12,7 +12,14 @@
     }
   ],
   "files": {
-    "includes": ["**", "!.claude", "!.superpowers", "!docs/mockups", "!assets"]
+    "includes": [
+      "**",
+      "!.claude",
+      "!.superpowers",
+      "!docs/mockups",
+      "!assets",
+      "!packages/translation/fixtures"
+    ]
   },
   "assist": {
     "actions": {

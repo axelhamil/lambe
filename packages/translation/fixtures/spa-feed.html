@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Release feed</title>
+  </head>
+  <body>
+    <main id="feed"></main>
+    <script>
+      (() => {
+        const feed = document.getElementById("feed");
+        let released = 0;
+
+        const article = () => {
+          released += 1;
+          const item = document.createElement("article");
+          const heading = document.createElement("h2");
+          const paragraph = document.createElement("p");
+          const command = document.createElement("code");
+          heading.textContent = `Release ${released}`;
+          command.textContent = `npm install lambe@${released}`;
+          paragraph.append("Run ", command, " to upgrade to this release.");
+          item.append(heading, paragraph);
+          return item;
+        };
+
+        window.__append = (n = 1) => {
+          for (let index = 0; index < n; index += 1) feed.append(article());
+        };
+
+        window.__trim = () => {
+          feed.firstElementChild?.remove();
+        };
+      })();
+    </script>
+  </body>
+</html>

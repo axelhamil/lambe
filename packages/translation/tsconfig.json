@@ -1,4 +1,4 @@
 {
   "extends": "@lambe/typescript-config/bun.json",
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "test-setup/**/*.ts"]
 }

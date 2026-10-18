@@ -10,13 +10,14 @@
   },
   "scripts": {
     "type-check": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test --preload ./test-setup/happy-dom.ts"
   },
   "dependencies": {
     "@lambe/kernel": "workspace:*",
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@happy-dom/global-registrator": "21.0.3",
     "@lambe/typescript-config": "workspace:*",
     "@types/bun": "1.4.3",
     "typescript": "7.0.2"
