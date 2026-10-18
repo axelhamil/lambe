@@ -208,7 +208,7 @@ export class OllamaProvider implements TranslationProvider {
     idle: IdleTimer,
     signal: AbortSignal,
   ): Promise<ChatResult> {
-    const sent = await this.send(messages, options.contextTokens, signal);
+    const sent = await this.send(messages, options, signal);
 
     if (sent.isFailure) return Result.fail(sent.getError());
 
@@ -222,7 +222,7 @@ export class OllamaProvider implements TranslationProvider {
 
   private async send(
     messages: ChatMessage[],
-    contextTokens: number,
+    { contextTokens, maxOutputTokens }: ChatOptions,
     signal: AbortSignal,
   ): Promise<Result<Response, ProviderError>> {
     const { baseUrl, model, fetch } = this.config;
@@ -231,7 +231,11 @@ export class OllamaProvider implements TranslationProvider {
       messages,
       stream: true,
       keep_alive: `${KEEP_ALIVE_MS / 1000}s`,
-      options: { temperature: 0, num_ctx: contextTokens },
+      options: {
+        temperature: 0,
+        num_ctx: contextTokens,
+        ...(maxOutputTokens === undefined ? {} : { num_predict: maxOutputTokens }),
+      },
     };
 
     try {

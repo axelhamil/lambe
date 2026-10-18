@@ -80,6 +80,20 @@ describe("OllamaProvider", () => {
     });
   });
 
+  test("caps_the_reply_with_num_predict_when_asked", async () => {
+    const fetch = fetchReturning(() => reply("Bonjour"));
+
+    await providerWith(fetch).chat(messages, { contextTokens: 2048, maxOutputTokens: 120 });
+
+    const [, init] = fetch.mock.calls[0] ?? [];
+
+    expect(JSON.parse(String(init?.body)).options).toEqual({
+      temperature: 0,
+      num_ctx: 2048,
+      num_predict: 120,
+    });
+  });
+
   test("returns_message_content", async () => {
     const fetch = fetchReturning(() => reply("Bonjour"));
 

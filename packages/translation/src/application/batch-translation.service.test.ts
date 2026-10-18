@@ -641,6 +641,19 @@ describe("BatchTranslationService", () => {
     expect(written()).toEqual(new Map([[keyOf("Hello."), "Bonjour."]]));
   });
 
+  test("reply_budget_follows_the_source_so_a_runaway_reply_stops_early", async () => {
+    const { provider, service } = setup();
+    const long = `${"Translation moves meaning between languages. ".repeat(20)}`.trim();
+    provider.chat.mockImplementation(echo(french));
+
+    await service.translate(request([{ id: "a", markup: "Hello." }]));
+    await service.translate(request([{ id: "b", markup: long }]));
+    const [short, wide] = provider.chat.mock.calls.map(([, options]) => options.maxOutputTokens);
+
+    expect(short).toBeLessThan(96);
+    expect(wide).toBeGreaterThan(long.length / 3);
+  });
+
   test("empty_group_dropped_by_the_model_is_restored_cached_and_not_requested_again", async () => {
     const markup = "About forks<g2></g2>";
     const first = setup();

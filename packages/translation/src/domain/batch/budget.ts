@@ -7,6 +7,12 @@ export function estimateTokens(text: string): number {
   return Math.ceil(text.length / CHARS_PER_TOKEN);
 }
 
+const OUTPUT_SLACK_TOKENS = 64;
+
+export function maxOutputTokens(inputTokens: number): number {
+  return inputTokens * 2 + OUTPUT_SLACK_TOKENS;
+}
+
 export function maxInputTokens(contextTokens: number, overheadTokens: number): number {
   return Math.floor(((contextTokens - overheadTokens) * 10) / 23);
 }

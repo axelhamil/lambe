@@ -1,7 +1,12 @@
 import { Option } from "@lambe/kernel/option";
 import { Result } from "@lambe/kernel/result";
 import { decodeBatch, decodeStreamedBatch, encodeBatch } from "../domain/batch/batch-format";
-import { estimateTokens, maxInputTokens, planBatches } from "../domain/batch/budget";
+import {
+  estimateTokens,
+  maxInputTokens,
+  maxOutputTokens,
+  planBatches,
+} from "../domain/batch/budget";
 import { splitNodes } from "../domain/batch/split";
 import type { InlineNode } from "../domain/block/inline-node";
 import { cacheKey } from "../domain/cache/cache-key";
@@ -474,14 +479,16 @@ export class BatchTranslationService {
   ): Promise<Result<PieceResults, ProviderError>> {
     if (signal?.aborted) return Result.fail(requestCancelled());
 
+    const segments = pieces.map((piece, index) => ({ n: index + 1, markup: piece.markup }));
     const messages = this.deps.prompt.build({
       source: request.source,
       target: request.target,
       brief: request.brief,
-      segments: pieces.map((piece, index) => ({ n: index + 1, markup: piece.markup })),
+      segments,
     });
     const response = await this.deps.provider.chat(messages, {
       contextTokens: this.deps.contextTokens,
+      maxOutputTokens: maxOutputTokens(estimateTokens(encodeBatch(segments))),
       signal,
       onText: streamedSegments(pieces, run),
     });

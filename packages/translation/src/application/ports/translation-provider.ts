@@ -13,6 +13,7 @@ export interface GenerationStats {
 
 export interface ChatOptions {
   contextTokens: number;
+  maxOutputTokens?: number;
   onText?: (delta: string) => void;
   onStats?: (stats: GenerationStats) => void;
   signal?: AbortSignal;
