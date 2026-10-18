@@ -16,7 +16,102 @@ export interface OllamaConfig {
 
 type ChatResult = Result<string, ProviderError>;
 
-const chatResponseSchema = z.object({ message: z.object({ content: z.string().min(1) }) });
+const chatChunkSchema = z.union([
+  z.object({ error: z.string() }),
+  z.object({ message: z.object({ content: z.string() }), done: z.boolean() }),
+]);
+
+type ChatChunk = z.infer<typeof chatChunkSchema>;
+
+interface IdleTimer {
+  reset(): void;
+  clear(): void;
+}
+
+function idleTimer(timeoutMs: number, onIdle: () => void): IdleTimer {
+  let timer = setTimeout(onIdle, timeoutMs);
+
+  return {
+    reset() {
+      clearTimeout(timer);
+      timer = setTimeout(onIdle, timeoutMs);
+    },
+    clear() {
+      clearTimeout(timer);
+    },
+  };
+}
+
+function abortable<T>(pending: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(signal.reason);
+
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+
+    signal.addEventListener("abort", onAbort, { once: true });
+    pending.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
+  });
+}
+
+function jsonOf(line: string): unknown {
+  try {
+    return JSON.parse(line);
+  } catch {
+    return undefined;
+  }
+}
+
+function parseChunk(line: string): Result<ChatChunk, ProviderError> {
+  const parsed = chatChunkSchema.safeParse(jsonOf(line));
+
+  if (parsed.success) return Result.ok(parsed.data);
+
+  return Result.fail(
+    providerError("PROVIDER_BAD_RESPONSE", "Ollama streamed a line that is not a chat chunk."),
+  );
+}
+
+class ChunkAccumulator {
+  private content = "";
+  private finished = false;
+
+  public push(line: string): Result<void, ProviderError> {
+    if (line.trim() === "" || this.finished) return Result.ok();
+
+    return parseChunk(line).flatMap((chunk): Result<void, ProviderError> => {
+      if ("error" in chunk) {
+        return Result.fail(
+          providerError("PROVIDER_BAD_RESPONSE", `Ollama reported an error: ${chunk.error}`),
+        );
+      }
+
+      this.content += chunk.message.content;
+      this.finished = chunk.done;
+
+      return Result.ok();
+    });
+  }
+
+  public isDone(): boolean {
+    return this.finished;
+  }
+
+  public result(): ChatResult {
+    if (!this.finished) {
+      return Result.fail(
+        providerError("PROVIDER_BAD_RESPONSE", "Ollama closed the stream before done."),
+      );
+    }
+
+    if (this.content === "") {
+      return Result.fail(
+        providerError("PROVIDER_BAD_RESPONSE", "Ollama answered without message.content."),
+      );
+    }
+
+    return Result.ok(this.content);
+  }
+}
 
 const errorNameSchema = z.object({ name: z.enum(["AbortError", "TimeoutError"]) });
 
@@ -38,16 +133,18 @@ export class OllamaProvider implements TranslationProvider {
     options: { contextTokens: number },
   ): Promise<ChatResult> {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
+    const idle = idleTimer(this.config.timeoutMs, () => controller.abort());
 
     try {
       const sent = await this.send(messages, options.contextTokens, controller.signal);
 
       if (sent.isFailure) return Result.fail(sent.getError());
 
-      return await this.read(sent.getValue());
+      idle.reset();
+
+      return await this.read(sent.getValue(), idle, controller.signal);
     } finally {
-      clearTimeout(timer);
+      idle.clear();
     }
   }
 
@@ -60,7 +157,7 @@ export class OllamaProvider implements TranslationProvider {
     const body = {
       model,
       messages,
-      stream: false,
+      stream: true,
       keep_alive: "10m",
       options: { temperature: 0, num_ctx: contextTokens },
     };
@@ -79,22 +176,30 @@ export class OllamaProvider implements TranslationProvider {
     }
   }
 
-  private async read(response: Response): Promise<ChatResult> {
+  private async read(
+    response: Response,
+    idle: IdleTimer,
+    signal: AbortSignal,
+  ): Promise<ChatResult> {
     const statusError = this.statusError(response.status);
 
     if (statusError) return Result.fail(statusError);
 
+    if (response.body === null) {
+      return Result.fail(providerError("PROVIDER_BAD_RESPONSE", "Ollama sent an empty body."));
+    }
+
+    const reader = response.body.getReader();
+
     try {
-      const parsed = chatResponseSchema.safeParse(await response.json());
+      const streamed = await this.accumulate(reader, idle, signal);
 
-      if (!parsed.success) {
-        return Result.fail(
-          providerError("PROVIDER_BAD_RESPONSE", "Ollama answered without message.content."),
-        );
-      }
+      if (!streamed.done) void reader.cancel().catch(() => undefined);
 
-      return Result.ok(parsed.data.message.content);
+      return streamed.result;
     } catch (error) {
+      void reader.cancel().catch(() => undefined);
+
       if (isAbort(error)) return Result.fail(this.timeoutError());
 
       return Result.fail(
@@ -103,6 +208,35 @@ export class OllamaProvider implements TranslationProvider {
           `Ollama sent an unreadable body: ${reasonOf(error)}`,
         ),
       );
+    }
+  }
+
+  private async accumulate(
+    reader: ReadableStreamDefaultReader<Uint8Array>,
+    idle: IdleTimer,
+    signal: AbortSignal,
+  ): Promise<{ result: ChatResult; done: boolean }> {
+    const decoder = new TextDecoder();
+    const chunks = new ChunkAccumulator();
+    let buffer = "";
+
+    for (;;) {
+      const { done, value } = await abortable(reader.read(), signal);
+
+      idle.reset();
+      buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
+
+      const lines = buffer.split("\n");
+
+      buffer = done ? "" : (lines.pop() ?? "");
+
+      for (const line of lines) {
+        const pushed = chunks.push(line);
+
+        if (pushed.isFailure) return { result: Result.fail(pushed.getError()), done };
+      }
+
+      if (chunks.isDone() || done) return { result: chunks.result(), done };
     }
   }
 

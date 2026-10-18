@@ -1,0 +1,26 @@
+{
+  "name": "@lambe/extension",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "fixtures": "bun scripts/serve-fixtures.ts",
+    "type-check": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@lambe/kernel": "workspace:*",
+    "@lambe/translation": "workspace:*",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@lambe/typescript-config": "workspace:*",
+    "@types/bun": "1.4.3",
+    "@types/chrome": "0.3.5",
+    "typescript": "7.0.2",
+    "vite": "8.3.2",
+    "wxt": "0.21.4"
+  }
+}

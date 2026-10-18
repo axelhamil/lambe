@@ -1,0 +1,5 @@
+{
+  "extends": "@lambe/typescript-config/base.json",
+  "compilerOptions": { "types": ["bun", "chrome"] },
+  "include": ["src/**/*.ts", "entrypoints/**/*.ts", "scripts/**/*.ts", "wxt.config.ts"]
+}

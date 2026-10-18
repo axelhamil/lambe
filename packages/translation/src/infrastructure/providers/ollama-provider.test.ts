@@ -12,12 +12,40 @@ const json = (body: unknown, status = 200): Response =>
     headers: { "content-type": "application/json" },
   });
 
-const providerWith = (fetch: FetchFn): OllamaProvider =>
+const ndjson = (...chunks: unknown[]): Response =>
+  new Response(chunks.map((chunk) => JSON.stringify(chunk)).join("\n"), {
+    headers: { "content-type": "application/x-ndjson" },
+  });
+
+const reply = (content: string): Response =>
+  ndjson(
+    { message: { role: "assistant", content }, done: false },
+    { message: { role: "assistant", content: "" }, done: true },
+  );
+
+const streamOf = (parts: string[], gapMs: number, stall = false): Response => {
+  const encoder = new TextEncoder();
+
+  return new Response(
+    new ReadableStream<Uint8Array>({
+      async start(controller) {
+        for (const part of parts) {
+          await new Promise((resolve) => setTimeout(resolve, gapMs));
+          controller.enqueue(encoder.encode(part));
+        }
+
+        if (!stall) controller.close();
+      },
+    }),
+  );
+};
+
+const providerWith = (fetch: FetchFn, timeoutMs = 1000): OllamaProvider =>
   new OllamaProvider({
     baseUrl: "http://localhost:11434",
     model: "translategemma:12b",
     fetch,
-    timeoutMs: 1000,
+    timeoutMs,
     forbiddenHint: ORIGIN,
   });
 
@@ -34,9 +62,7 @@ const errorOf = async (fetch: FetchFn) =>
 
 describe("OllamaProvider", () => {
   test("posts_native_chat_payload_with_num_ctx_and_zero_temperature", async () => {
-    const fetch = fetchReturning(() =>
-      json({ message: { role: "assistant", content: "Bonjour" } }),
-    );
+    const fetch = fetchReturning(() => reply("Bonjour"));
 
     await providerWith(fetch).chat(messages, { contextTokens: 2048 });
 
@@ -47,16 +73,14 @@ describe("OllamaProvider", () => {
     expect(JSON.parse(String(init?.body))).toEqual({
       model: "translategemma:12b",
       messages,
-      stream: false,
+      stream: true,
       keep_alive: "10m",
       options: { temperature: 0, num_ctx: 2048 },
     });
   });
 
   test("returns_message_content", async () => {
-    const fetch = fetchReturning(() =>
-      json({ message: { role: "assistant", content: "Bonjour" } }),
-    );
+    const fetch = fetchReturning(() => reply("Bonjour"));
 
     const result = await providerWith(fetch).chat(messages, { contextTokens: 2048 });
 
@@ -89,11 +113,62 @@ describe("OllamaProvider", () => {
   test("maps_garbage_body_to_PROVIDER_BAD_RESPONSE", async () => {
     const garbage = await errorOf(fetchReturning(() => new Response("<html>nope</html>")));
     const missingContent = await errorOf(
-      fetchReturning(() => json({ message: { role: "assistant" } })),
+      fetchReturning(() => ndjson({ message: { role: "assistant" }, done: true })),
+    );
+    const neverDone = await errorOf(
+      fetchReturning(() => ndjson({ message: { role: "assistant", content: "Bon" }, done: false })),
     );
 
     expect(garbage.code).toBe("PROVIDER_BAD_RESPONSE");
     expect(missingContent.code).toBe("PROVIDER_BAD_RESPONSE");
+    expect(neverDone.code).toBe("PROVIDER_BAD_RESPONSE");
+  });
+
+  test("concatenates_a_stream_split_mid_line", async () => {
+    const body = [
+      JSON.stringify({ message: { role: "assistant", content: "Bon" }, done: false }),
+      JSON.stringify({ message: { role: "assistant", content: "jour" }, done: false }),
+      JSON.stringify({ message: { role: "assistant", content: "" }, done: true }),
+    ].join("\n");
+    const parts = [body.slice(0, 17), body.slice(17, 70), body.slice(70)];
+
+    const result = await providerWith(fetchReturning(() => streamOf(parts, 1))).chat(messages, {
+      contextTokens: 2048,
+    });
+
+    expect(result.getValue()).toBe("Bonjour");
+  });
+
+  test("maps_an_error_line_to_PROVIDER_BAD_RESPONSE", async () => {
+    const error = await errorOf(
+      fetchReturning(() =>
+        ndjson(
+          { message: { role: "assistant", content: "Bon" }, done: false },
+          { error: "model runner has unexpectedly stopped" },
+        ),
+      ),
+    );
+
+    expect(error.code).toBe("PROVIDER_BAD_RESPONSE");
+    expect(error.message).toContain("model runner has unexpectedly stopped");
+  });
+
+  test("idle_timeout_resets_on_every_chunk", async () => {
+    const lines = ["Un", " deux", " trois", " quatre", " cinq"].map(
+      (content) => `${JSON.stringify({ message: { role: "assistant", content }, done: false })}\n`,
+    );
+    const parts = [...lines, JSON.stringify({ message: { content: "" }, done: true })];
+    const slow = await providerWith(
+      fetchReturning(() => streamOf(parts, 15)),
+      40,
+    ).chat(messages, { contextTokens: 2048 });
+    const stalled = await providerWith(
+      fetchReturning(() => streamOf(lines.slice(0, 1), 1, true)),
+      20,
+    ).chat(messages, { contextTokens: 2048 });
+
+    expect(slow.getValue()).toBe("Un deux trois quatre cinq");
+    expect(stalled.getError().code).toBe("PROVIDER_TIMEOUT");
   });
 
   test("maps_abort_to_PROVIDER_TIMEOUT", async () => {
@@ -140,7 +215,7 @@ describe("OllamaProvider", () => {
     const fetch = mock(async function (this: unknown): Promise<Response> {
       if (this !== undefined) throw new TypeError("Illegal invocation");
 
-      return json({ message: { role: "assistant", content: "Bonjour" } });
+      return reply("Bonjour");
     });
 
     const result = await providerWith(fetch).chat(messages, { contextTokens: 2048 });
@@ -149,9 +224,7 @@ describe("OllamaProvider", () => {
   });
 
   test("maps_empty_content_to_PROVIDER_BAD_RESPONSE", async () => {
-    const error = await errorOf(
-      fetchReturning(() => json({ message: { role: "assistant", content: "" } })),
-    );
+    const error = await errorOf(fetchReturning(() => reply("")));
 
     expect(error.code).toBe("PROVIDER_BAD_RESPONSE");
   });

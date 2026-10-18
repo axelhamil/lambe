@@ -83,5 +83,19 @@
     "enabled": true,
     "clientKind": "git",
     "useIgnoreFile": true
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["apps/extension/src/**", "apps/extension/entrypoints/**"],
+      "javascript": {
+        "globals": ["chrome"]
+      }
+    },
+    {
+      "includes": ["apps/extension/scripts/**"],
+      "javascript": {
+        "globals": ["Bun"]
+      }
+    }
+  ]
 }

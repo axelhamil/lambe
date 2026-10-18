@@ -3,6 +3,10 @@
   "workspaces": {
     "packages/*": {
       "project": ["src/**/*.ts"]
+    },
+    "apps/extension": {
+      "entry": ["entrypoints/*.ts", "scripts/*.ts"],
+      "project": ["src/**/*.ts", "entrypoints/**/*.ts", "scripts/**/*.ts"]
     }
   },
   "ignoreWorkspaces": ["packages/typescript-config"],
