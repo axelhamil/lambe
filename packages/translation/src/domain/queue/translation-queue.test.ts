@@ -43,6 +43,19 @@ describe("TranslationQueue", () => {
     expect(values(taken)).toEqual(["title", "paragraph", "file-info", "navbar", "sidebar"]);
   });
 
+  test("take_limited_to_visible_content_leaves_chrome_and_next_screen_queued", () => {
+    const queue = new TranslationQueue();
+    queue.enqueue(id("navbar"), 0, "chrome", 0);
+    queue.enqueue(id("title"), 0, "article", 1);
+    queue.enqueue(id("file-info"), 0, "content", 2);
+    queue.enqueue(id("footer-text"), 1, "content", 3);
+
+    const taken = queue.take(5, 0, "content");
+
+    expect(values(taken)).toEqual(["title", "file-info"]);
+    expect(values(queue.take(5))).toEqual(["navbar", "footer-text"]);
+  });
+
   test("visible_chrome_before_off_screen_content", () => {
     const queue = new TranslationQueue();
     queue.enqueue(id("next-paragraph"), 1, "content", 2);

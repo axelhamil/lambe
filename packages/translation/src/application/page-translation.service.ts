@@ -169,6 +169,7 @@ export class PageTranslationService {
   private transportRetried = false;
   private transportGeneration = 0;
   private nextPosition = 0;
+  private visibleFallbacks = 0;
   private pumping = false;
   private wake: () => void = () => undefined;
   private drained: Promise<void> = Promise.resolve();
@@ -443,6 +444,12 @@ export class PageTranslationService {
   private takeNext(free: number): BlockId[][] {
     const max = Math.max(1, this.deps.maxSegmentsPerRequest);
 
+    if (this.visibleFallbacks > 0) {
+      const visible = this.queue.take(max, 0, "content");
+
+      return visible.length > 0 ? [visible] : [];
+    }
+
     if (this.firstRequestPending) {
       const first = this.queue.take(Math.min(max, Math.max(1, this.deps.firstRequestSegments)), 0);
 
@@ -578,12 +585,31 @@ export class PageTranslationService {
       translations.push({ blockId: block.id, kind: "structured", nodes: nodes.unwrap() });
     });
 
-    const slotted = await this.translateSlots(fallback, session, policy, scope.signal);
+    const slotted = await this.translateFallback(fallback, session, policy, scope.signal);
 
     return slotted.map((slotTranslations) => ({
       translations: [...translations, ...slotTranslations],
       settled: batch,
     }));
+  }
+
+  private async translateFallback(
+    blocks: Block[],
+    session: Session,
+    policy: CachePolicy,
+    signal: AbortSignal,
+  ): Promise<Result<BlockTranslation[], ProviderError>> {
+    const visible = blocks.some((block) => this.ranks.get(block.id.value) === 0);
+
+    if (!visible) return this.translateSlots(blocks, session, policy, signal);
+
+    this.visibleFallbacks += 1;
+
+    try {
+      return await this.translateSlots(blocks, session, policy, signal);
+    } finally {
+      this.visibleFallbacks -= 1;
+    }
   }
 
   private async translateSlots(

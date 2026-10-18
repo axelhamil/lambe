@@ -324,6 +324,27 @@ describe("BatchTranslationService", () => {
     );
   });
 
+  test("several_missing_segments_are_retried_together_in_one_call", async () => {
+    const { provider, service, batchesSent } = setup();
+    provider.chat.mockResolvedValueOnce(Result.ok("[2] Bonjour."));
+
+    const result = await service.translate(
+      request([
+        { id: "a", markup: "Read" },
+        { id: "b", markup: "Hello." },
+        { id: "c", markup: "the docs" },
+      ]),
+    );
+
+    expect(result.getValue()).toEqual([
+      { id: "a", status: "translated", markup: "fr: Read", fromCache: false },
+      { id: "b", status: "translated", markup: "Bonjour.", fromCache: false },
+      { id: "c", status: "translated", markup: "fr: the docs", fromCache: false },
+    ]);
+    expect(provider.chat).toHaveBeenCalledTimes(2);
+    expect(batchesSent().at(-1)).toBe("[1] Read\n[2] the docs");
+  });
+
   test("provider_forbidden_fails_the_whole_call_and_keeps_only_validated_segments_cached", async () => {
     const { provider, service, written } = setup({ maxSegmentsPerBatch: 1 });
     provider.chat.mockResolvedValueOnce(Result.ok(seg("Bonjour.")));
@@ -428,8 +449,8 @@ describe("BatchTranslationService", () => {
     expect(emittedDuringStream).toBe(1);
     expect(onOutcome.mock.calls.map(([outcome]) => outcome)).toEqual([
       { id: "b", status: "translated", markup: "Bonjour.", fromCache: false },
-      { id: "a", status: "translated", markup: "Lancez <x1/> maintenant.", fromCache: false },
       { id: "c", status: "translated", markup: "Au revoir.", fromCache: false },
+      { id: "a", status: "translated", markup: "Lancez <x1/> maintenant.", fromCache: false },
     ]);
     expect(provider.chat).toHaveBeenCalledTimes(2);
     expect(written()).toEqual(

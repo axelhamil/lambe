@@ -415,22 +415,26 @@ export class BatchTranslationService {
 
       if (attempt.isFailure) return Result.fail(attempt.getError());
 
+      const failed: Piece[] = [];
+
       for (const [piece, result] of attempt.getValue()) {
-        if (
-          result.isSuccess ||
-          run.isSettled(piece.group) ||
-          !worthRetrying(piece, result.getError())
-        ) {
+        if (result.isSuccess || !worthRetrying(piece, result.getError())) {
           run.record(piece, result);
           continue;
         }
 
-        const retry = await this.attempt([piece], request, run, signal);
-
-        if (retry.isFailure) return Result.fail(retry.getError());
-
-        run.record(piece, retry.getValue().get(piece) ?? result);
+        failed.push(piece);
       }
+
+      const retried = failed.filter((piece) => !run.isSettled(piece.group));
+
+      if (retried.length === 0) continue;
+
+      const retry = await this.attempt(retried, request, run, signal);
+
+      if (retry.isFailure) return Result.fail(retry.getError());
+
+      for (const [piece, result] of retry.getValue()) run.record(piece, result);
     }
 
     return Result.ok();

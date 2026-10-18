@@ -364,6 +364,55 @@ describe("PageTranslationService", () => {
     expect(service.state()).toEqual({ kind: "translated" });
   });
 
+  test("visible_fallback_runs_before_queued_next_screen_work", async () => {
+    const control = controlledTranslator();
+    const linkFails = translatedWith((markup) =>
+      markup.includes("<") ? undefined : `fr ${markup}`,
+    );
+    const { service, near, committed } = setup({
+      blocks: [LINKED, ALPHA, BETA, GAMMA, DELTA],
+      translate: control.translate,
+      maxSegmentsPerRequest: 3,
+      firstRequestSegments: 1,
+    });
+    const finish = async (index: number): Promise<void> => {
+      const call = control.calls[index];
+
+      if (call !== undefined) call.finish(await linkFails(call.request));
+      await flush();
+    };
+
+    await service.toggle();
+    const arrived = control.nextCall();
+    near("linked", 0);
+    for (const id of ["alpha", "beta", "gamma", "delta"]) near(id, 1);
+    await arrived;
+    await flush();
+    await finish(0);
+    await finish(1);
+
+    expect(sentBlocks(control.calls)).toEqual([
+      ["Read <g1>the docs</g1> before forking."],
+      [
+        "Forks share code with upstream.",
+        "A fork keeps its own history.",
+        "Pull requests flow back upstream.",
+      ],
+      ["Read", "the docs", "before forking."],
+    ]);
+
+    await finish(2);
+    await finish(3);
+    await service.whenIdle();
+
+    expect(sentBlocks(control.calls).at(3)).toEqual(["Deleting a fork is permanent."]);
+    expect(committed("linked")).toEqual({
+      blockId: LINKED.id,
+      kind: "text-slots",
+      texts: ["fr Read ", "fr the docs", " fr before forking."],
+    });
+  });
+
   test("blocks_discovered_after_translation_are_translated_without_a_new_toggle", async () => {
     const { service, near, discover, committed } = setup({ blocks: [ALPHA] });
     await service.toggle();
