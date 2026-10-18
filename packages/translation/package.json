@@ -1,0 +1,24 @@
+{
+  "name": "@lambe/translation",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./domain/*": "./src/domain/*.ts",
+    "./application/*": "./src/application/*.ts",
+    "./infrastructure/*": "./src/infrastructure/*.ts"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@lambe/kernel": "workspace:*",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@lambe/typescript-config": "workspace:*",
+    "@types/bun": "1.4.3",
+    "typescript": "7.0.2"
+  }
+}
