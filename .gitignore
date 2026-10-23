@@ -5,3 +5,4 @@ dist
 .superpowers/
 *.pem
 .env*
+.claude/worktrees/
