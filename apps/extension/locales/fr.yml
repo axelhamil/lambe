@@ -40,6 +40,15 @@ youtube:
   button: "Sous-titres traduits (Lambë)"
   buttonOn: "Masquer les sous-titres traduits (Lambë)"
   translating: "Traduction des sous-titres en cours…"
+
+menu:
+  label: "Menu de Lambë"
+  translateTo: "Traduire cette page en"
+  moreLanguages: "Plus de langues…"
+  autoTranslateSite: "Toujours traduire ce site"
+  hideOnSite: "Masquer la bulle sur ce site"
+  settings: "Réglages de Lambë"
+
 options:
   shell:
     documentTitle: "Réglages de Lambë"

@@ -6,6 +6,11 @@ import { activateTab, showUnavailable, type TabScripting } from "../activation/a
 import { StorageTranslationCache } from "../adapters/chrome/storage-translation-cache";
 import { t } from "../i18n/t";
 import {
+  type OpenOptionsMessage,
+  openOptionsMessageSchema,
+  optionsPathOf,
+} from "../messaging/open-options.contract";
+import {
   TRANSLATE_PORT_NAME,
   type TranslateBatchResponse,
 } from "../messaging/translate-batch.contract";
@@ -77,6 +82,30 @@ async function activateActiveTab(): Promise<void> {
   }
 }
 
+async function openOptions(message: OpenOptionsMessage): Promise<void> {
+  if (message.section === undefined) {
+    await chrome.runtime.openOptionsPage();
+
+    return;
+  }
+
+  await chrome.tabs.create({ url: chrome.runtime.getURL(optionsPathOf(message)) });
+}
+
+function serveOpenOptions(): void {
+  chrome.runtime.onMessage.addListener((payload) => {
+    const message = openOptionsMessageSchema.safeParse(payload);
+
+    if (!message.success) return false;
+
+    void openOptions(message.data).catch((cause: unknown) => {
+      console.error("Lambë could not open its settings.", cause);
+    });
+
+    return false;
+  });
+}
+
 function syncScriptRegistrations(): void {
   const settings = settingsStore();
   const sync = reconciler({ settings, access: chromeHostAccess, registrar: chromeScriptRegistrar });
@@ -93,6 +122,7 @@ function syncScriptRegistrations(): void {
 
 export function startBackground(): void {
   syncScriptRegistrations();
+  serveOpenOptions();
 
   const host = workerHost();
 
