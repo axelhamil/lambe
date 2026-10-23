@@ -27,3 +27,16 @@ error:
   SETTINGS_INVALID: "Your saved settings are not valid, so Lambë is using the defaults. Fix them or reset to defaults."
   SETTINGS_FROM_NEWER_VERSION: "Your settings come from a newer version of Lambë, so the defaults are in use. Update the extension or reset to defaults."
   UNKNOWN: "Something went wrong. Try again."
+
+bubble:
+  translate: "Translate this page with Lambë"
+  original: "Show the original page"
+  translating: "Translating the page…"
+  retry: "Translate this page again"
+  dragHint: "Drag to move. Double click to translate again."
+  errorTitle: "Lambë could not translate this page."
+
+youtube:
+  button: "Translated captions (Lambë)"
+  buttonOn: "Hide the translated captions (Lambë)"
+  translating: "Translating the captions…"

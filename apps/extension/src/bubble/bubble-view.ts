@@ -1,5 +1,6 @@
 import type { ViewState } from "@lambe/translation/application/page-translation.service";
 import glyphSvg from "../../../../assets/tengwa-lambe.svg?raw";
+import type { UiText } from "../i18n/ui-text";
 import { type BubbleClass, bubbleStateOf } from "./bubble-state";
 import { type ClickHandlers, createClickClassifier, type Scheduler } from "./click-classifier";
 import { clampTop, restingLeft, type Side, snapSide } from "./placement";
@@ -20,7 +21,7 @@ interface Drag {
 const SVG_NS = "http://www.w3.org/2000/svg";
 const DRAG_THRESHOLD = 4;
 const INITIAL_TOP = 150;
-const LABEL = "Translate this page with Lambë";
+const ICON_LETTERS = "Aa";
 const OUTLINE_PATH =
   "M9 7h22a5 5 0 0 1 5 5v11a5 5 0 0 1-5 5h-1l5 6-9-6H9a5 5 0 0 1-5-5V12a5 5 0 0 1 5-5z";
 const GLYPH_PATH = /\sd="([^"]+)"/.exec(glyphSvg)?.[1] ?? "";
@@ -34,12 +35,12 @@ function svgElement(name: string, attributes: Record<string, string>): SVGElemen
   return element;
 }
 
-function createButton(): HTMLButtonElement {
+function createButton(text: UiText): HTMLButtonElement {
   const button = document.createElement("button");
   const icon = svgElement("svg", { viewBox: "0 0 40 40", "aria-hidden": "true" });
   const label = svgElement("text", { class: "label", x: "20", y: "21.5", "text-anchor": "middle" });
 
-  label.textContent = "Aa";
+  label.textContent = ICON_LETTERS;
   icon.append(
     svgElement("path", { class: "outline", d: OUTLINE_PATH }),
     label,
@@ -51,7 +52,8 @@ function createButton(): HTMLButtonElement {
   );
   button.type = "button";
   button.className = "bubble";
-  button.setAttribute("aria-label", LABEL);
+  button.setAttribute("aria-label", text.translate("bubble.translate"));
+  button.setAttribute("aria-description", text.translate("bubble.dragHint"));
   button.setAttribute("aria-pressed", "false");
   button.append(icon);
 
@@ -67,8 +69,8 @@ function viewport(): { width: number; height: number } {
   };
 }
 
-export function mountBubble(root: ShadowRoot, handlers: ClickHandlers): Bubble {
-  const button = createButton();
+export function mountBubble(root: ShadowRoot, handlers: ClickHandlers, text: UiText): Bubble {
+  const button = createButton(text);
   const listeners = new AbortController();
   const timers = new Set<number>();
   const scheduler: Scheduler = {
@@ -208,12 +210,13 @@ export function mountBubble(root: ShadowRoot, handlers: ClickHandlers): Bubble {
 
   return {
     render(state) {
-      const view = bubbleStateOf(state);
+      const view = bubbleStateOf(state, text);
 
       for (const name of STATE_CLASSES) button.classList.toggle(name, view.classes.includes(name));
 
       button.setAttribute("aria-pressed", String(state.kind === "translated"));
       button.setAttribute("aria-busy", String(state.kind === "translating"));
+      button.setAttribute("aria-label", view.label);
 
       if (view.tooltip.isSome()) button.title = view.tooltip.unwrap();
       else button.removeAttribute("title");
