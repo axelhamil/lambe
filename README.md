@@ -11,6 +11,7 @@ Lambë is Quenya for "tongue, language"; the bubble glyph is the tengwa of the s
 - Chrome (or any Chromium browser) with Manifest V3.
 - Node 24.20 or newer (`.nvmrc`), pnpm 11 (`packageManager`), Bun 1.4.0 for tests and scripts (`.bun-version`, also read by CI).
 - A model server. The default is [Ollama](https://ollama.com) on `http://localhost:11434` with `ollama pull translategemma:12b`.
+- New to local models? Follow the [beginner guide to running a local AI](docs/local-ai.md): hardware, install, model and setup.
 
 ## Install and build
 
