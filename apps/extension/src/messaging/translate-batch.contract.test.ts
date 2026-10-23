@@ -23,6 +23,7 @@ const request: BatchRequest = {
   source: Option.some(code("en")),
   target: code("pt-BR"),
   brief: {
+    kind: "page",
     host: "docs.github.com",
     url: "https://docs.github.com/fork-a-repo",
     title: "Fork a repo",
@@ -41,10 +42,41 @@ describe("translate batch contract", () => {
 
     expect(restored.source.unwrap().value).toBe("en");
     expect(restored.target.value).toBe("pt-BR");
-    expect(restored.brief.sourceLanguage.isNone()).toBe(true);
-    expect(restored.brief.headings).toEqual(["Forking"]);
+    expect(restored.brief).toMatchObject({ kind: "page", headings: ["Forking"] });
+    expect(restored.brief.kind === "page" && restored.brief.sourceLanguage.isNone()).toBe(true);
     expect(restored.cachePolicy).toBe("refresh");
     expect(restored.segments).toEqual(request.segments);
+  });
+
+  test("caption_brief_survives_the_port_roundtrip", () => {
+    const captions: BatchRequest = {
+      ...request,
+      brief: {
+        kind: "captions",
+        host: "www.youtube.com",
+        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        title: "How forks work",
+        channel: "Git Weekly",
+        description: "A short tour.",
+        generated: true,
+        preceding: ["So you want a fork."],
+      },
+    };
+    const message = JSON.parse(JSON.stringify(translateMessage("8", captions)));
+    const restored = fromBatchRequestDto(translateMessageSchema.parse(message).payload).getValue();
+
+    expect(restored.brief).toEqual(captions.brief);
+  });
+
+  test("brief_without_kind_is_rejected", () => {
+    const { kind: _kind, ...brief } = toBatchRequestDto(request).brief;
+    const parsed = translateMessageSchema.safeParse({
+      type: "translate",
+      requestId: "9",
+      payload: { ...toBatchRequestDto(request), brief },
+    });
+
+    expect(parsed.success).toBe(false);
   });
 
   test("rejects_unknown_message_types_on_both_sides", () => {

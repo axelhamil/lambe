@@ -34,6 +34,7 @@ function headings(doc: Document, textOf: TextOf): string[] {
 
 export function readPageBrief(doc: Document, textOf: TextOf = liveText): PageBrief {
   return {
+    kind: "page",
     host: doc.location?.host ?? "",
     url: doc.location?.href ?? "",
     title: cleanText(doc.title),

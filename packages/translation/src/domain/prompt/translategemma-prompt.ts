@@ -1,12 +1,18 @@
 import { encodeBatch } from "../batch/batch-format";
+import type { LanguageCode } from "../language/value-objects/language-code.vo";
 import type { PageBrief } from "../page/page-brief";
-import type { ChatMessage, PromptAdapter, PromptInput } from "./prompt-adapter";
+import { captionContextLines } from "./caption-context";
+import type { ChatMessage, ContentBrief, PromptAdapter, PromptInput } from "./prompt-adapter";
 import { JARGON_RULE, languageLabel, overheadTokensOf, TAG_RULE } from "./prompt-adapter";
 
 function contextLine(brief: PageBrief): string {
   const headings = brief.headings.length > 0 ? ` Headings: ${brief.headings.join(" | ")}.` : "";
 
   return `Context: the text comes from ${brief.host}, page "${brief.title}".${headings} ${JARGON_RULE}`;
+}
+
+function contextLines(brief: ContentBrief, target: LanguageCode): string[] {
+  return brief.kind === "captions" ? captionContextLines(brief, target) : [contextLine(brief)];
 }
 
 function build({ source, target, brief, segments }: PromptInput): ChatMessage[] {
@@ -28,7 +34,7 @@ function build({ source, target, brief, segments }: PromptInput): ChatMessage[] 
 
   const content = [
     opening,
-    contextLine(brief),
+    ...contextLines(brief, target),
     TAG_RULE,
     `${request}\n\n\n${encodeBatch(segments)}`,
   ].join("\n");
