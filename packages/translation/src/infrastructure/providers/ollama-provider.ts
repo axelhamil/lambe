@@ -15,6 +15,7 @@ import {
   jsonOf,
   type LineDecoder,
   type ProviderFailures,
+  probeAccess,
   type StreamListeners,
   streamChat,
 } from "./stream-support";
@@ -212,7 +213,20 @@ export class OllamaProvider implements TranslationProvider, ModelCatalog {
       schema: tagsSchema,
     });
 
-    return tags.map(({ models }) => models.map(({ name }) => name));
+    if (tags.isFailure) return Result.fail(tags.getError());
+
+    const access = await probeAccess({
+      ...this.request("/api/show", signal),
+      init: {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ model: this.model }),
+      },
+    });
+
+    if (access.isFailure) return Result.fail(access.getError());
+
+    return Result.ok(tags.getValue().models.map(({ name }) => name));
   }
 
   private request(path: string, signal: AbortSignal | undefined) {
