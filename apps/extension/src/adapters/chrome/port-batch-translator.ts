@@ -1,3 +1,4 @@
+import { Option } from "@lambe/kernel/option";
 import { Result } from "@lambe/kernel/result";
 import type {
   BatchRequest,
@@ -44,7 +45,7 @@ const ignoreOutcome = (): void => undefined;
 
 export class PortBatchTranslator implements BatchTranslator, ProviderCapacity {
   private port: RuntimePort | undefined;
-  private reportedConcurrency = 1;
+  private reportedConcurrency: Option<number> = Option.none();
   private readonly pending = new Map<string, Pending>();
   private nextId = 0;
 
@@ -88,7 +89,7 @@ export class PortBatchTranslator implements BatchTranslator, ProviderCapacity {
     });
   }
 
-  public concurrency(): number {
+  public concurrency(): Option<number> {
     return this.reportedConcurrency;
   }
 
@@ -154,7 +155,7 @@ export class PortBatchTranslator implements BatchTranslator, ProviderCapacity {
 
     const { response, concurrency } = parsed.data;
 
-    this.reportedConcurrency = concurrency;
+    this.reportedConcurrency = Option.some(concurrency);
     this.settle(
       requestId,
       response.ok ? Result.ok(response.outcomes) : Result.fail(response.error),

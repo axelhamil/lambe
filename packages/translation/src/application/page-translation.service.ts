@@ -33,6 +33,7 @@ export interface PageTranslationDeps {
   capacity: ProviderCapacity;
   detector: LanguageDetector;
   target: LanguageCode;
+  maxConcurrency: number;
   maxSegmentsPerRequest: number;
   firstRequestSegments: number;
 }
@@ -57,6 +58,25 @@ interface RequestScope {
 type Outcomes = Map<string, SegmentOutcome>;
 
 const REQUESTS_AHEAD = 1;
+
+const MIN_REAL_TEXT_LETTERS = 12;
+
+interface FirstCandidate {
+  id: BlockId;
+  order: number;
+  tier: number;
+  real: boolean;
+  length: number;
+}
+
+function firstPriority(left: FirstCandidate, right: FirstCandidate): number {
+  return (
+    left.tier - right.tier ||
+    Number(right.real) - Number(left.real) ||
+    left.length - right.length ||
+    left.order - right.order
+  );
+}
 
 function structuredNodes(outcome: SegmentOutcome | undefined): Option<InlineNode[]> {
   if (outcome?.status !== "translated") return Option.none();
@@ -453,7 +473,11 @@ export class PageTranslationService {
   }
 
   private laneCount(): number {
-    return Math.max(1, this.deps.capacity.concurrency()) + REQUESTS_AHEAD;
+    return this.concurrency() + REQUESTS_AHEAD;
+  }
+
+  private concurrency(): number {
+    return Math.max(1, this.deps.capacity.concurrency().unwrapOr(this.deps.maxConcurrency));
   }
 
   private takeNext(free: number): BlockId[][] {
@@ -465,17 +489,17 @@ export class PageTranslationService {
 
     if (this.firstRequestPending) {
       const firstSize = Math.min(max, Math.max(1, this.deps.firstRequestSegments));
-      const first = this.queue.take(firstSize, frontRank, maxRole);
+      const first = this.takeFirst(firstSize, frontRank, maxRole);
 
       if (first.length > 0) {
         this.firstRequestPending = false;
-        this.leading = true;
+        this.leading = this.deps.capacity.concurrency().isSome();
 
         return [first];
       }
     }
 
-    const parts = Math.min(free, Math.max(1, this.deps.capacity.concurrency()));
+    const parts = Math.min(free, this.concurrency());
     const front = parts > 1 ? this.queue.take(parts * max, frontRank, maxRole) : [];
 
     if (front.length > 0) {
@@ -489,6 +513,37 @@ export class PageTranslationService {
     const next = this.queue.take(max, maxRank, maxRole);
 
     return next.length > 0 ? [next] : [];
+  }
+
+  private takeFirst(size: number, maxRank: ProximityRank, maxRole: BlockRole): BlockId[] {
+    const candidates = this.queue.pending(maxRank, maxRole);
+    const chosen = new Set(
+      candidates
+        .map((id, order) => this.firstCandidate(id, order))
+        .sort(firstPriority)
+        .slice(0, size)
+        .map((candidate) => candidate.id.value),
+    );
+    const first = candidates.filter((id) => chosen.has(id.value));
+
+    for (const id of first) this.queue.drop(id);
+
+    return first;
+  }
+
+  private firstCandidate(id: BlockId, order: number): FirstCandidate {
+    const block = this.blocks.get(id.value);
+    const content = block === undefined ? "" : textSlots(block.nodes).join("").trim();
+    const letters = content.match(/\p{L}/gu)?.length ?? 0;
+    const chrome = block?.role === "chrome" ? 2 : 0;
+
+    return {
+      id,
+      order,
+      tier: chrome + (this.ranks.get(id.value) ?? 1),
+      real: letters >= MIN_REAL_TEXT_LETTERS,
+      length: content.length,
+    };
   }
 
   private visibleContentOutstanding(): boolean {

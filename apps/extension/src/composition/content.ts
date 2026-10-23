@@ -43,6 +43,7 @@ async function buildPageService(): Promise<PageTranslationService> {
     capacity: translator,
     detector: new ChromeLanguageDetector((text) => chrome.i18n.detectLanguage(text)),
     target: config.target,
+    maxConcurrency: config.provider.concurrency,
     maxSegmentsPerRequest: config.maxSegmentsPerRequest,
     firstRequestSegments: config.firstRequestSegments,
   });

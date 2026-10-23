@@ -12,7 +12,7 @@ import {
   requestCancelled,
 } from "../../domain/provider/provider-error";
 
-export const KEEP_ALIVE_MS = 30_000;
+export const KEEP_ALIVE_MS = 10 * 60_000;
 
 export type FetchFn = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -230,7 +230,7 @@ export class OllamaProvider implements TranslationProvider {
       model,
       messages,
       stream: true,
-      keep_alive: `${KEEP_ALIVE_MS / 1000}s`,
+      keep_alive: `${KEEP_ALIVE_MS / 60_000}m`,
       options: {
         temperature: 0,
         num_ctx: contextTokens,

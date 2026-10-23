@@ -1,3 +1,4 @@
+import { Option } from "@lambe/kernel/option";
 import {
   type BatchTranslateOptions,
   BatchTranslationService,
@@ -94,7 +95,9 @@ export function startBackground(): void {
   let worker: Promise<Worker> | undefined;
   let capacity: ProviderCapacity | undefined;
 
-  const reported: ProviderCapacity = { concurrency: () => capacity?.concurrency() ?? 1 };
+  const reported: ProviderCapacity = {
+    concurrency: () => capacity?.concurrency() ?? Option.none(),
+  };
 
   const batchService = async (): Promise<BatchTranslationService> => {
     worker ??= buildWorker();

@@ -83,7 +83,7 @@ describe("PortBatchTranslator", () => {
     });
   });
 
-  test("reports_the_concurrency_carried_by_the_last_done_message", async () => {
+  test("reports_no_concurrency_until_a_done_message_carries_one", async () => {
     const { ports, translator } = setup();
     const [first] = ports;
     const before = translator.concurrency();
@@ -97,8 +97,8 @@ describe("PortBatchTranslator", () => {
     });
     await pending;
 
-    expect(before).toBe(1);
-    expect(translator.concurrency()).toBe(3);
+    expect(before.isNone()).toBe(true);
+    expect(translator.concurrency().unwrap()).toBe(3);
   });
 
   test("error_and_malformed_done_messages_map_to_failures", async () => {

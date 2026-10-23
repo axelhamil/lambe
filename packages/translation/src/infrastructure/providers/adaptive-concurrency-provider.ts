@@ -1,3 +1,4 @@
+import { Option } from "@lambe/kernel/option";
 import { Result } from "@lambe/kernel/result";
 import type { ProviderCapacity } from "../../application/ports/provider-capacity";
 import type {
@@ -40,8 +41,8 @@ export class AdaptiveConcurrencyProvider implements TranslationProvider, Provide
     this.model = inner.model;
   }
 
-  public concurrency(): number {
-    return this.slots;
+  public concurrency(): Option<number> {
+    return Option.some(this.slots);
   }
 
   public async chat(

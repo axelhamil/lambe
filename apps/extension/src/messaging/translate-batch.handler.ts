@@ -111,7 +111,12 @@ export function serveTranslatePort(
       .then((response) => {
         if (running.get(requestId) === controller) running.delete(requestId);
 
-        post({ type: "done", requestId, response, concurrency: capacity.concurrency() });
+        post({
+          type: "done",
+          requestId,
+          response,
+          concurrency: capacity.concurrency().unwrapOr(1),
+        });
       });
   });
 }

@@ -67,7 +67,7 @@ describe("AdaptiveConcurrencyProvider", () => {
     streams[1]?.emit("Sal");
     await settle();
 
-    expect(provider.concurrency()).toBe(2);
+    expect(provider.concurrency().unwrap()).toBe(2);
     expect(started(streams)).toEqual(["a", "b", "c"]);
   });
 
@@ -84,7 +84,7 @@ describe("AdaptiveConcurrencyProvider", () => {
     streams[1]?.emit("Sal");
     await settle();
 
-    expect(provider.concurrency()).toBe(1);
+    expect(provider.concurrency().unwrap()).toBe(1);
     expect(started(streams)).toEqual(["a", "b", "c"]);
     expect(streams).toHaveLength(3);
   });
@@ -117,7 +117,7 @@ describe("AdaptiveConcurrencyProvider", () => {
       for (const stream of streams) stream.emit("x");
     }
 
-    expect(provider.concurrency()).toBe(2);
+    expect(provider.concurrency().unwrap()).toBe(2);
     expect(streams).toHaveLength(3);
   });
 
@@ -135,13 +135,13 @@ describe("AdaptiveConcurrencyProvider", () => {
     streams[1]?.finish();
     await settle();
 
-    expect(provider.concurrency()).toBe(2);
+    expect(provider.concurrency().unwrap()).toBe(2);
 
     clock = 30_000;
     void provider.chat(ask("c"), options);
     await settle();
 
-    expect(provider.concurrency()).toBe(1);
+    expect(provider.concurrency().unwrap()).toBe(1);
   });
 
   test("maps_an_inner_rejection_to_a_failure_and_releases_the_slot", async () => {

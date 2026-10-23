@@ -86,20 +86,22 @@ function setup(
     detect?: (text: string) => Option<LanguageCode>;
     maxSegmentsPerRequest?: number;
     firstRequestSegments?: number;
-    concurrency?: () => number;
+    concurrency?: () => Option<number>;
+    maxConcurrency?: number;
   } = {},
 ) {
   const surface = new InMemoryPageSurface(options.brief ?? brief, options.blocks ?? []);
   const translator = { translate: mock(options.translate ?? french) };
   const detect = options.detect ?? (() => Option.none<LanguageCode>());
   const detector = { detect: mock(async (input: string) => detect(input)) };
-  const capacity = { concurrency: options.concurrency ?? (() => 1) };
+  const capacity = { concurrency: options.concurrency ?? (() => Option.some(1)) };
   const service = new PageTranslationService({
     surface,
     translator,
     capacity,
     detector,
     target,
+    maxConcurrency: options.maxConcurrency ?? 8,
     maxSegmentsPerRequest: options.maxSegmentsPerRequest ?? 8,
     firstRequestSegments: options.firstRequestSegments ?? 8,
   });
@@ -910,8 +912,8 @@ describe("PageTranslationService", () => {
     await service.whenIdle();
 
     expect(sentMarkup()).toEqual([
-      ["Forks share code with upstream."],
       ["A fork keeps its own history."],
+      ["Forks share code with upstream."],
     ]);
     expect(service.state()).toEqual({ kind: "translated" });
   });
@@ -973,24 +975,24 @@ describe("PageTranslationService", () => {
     await flush();
     const beforeStreaming = control.calls.length;
     const [first] = control.calls;
-    const alpha = streamedFrench("0", "Forks share code with upstream.");
-    const beta = streamedFrench("1", "A fork keeps its own history.");
-    first?.options.onOutcome?.(alpha);
+    const beta = streamedFrench("0", "A fork keeps its own history.");
+    const delta = streamedFrench("1", "Deleting a fork is permanent.");
+    first?.options.onOutcome?.(beta);
     await flush();
     const afterStreaming = sentBlocks(control.calls);
-    first?.finish(Result.ok([alpha, beta]));
+    first?.finish(Result.ok([beta, delta]));
     control.calls[1]?.finish(
       Result.ok([
-        streamedFrench("0", "Pull requests flow back upstream."),
-        streamedFrench("1", "Deleting a fork is permanent."),
+        streamedFrench("0", "Forks share code with upstream."),
+        streamedFrench("1", "Pull requests flow back upstream."),
       ]),
     );
     await service.whenIdle();
 
     expect(beforeStreaming).toBe(1);
     expect(afterStreaming).toEqual([
-      ["Forks share code with upstream.", "A fork keeps its own history."],
-      ["Pull requests flow back upstream.", "Deleting a fork is permanent."],
+      ["A fork keeps its own history.", "Deleting a fork is permanent."],
+      ["Forks share code with upstream.", "Pull requests flow back upstream."],
     ]);
   });
 
@@ -1018,7 +1020,7 @@ describe("PageTranslationService", () => {
       blocks: [chrome("navbar", "Pricing"), chrome("search", "Search docs"), GAMMA],
       firstRequestSegments: 1,
       maxSegmentsPerRequest: 1,
-      concurrency: () => 2,
+      concurrency: () => Option.some(2),
     });
 
     await service.toggle();
@@ -1176,19 +1178,19 @@ describe("PageTranslationService", () => {
 
     await flush();
     const [first] = control.calls;
-    first?.options.onOutcome?.(streamedFrench("0", "Forks share code with upstream."));
+    first?.options.onOutcome?.(streamedFrench("0", "A fork keeps its own history."));
     await flush();
     const whileStreaming = sentBlocks(control.calls);
-    first?.finish(Result.ok([streamedFrench("0", "Forks share code with upstream.")]));
+    first?.finish(Result.ok([streamedFrench("0", "A fork keeps its own history.")]));
     await flush();
 
     expect(whileStreaming).toEqual([
-      ["Forks share code with upstream."],
       ["A fork keeps its own history."],
+      ["Forks share code with upstream."],
     ]);
     expect(sentBlocks(control.calls)).toEqual([
-      ["Forks share code with upstream."],
       ["A fork keeps its own history."],
+      ["Forks share code with upstream."],
       ["Pull requests flow back upstream."],
     ]);
   });
@@ -1215,25 +1217,71 @@ describe("PageTranslationService", () => {
 
   test("rank_zero_is_split_into_balanced_requests_across_slots", async () => {
     const { service, near, sentMarkup } = setup({
-      blocks: [ALPHA, LONG, BETA, GAMMA, DELTA],
+      blocks: [DELTA, LONG, BETA, GAMMA, ALPHA],
       firstRequestSegments: 1,
-      concurrency: () => 2,
+      concurrency: () => Option.some(2),
     });
 
     await service.toggle();
 
-    for (const id of ["alpha", "long", "beta", "gamma", "delta"]) near(id, 0);
+    for (const id of ["delta", "long", "beta", "gamma", "alpha"]) near(id, 0);
 
     await service.whenIdle();
 
     expect(sentMarkup()).toEqual([
-      ["Forks share code with upstream."],
+      ["Deleting a fork is permanent."],
       [LONG_SENTENCE],
       [
         "A fork keeps its own history.",
         "Pull requests flow back upstream.",
-        "Deleting a fork is permanent.",
+        "Forks share code with upstream.",
       ],
     ]);
+  });
+
+  test("visible_content_goes_out_in_parallel_requests_before_any_concurrency_is_learned", async () => {
+    const control = controlledTranslator();
+    const { service, near } = setup({
+      blocks: [ALPHA, BETA, GAMMA, DELTA, LONG],
+      translate: control.translate,
+      firstRequestSegments: 1,
+      concurrency: () => Option.none(),
+      maxConcurrency: 4,
+    });
+    await service.toggle();
+
+    for (const id of ["alpha", "beta", "gamma", "delta", "long"]) near(id, 0);
+
+    await flush();
+
+    expect(sentBlocks(control.calls)).toEqual([
+      ["A fork keeps its own history."],
+      ["Forks share code with upstream."],
+      ["Pull requests flow back upstream."],
+      ["Deleting a fork is permanent."],
+      [LONG_SENTENCE],
+    ]);
+  });
+
+  test("first_request_takes_the_shortest_visible_text_blocks_while_other_lanes_open", async () => {
+    const control = controlledTranslator();
+    const { service, near } = setup({
+      blocks: [LONG, GAMMA, ALPHA, paragraph("note", "[1]"), BETA],
+      translate: control.translate,
+      firstRequestSegments: 2,
+      concurrency: () => Option.none(),
+    });
+    await service.toggle();
+
+    for (const id of ["long", "gamma", "alpha", "note", "beta"]) near(id, 0);
+
+    await flush();
+    const [first, ...others] = sentBlocks(control.calls);
+
+    expect(first).toEqual(["Forks share code with upstream.", "A fork keeps its own history."]);
+    expect(others.flat().sort()).toEqual(
+      [LONG_SENTENCE, "Pull requests flow back upstream.", "[1]"].sort(),
+    );
+    expect(others.length).toBeGreaterThan(1);
   });
 });

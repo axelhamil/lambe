@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { Option } from "@lambe/kernel/option";
 import { Result } from "@lambe/kernel/result";
 import type {
   BatchRequest,
@@ -69,7 +70,7 @@ describe("respondToTranslateBatch", () => {
     serveTranslatePort(
       port,
       (body, options) => respondToTranslateBatch(body, { translate }, options),
-      { concurrency: () => 2 },
+      { concurrency: () => Option.some(2) },
     );
 
     deliver({ type: "translate", requestId: "1", payload });

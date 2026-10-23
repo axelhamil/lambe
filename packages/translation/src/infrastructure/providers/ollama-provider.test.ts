@@ -75,7 +75,7 @@ describe("OllamaProvider", () => {
       model: "translategemma:12b",
       messages,
       stream: true,
-      keep_alive: "30s",
+      keep_alive: "10m",
       options: { temperature: 0, num_ctx: 2048 },
     });
   });

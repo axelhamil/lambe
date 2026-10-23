@@ -42,6 +42,13 @@ export class TranslationQueue {
     return [...this.entries.values()].some((entry) => within(entry, maxRank, maxRole));
   }
 
+  public pending(maxRank: ProximityRank, maxRole: BlockRole): BlockId[] {
+    return [...this.entries.values()]
+      .filter((entry) => within(entry, maxRank, maxRole))
+      .sort(compare)
+      .map((entry) => entry.id);
+  }
+
   public take(max: number, maxRank: ProximityRank = 1, maxRole: BlockRole = "chrome"): BlockId[] {
     const taken = [...this.entries.values()]
       .filter((entry) => within(entry, maxRank, maxRole))
