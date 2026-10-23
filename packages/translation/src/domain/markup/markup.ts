@@ -1,3 +1,4 @@
+import { Option } from "@lambe/kernel/option";
 import { Result } from "@lambe/kernel/result";
 import type { GroupNode, InlineNode } from "../block/inline-node";
 
@@ -166,6 +167,19 @@ export function parseMarkup(markup: string): Result<InlineNode[], MarkupError> {
   }
 
   return Result.ok(root);
+}
+
+export function plainTextOf(markup: string): Option<string> {
+  return parseMarkup(markup).match({
+    ok: (nodes) => {
+      const [only] = nodes;
+
+      if (nodes.length !== 1 || only?.kind !== "text") return Option.none();
+
+      return Option.some(only.text);
+    },
+    fail: () => Option.none(),
+  });
 }
 
 function appendLoose(target: InlineNode[], raw: string): void {

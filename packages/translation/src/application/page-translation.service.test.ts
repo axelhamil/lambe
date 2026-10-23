@@ -25,6 +25,7 @@ const language = (code: string): LanguageCode => LanguageCode.create(code).getVa
 const target = language("fr");
 
 const brief: PageBrief = {
+  kind: "page",
   host: "github.com",
   url: "https://github.com/about-forks",
   title: "About forks",
@@ -592,6 +593,7 @@ describe("PageTranslationService", () => {
     await service.whenIdle();
 
     surface.brief = {
+      kind: "page",
       host: "github.com",
       url: "https://github.com/ja/about-forks",
       title: "フォークについて",
@@ -626,7 +628,7 @@ describe("PageTranslationService", () => {
     await service.whenIdle();
 
     const last = requests().at(-1);
-    expect(last?.brief.headings).toEqual(["About forks"]);
+    expect(last?.brief).toMatchObject({ headings: ["About forks"] });
     expect(last?.source.map((code) => code.value).unwrapOr("")).toBe("en");
     expect(detector.detect.mock.calls.length - detectionsBefore).toBe(1);
   });

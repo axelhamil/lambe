@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Option } from "@lambe/kernel/option";
+import type { CaptionBrief } from "../caption/caption-brief";
 import { LanguageCode } from "../language/value-objects/language-code.vo";
 import type { PageBrief } from "../page/page-brief";
 import { instructionPrompt } from "./instruction-prompt";
@@ -8,6 +9,7 @@ import type { PromptInput } from "./prompt-adapter";
 const language = (code: string): LanguageCode => LanguageCode.create(code).getValue();
 
 const brief: PageBrief = {
+  kind: "page",
   host: "github.com",
   url: "https://github.com/about-forks",
   title: "Contributing guide",
@@ -58,5 +60,32 @@ describe("instructionPrompt", () => {
     expect(system).toContain("Keep non breaking spaces and HTML entities");
     expect(system).toContain("Never translate or change anything inside <xN/>");
     expect(system).toContain("Return exactly the segments you received");
+  });
+
+  test("caption_brief_puts_video_context_in_system", () => {
+    const captionBrief: CaptionBrief = {
+      kind: "captions",
+      host: "www.youtube.com",
+      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      title: "How forks work",
+      channel: "Git Weekly",
+      description: "",
+      generated: false,
+      preceding: ["So you want a fork."],
+    };
+    const messages = instructionPrompt.build({ ...input, brief: captionBrief });
+    const system = messages[0]?.content ?? "";
+
+    expect(messages.map((message) => message.role)).toEqual(["system", "user"]);
+    expect(system).toContain('Video: "How forks work" by Git Weekly on www.youtube.com.');
+    expect(system).toContain("natural spoken French, short enough");
+    expect(system).toContain(
+      "Previous lines, for context only, do not translate them: So you want a fork.",
+    );
+    expect(system).toContain("Return exactly the segments you received");
+    expect(system).not.toContain("Site: www.youtube.com");
+    expect(system).not.toContain("Page context:");
+    expect(system).not.toContain("<xN/>");
+    expect(messages[1]?.content).toEndWith("[1] Fork the <g1>repository</g1>.");
   });
 });

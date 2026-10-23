@@ -1,8 +1,11 @@
 import type { Option } from "@lambe/kernel/option";
 import type { BatchSegment } from "../batch/batch-format";
 import { estimateTokens } from "../batch/budget";
+import type { CaptionBrief } from "../caption/caption-brief";
 import type { LanguageCode } from "../language/value-objects/language-code.vo";
 import type { PageBrief } from "../page/page-brief";
+
+export type ContentBrief = PageBrief | CaptionBrief;
 
 export type ModelFamily = "translategemma" | "instruction";
 
@@ -14,7 +17,7 @@ export interface ChatMessage {
 export interface PromptInput {
   source: Option<LanguageCode>;
   target: LanguageCode;
-  brief: PageBrief;
+  brief: ContentBrief;
   segments: BatchSegment[];
 }
 

@@ -66,4 +66,21 @@ describe("loadRuntimeConfig", () => {
     expect(instruction.contextTokens).toBe(8192);
     expect(explicit.contextTokens).toBe(4096);
   });
+
+  test("caption_defaults_are_six_sentences_and_sixty_seconds", async () => {
+    const config = await loadRuntimeConfig(storeWith({}), "en");
+
+    expect(config.captionSentencesPerRequest).toBe(6);
+    expect(config.captionAheadMs).toBe(60000);
+  });
+
+  test("caption_overrides_are_applied", async () => {
+    const config = await loadRuntimeConfig(
+      storeWith({ "lambe:config": { captionSentencesPerRequest: 4, captionAheadMs: 30000 } }),
+      "en",
+    );
+
+    expect(config.captionSentencesPerRequest).toBe(4);
+    expect(config.captionAheadMs).toBe(30000);
+  });
 });

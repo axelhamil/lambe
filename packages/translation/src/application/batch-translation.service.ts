@@ -21,9 +21,8 @@ import {
   toMarkup,
 } from "../domain/markup/markup";
 import { missingGroups, settleAgainstSource } from "../domain/markup/structure-check";
-import type { PageBrief } from "../domain/page/page-brief";
-import type { PromptAdapter } from "../domain/prompt/prompt-adapter";
-import { PROMPT_VERSION } from "../domain/prompt/prompt-version";
+import type { ContentBrief, PromptAdapter } from "../domain/prompt/prompt-adapter";
+import { promptVersionOf } from "../domain/prompt/prompt-version";
 import { type ProviderError, requestCancelled } from "../domain/provider/provider-error";
 import type { Hasher } from "./ports/hasher";
 import type { TranslationCache } from "./ports/translation-cache";
@@ -38,7 +37,7 @@ export interface BatchRequest {
   segments: SegmentRequest[];
   source: Option<LanguageCode>;
   target: LanguageCode;
-  brief: PageBrief;
+  brief: ContentBrief;
   cachePolicy: CachePolicy;
 }
 
@@ -382,7 +381,7 @@ export class BatchTranslationService {
         host: request.brief.host,
         providerId: this.deps.provider.id,
         model: this.deps.provider.model,
-        promptVersion: PROMPT_VERSION,
+        promptVersion: promptVersionOf(request.brief),
       }),
     );
   }

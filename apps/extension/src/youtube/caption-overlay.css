@@ -1,0 +1,57 @@
+:host {
+  --lambe-caption-ink: #fff;
+  --lambe-caption-fill: rgb(8 8 8 / 75%);
+  --lambe-caption-size: max(14px, min(2.2cqw, 4.2cqh));
+  --lambe-caption-font: "YouTube Noto", Roboto, Arial, Helvetica, sans-serif;
+  --lambe-caption-line-height: 1.35;
+  --lambe-caption-padding: 0.1em 0.35em;
+  --lambe-caption-gap: 0.15em;
+  --lambe-caption-width: 80%;
+  --lambe-caption-bottom: 2%;
+  --lambe-caption-bottom-controls: 64px;
+  --lambe-caption-controls-gap: 8px;
+  --lambe-caption-layer: 40;
+  --lambe-caption-glide: 0.2s ease;
+
+  position: absolute;
+  inset: 0;
+  z-index: var(--lambe-caption-layer);
+  pointer-events: none;
+  container-type: size;
+}
+
+:host([data-ad]) {
+  display: none;
+}
+
+.captions {
+  position: absolute;
+  left: 50%;
+  bottom: var(--lambe-caption-bottom);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--lambe-caption-gap);
+  max-width: var(--lambe-caption-width);
+  transform: translateX(-50%);
+  text-align: center;
+  font-family: var(--lambe-caption-font);
+  font-size: var(--lambe-caption-size);
+  line-height: var(--lambe-caption-line-height);
+  transition: bottom var(--lambe-caption-glide);
+}
+
+:host([data-controls="shown"]) .captions {
+  bottom: max(
+    var(--lambe-caption-bottom-controls),
+    calc(var(--lambe-controls-lift, 0px) + var(--lambe-caption-controls-gap))
+  );
+}
+
+.line {
+  padding: var(--lambe-caption-padding);
+  color: var(--lambe-caption-ink);
+  background: var(--lambe-caption-fill);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}

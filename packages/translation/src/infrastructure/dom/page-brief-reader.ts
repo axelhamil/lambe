@@ -1,10 +1,9 @@
 import { Option } from "@lambe/kernel/option";
 import { LanguageCode } from "../../domain/language/value-objects/language-code.vo";
 import type { PageBrief } from "../../domain/page/page-brief";
+import { cleanText } from "./clean-text";
 
 const SECTION_HEADING_LIMIT = 5;
-
-const cleanText = (text: string | null): string => (text ?? "").replace(/\s+/g, " ").trim();
 
 function sourceLanguage(doc: Document): Option<LanguageCode> {
   const lang = cleanText(doc.documentElement.getAttribute("lang"));
@@ -34,12 +33,11 @@ function headings(doc: Document, textOf: TextOf): string[] {
 
 export function readPageBrief(doc: Document, textOf: TextOf = liveText): PageBrief {
   return {
+    kind: "page",
     host: doc.location?.host ?? "",
     url: doc.location?.href ?? "",
     title: cleanText(doc.title),
-    description: cleanText(
-      doc.querySelector('meta[name="description"]')?.getAttribute("content") ?? null,
-    ),
+    description: cleanText(doc.querySelector('meta[name="description"]')?.getAttribute("content")),
     headings: headings(doc, textOf),
     sourceLanguage: sourceLanguage(doc),
   };

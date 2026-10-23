@@ -18,6 +18,7 @@ const payload = {
   source: "en",
   target: "fr",
   brief: {
+    kind: "page",
     host: "x.test",
     url: "https://x.test/",
     title: "",

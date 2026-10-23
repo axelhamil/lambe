@@ -6,11 +6,12 @@ import { estimateTokens, maxInputTokens } from "../domain/batch/budget";
 import type { InlineNode } from "../domain/block/inline-node";
 import { cacheKey } from "../domain/cache/cache-key";
 import type { CachePolicy } from "../domain/cache/cache-policy";
+import type { CaptionBrief } from "../domain/caption/caption-brief";
 import { LanguageCode } from "../domain/language/value-objects/language-code.vo";
 import { toMarkup } from "../domain/markup/markup";
 import type { PageBrief } from "../domain/page/page-brief";
 import type { ChatMessage } from "../domain/prompt/prompt-adapter";
-import { PROMPT_VERSION } from "../domain/prompt/prompt-version";
+import { CAPTION_PROMPT_VERSION, PROMPT_VERSION } from "../domain/prompt/prompt-version";
 import { translateGemmaPrompt } from "../domain/prompt/translategemma-prompt";
 import {
   type ProviderError,
@@ -34,6 +35,7 @@ const source = Option.some(language("en"));
 const target = language("fr");
 
 const brief: PageBrief = {
+  kind: "page",
   host: "github.com",
   url: "https://github.com/about-forks",
   title: "About forks",
@@ -637,6 +639,39 @@ describe("BatchTranslationService", () => {
     await service.translate(request(segments));
 
     expect(provider.chat).toHaveBeenCalledTimes(2);
+  });
+
+  test("caption_and_page_segments_with_same_text_use_distinct_cache_keys", async () => {
+    const { provider, service, written } = setup();
+    const captionBrief: CaptionBrief = {
+      kind: "captions",
+      host: brief.host,
+      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      title: "About forks",
+      channel: "Git Weekly",
+      description: "",
+      generated: false,
+      preceding: [],
+    };
+    const segments = [{ id: "a", markup: "Sign in" }];
+
+    await service.translate(request(segments));
+    await service.translate({ ...request(segments), brief: captionBrief });
+
+    expect(provider.chat).toHaveBeenCalledTimes(2);
+    expect([...written().keys()]).toHaveLength(2);
+    expect(PROMPT_VERSION).not.toBe(CAPTION_PROMPT_VERSION);
+  });
+
+  test("page_cache_key_is_unchanged_by_the_caption_version", async () => {
+    const { written, service } = setup();
+
+    await service.translate(request([{ id: "a", markup: "Sign in" }]));
+
+    const [key] = [...written().keys()];
+
+    expect(key).toBe(keyOf("Sign in"));
+    expect(key).toEndWith(`\u001f${PROMPT_VERSION})`);
   });
 
   test("identical_markup_is_sent_once_and_fanned_out", async () => {

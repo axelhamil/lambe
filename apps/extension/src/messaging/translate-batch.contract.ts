@@ -5,6 +5,7 @@ import type {
   SegmentOutcome,
 } from "@lambe/translation/application/batch-translation.service";
 import { LanguageCode } from "@lambe/translation/domain/language/value-objects/language-code.vo";
+import type { ContentBrief } from "@lambe/translation/domain/prompt/prompt-adapter";
 import type { ProviderError } from "@lambe/translation/domain/provider/provider-error";
 import { z } from "zod";
 
@@ -14,14 +15,27 @@ const batchRequestDtoSchema = z.object({
   segments: z.array(z.object({ id: z.string(), markup: z.string() })),
   source: z.string().nullable(),
   target: z.string(),
-  brief: z.object({
-    host: z.string(),
-    url: z.string(),
-    title: z.string(),
-    description: z.string(),
-    headings: z.array(z.string()),
-    sourceLanguage: z.string().nullable(),
-  }),
+  brief: z.discriminatedUnion("kind", [
+    z.object({
+      kind: z.literal("page"),
+      host: z.string(),
+      url: z.string(),
+      title: z.string(),
+      description: z.string(),
+      headings: z.array(z.string()),
+      sourceLanguage: z.string().nullable(),
+    }),
+    z.object({
+      kind: z.literal("captions"),
+      host: z.string(),
+      url: z.string(),
+      title: z.string(),
+      channel: z.string(),
+      description: z.string(),
+      generated: z.boolean(),
+      preceding: z.array(z.string()),
+    }),
+  ]),
   cachePolicy: z.enum(["use", "refresh"]),
 });
 
@@ -113,16 +127,30 @@ function optionalCode(value: string | null): Result<Option<LanguageCode>, string
   return LanguageCode.create(value).map((code) => Option.some(code));
 }
 
+type BriefDto = BatchRequestDto["brief"];
+
+function toBriefDto(brief: ContentBrief): BriefDto {
+  if (brief.kind === "captions") return { ...brief, preceding: [...brief.preceding] };
+
+  return {
+    ...brief,
+    headings: [...brief.headings],
+    sourceLanguage: brief.sourceLanguage.map((code) => code.value).toUndefined() ?? null,
+  };
+}
+
+function fromBriefDto(dto: BriefDto): Result<ContentBrief, string> {
+  if (dto.kind === "captions") return Result.ok(dto);
+
+  return optionalCode(dto.sourceLanguage).map((sourceLanguage) => ({ ...dto, sourceLanguage }));
+}
+
 export function toBatchRequestDto(request: BatchRequest): BatchRequestDto {
   return {
     segments: request.segments.map(({ id, markup }) => ({ id, markup })),
     source: request.source.map((code) => code.value).toUndefined() ?? null,
     target: request.target.value,
-    brief: {
-      ...request.brief,
-      headings: [...request.brief.headings],
-      sourceLanguage: request.brief.sourceLanguage.map((code) => code.value).toUndefined() ?? null,
-    },
+    brief: toBriefDto(request.brief),
     cachePolicy: request.cachePolicy,
   };
 }
@@ -130,11 +158,11 @@ export function toBatchRequestDto(request: BatchRequest): BatchRequestDto {
 export function fromBatchRequestDto(dto: BatchRequestDto): Result<BatchRequest, string> {
   return optionalCode(dto.source).flatMap((source) =>
     LanguageCode.create(dto.target).flatMap((target) =>
-      optionalCode(dto.brief.sourceLanguage).map((sourceLanguage) => ({
+      fromBriefDto(dto.brief).map((brief) => ({
         segments: dto.segments,
         source,
         target,
-        brief: { ...dto.brief, sourceLanguage },
+        brief,
         cachePolicy: dto.cachePolicy,
       })),
     ),

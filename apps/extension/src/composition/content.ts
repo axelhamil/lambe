@@ -9,9 +9,8 @@ import { PortBatchTranslator } from "../adapters/chrome/port-batch-translator";
 import { type Bubble, mountBubble } from "../bubble/bubble-view";
 import type { ClickHandlers } from "../bubble/click-classifier";
 import { loadRuntimeConfig } from "../config/runtime-config";
-import type { RuntimePort } from "../messaging/runtime-port";
+import { connectWorker } from "../messaging/connect-worker";
 import { toggleMessageSchema } from "../messaging/toggle.contract";
-import { TRANSLATE_PORT_NAME } from "../messaging/translate-batch.contract";
 import { hostsBubble } from "./bubble-frames";
 
 function blockIds(): () => BlockId {
@@ -22,16 +21,6 @@ function blockIds(): () => BlockId {
 
     return BlockId.create(`lambe-${next}`).getValue();
   };
-}
-
-function connectWorker(): RuntimePort {
-  const port = chrome.runtime.connect({ name: TRANSLATE_PORT_NAME });
-
-  port.onDisconnect.addListener(() => {
-    void chrome.runtime.lastError;
-  });
-
-  return port;
 }
 
 interface ContentApp {
