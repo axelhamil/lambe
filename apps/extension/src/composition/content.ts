@@ -26,6 +26,7 @@ import type { OpenOptionsMessage } from "../messaging/open-options.contract";
 import { toggleMessageSchema } from "../messaging/toggle.contract";
 import { SettingsStore } from "../settings/settings-store";
 import { menuActions } from "./menu-actions";
+import { invalidateWhenOrphaned } from "./orphan-watch";
 import { bubbleVisible, followPageRules, type PageRules, pageNeedsTranslation } from "./page-rules";
 
 function blockIds(): () => BlockId {
@@ -127,6 +128,8 @@ async function bubbleSlot(
 }
 
 export function startContent(ctx: ContentScriptContext): void {
+  invalidateWhenOrphaned(ctx);
+
   const store = new SettingsStore(chrome.storage.local, chrome.i18n.getUILanguage());
   const app = buildApp(store);
   let touched = false;
