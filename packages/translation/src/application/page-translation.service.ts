@@ -7,9 +7,9 @@ import type { BlockId } from "../domain/block/value-objects/block-id.vo";
 import type { CachePolicy } from "../domain/cache/cache-policy";
 import { shouldSkipBlock } from "../domain/language/skip-policy";
 import type { LanguageCode } from "../domain/language/value-objects/language-code.vo";
-import { parseMarkup, toMarkup } from "../domain/markup/markup";
+import { parseMarkup, plainTextOf, toMarkup } from "../domain/markup/markup";
 import type { PageBrief } from "../domain/page/page-brief";
-import { type ProviderError, providerError } from "../domain/provider/provider-error";
+import type { ProviderError } from "../domain/provider/provider-error";
 import {
   type ProximityRank,
   type TextMeasure,
@@ -24,6 +24,7 @@ import type { BatchTranslator } from "./ports/batch-translator";
 import type { LanguageDetector } from "./ports/language-detector";
 import type { PageSurface } from "./ports/page-surface";
 import type { ProviderCapacity } from "./ports/provider-capacity";
+import { RequestPump, type RequestScope, settle } from "./request-pump";
 
 export type ViewState =
   | { kind: "original" }
@@ -54,14 +55,7 @@ interface BatchPlan {
   settled: Block[];
 }
 
-interface RequestScope {
-  epoch: number;
-  signal: AbortSignal;
-}
-
 type Outcomes = Map<string, SegmentOutcome>;
-
-const REQUESTS_AHEAD = 1;
 
 function structuredNodes(outcome: SegmentOutcome | undefined): Option<InlineNode[]> {
   if (outcome?.status !== "translated") return Option.none();
@@ -73,13 +67,9 @@ function structuredNodes(outcome: SegmentOutcome | undefined): Option<InlineNode
 }
 
 function plainText(outcome: SegmentOutcome | undefined): Option<string> {
-  return structuredNodes(outcome).flatMap((nodes) => {
-    const [only] = nodes;
+  if (outcome?.status !== "translated") return Option.none();
 
-    if (nodes.length !== 1 || only?.kind !== "text") return Option.none();
-
-    return Option.some(only.text);
-  });
+  return plainTextOf(outcome.markup);
 }
 
 function keepEdges(original: string, translated: string): string {
@@ -91,23 +81,6 @@ function keepEdges(original: string, translated: string): string {
 
 function isBlank(text: string): boolean {
   return text.trim() === "";
-}
-
-function unreachable(cause: unknown): ProviderError {
-  const detail = cause instanceof Error ? cause.message : String(cause);
-
-  return providerError("PROVIDER_UNREACHABLE", `The translation port failed: ${detail}`);
-}
-
-function settle<T>(pending: Promise<Result<T, ProviderError>>): Promise<Result<T, ProviderError>> {
-  return pending.catch((cause: unknown) => Result.fail(unreachable(cause)));
-}
-
-function workerDisconnected(): ProviderError {
-  return providerError(
-    "PROVIDER_UNREACHABLE",
-    "The extension worker disconnected twice in a row. Toggle the translation to try again.",
-  );
 }
 
 function briefSignature(brief: PageBrief): string {
@@ -163,23 +136,26 @@ export class PageTranslationService {
   private readonly positions = new Map<string, number>();
   private readonly reported = new Set<string>();
   private readonly settled = new Set<string>();
-  private readonly inFlight = new Map<string, AbortController>();
-  private readonly controllers = new Set<AbortController>();
+  private readonly pump: RequestPump<Block>;
   private session: Session | undefined;
   private started = false;
   private refreshing = new Set<string>();
   private refreshScan = false;
-  private epoch = 0;
   private firstRequestPending = true;
-  private leading = false;
-  private transportRetried = false;
-  private transportGeneration = 0;
   private nextPosition = 0;
-  private pumping = false;
-  private wake: () => void = () => undefined;
-  private drained: Promise<void> = Promise.resolve();
 
-  public constructor(private readonly deps: PageTranslationDeps) {}
+  public constructor(private readonly deps: PageTranslationDeps) {
+    this.pump = new RequestPump<Block>(
+      {
+        canPump: () => this.canPump(),
+        take: (free, concurrency) => this.takeNext(free, concurrency),
+        run: (batch, scope) => this.process(batch, scope),
+        keyOf: (block) => block.id.value,
+        drained: (failure) => this.afterDrain(failure),
+      },
+      { capacity: deps.capacity, maxConcurrency: deps.maxConcurrency },
+    );
+  }
 
   public async toggle(): Promise<void> {
     const kind = this.view.kind;
@@ -200,9 +176,9 @@ export class PageTranslationService {
 
     if (!this.started) return this.start();
 
-    this.cancelInFlight();
+    this.pump.cancelAll();
     this.firstRequestPending = true;
-    this.leading = false;
+    this.pump.release();
     this.deps.surface.show("original");
     this.settled.clear();
 
@@ -224,13 +200,8 @@ export class PageTranslationService {
     };
   }
 
-  public async whenIdle(): Promise<void> {
-    let current: Promise<void>;
-
-    do {
-      current = this.drained;
-      await current;
-    } while (current !== this.drained);
+  public whenIdle(): Promise<void> {
+    return this.pump.whenIdle();
   }
 
   private async start(): Promise<void> {
@@ -296,28 +267,18 @@ export class PageTranslationService {
   }
 
   private showOriginal(): void {
-    this.cancelInFlight();
+    this.pump.cancelAll();
     this.deps.surface.show("original");
     this.setView({ kind: "original" });
   }
 
-  private cancelInFlight(): void {
-    this.epoch += 1;
-    this.transportRetried = false;
-
-    for (const controller of this.controllers) controller.abort();
-
-    this.controllers.clear();
-  }
-
   private resume(): void {
-    this.transportRetried = false;
     this.setView({ kind: this.isComplete() ? "translated" : "translating" });
     this.schedule();
   }
 
   private isComplete(): boolean {
-    if (this.pumping || this.queue.size() > 0) return false;
+    if (this.pump.isPumping() || this.queue.size() > 0) return false;
 
     return [...this.blocks.keys()].every((key) => this.reported.has(key));
   }
@@ -362,110 +323,61 @@ export class PageTranslationService {
   }
 
   private cancelIfFar(key: string): void {
-    const controller = this.inFlight.get(key);
-
-    if (controller === undefined) return;
-
-    const sharing = [...this.inFlight].filter(([, owner]) => owner === controller);
-
-    if (sharing.some(([other]) => this.ranks.has(other))) return;
-
-    controller.abort();
+    this.pump.abortWhere(
+      (keys) => keys.includes(key) && !keys.some((other) => this.ranks.has(other)),
+    );
   }
 
   private enqueueIfPending(key: string): void {
+    if (this.pump.isInFlight(key)) return;
+
+    this.enqueue(key);
+  }
+
+  private enqueue(key: string): void {
     const block = this.blocks.get(key);
     const rank = this.ranks.get(key);
 
     if (block === undefined || rank === undefined) return;
 
-    if (this.settled.has(key) || this.inFlight.has(key)) return;
+    if (this.settled.has(key)) return;
 
     this.queue.enqueue(block.id, rank, block.role, this.positions.get(key) ?? 0);
   }
 
   private canPump(): boolean {
+    if (this.session === undefined) return false;
+
     return this.view.kind === "translating" || this.view.kind === "translated";
   }
 
   private schedule(): void {
-    const session = this.session;
-
-    if (this.pumping) {
-      this.wake();
-
-      return;
-    }
-
-    if (session === undefined || !this.canPump()) return;
-
-    this.pumping = true;
-    this.drained = this.pump(session);
+    this.pump.schedule();
   }
 
-  private async pump(session: Session): Promise<void> {
-    const failure = await this.drain(session).catch((cause: unknown) =>
-      Option.some(unreachable(cause)),
-    );
-
-    this.pumping = false;
-
+  private afterDrain(failure: Option<ProviderError>): void {
     if (failure.isSome()) {
       this.setView({ kind: "error", error: failure.unwrap() });
 
       return;
     }
 
-    if (this.queue.size() > 0) return this.schedule();
+    if (this.queue.size() > 0) {
+      this.schedule();
+
+      return;
+    }
 
     if (this.view.kind === "translating" && this.isComplete()) this.setView({ kind: "translated" });
   }
 
-  private async drain(session: Session): Promise<Option<ProviderError>> {
-    await Promise.resolve();
-
-    const lanes = new Set<Promise<void>>();
-    let failure: Option<ProviderError> = Option.none();
-
-    for (;;) {
-      const free = this.leading ? 0 : this.laneCount() - lanes.size;
-      const requests = failure.isNone() && this.canPump() && free > 0 ? this.takeNext(free) : [];
-
-      for (const ids of requests) {
-        const lane = this.process(
-          ids.flatMap((id) => this.blocks.get(id.value) ?? []),
-          this.session ?? session,
-        ).then((processed) => {
-          lanes.delete(lane);
-
-          if (processed.isFailure && failure.isNone()) failure = Option.some(processed.getError());
-        });
-
-        lanes.add(lane);
-      }
-
-      if (requests.length > 0) continue;
-
-      if (lanes.size === 0) return failure;
-
-      await Promise.race([
-        ...lanes,
-        new Promise<void>((resolve) => {
-          this.wake = resolve;
-        }),
-      ]);
-    }
+  private takeNext(free: number, concurrency: number): Block[][] {
+    return this.takeIds(free, concurrency).map((ids) =>
+      ids.flatMap((id) => this.blocks.get(id.value) ?? []),
+    );
   }
 
-  private laneCount(): number {
-    return this.concurrency() + REQUESTS_AHEAD;
-  }
-
-  private concurrency(): number {
-    return Math.max(1, this.deps.capacity.concurrency().unwrapOr(this.deps.maxConcurrency));
-  }
-
-  private takeNext(free: number): BlockId[][] {
+  private takeIds(free: number, concurrency: number): BlockId[][] {
     const max = Math.max(1, this.deps.maxSegmentsPerRequest);
     const urgent = this.visibleContentOutstanding();
     const maxRank: ProximityRank = urgent ? 0 : 1;
@@ -478,13 +390,14 @@ export class PageTranslationService {
 
       if (first.length > 0) {
         this.firstRequestPending = false;
-        this.leading = this.deps.capacity.concurrency().isSome();
+
+        if (this.deps.capacity.concurrency().isSome()) this.pump.lead();
 
         return [first];
       }
     }
 
-    const parts = Math.min(free, this.concurrency());
+    const parts = Math.min(free, concurrency);
     const front = parts > 1 ? this.queue.take(parts * max, frontRank, maxRole) : [];
 
     if (front.length > 0) {
@@ -509,65 +422,28 @@ export class PageTranslationService {
   private visibleContentOutstanding(): boolean {
     if (this.queue.holds(0, "content")) return true;
 
-    return [...this.inFlight.keys()].some(
-      (key) => this.ranks.get(key) === 0 && this.blocks.get(key)?.role !== "chrome",
+    return [...this.ranks].some(
+      ([key, rank]) =>
+        rank === 0 && this.pump.isInFlight(key) && this.blocks.get(key)?.role !== "chrome",
     );
   }
 
-  private async process(batch: Block[], session: Session): Promise<Result<void, ProviderError>> {
-    const controller = new AbortController();
-    const scope = { epoch: this.epoch, signal: controller.signal };
-    const generation = this.transportGeneration;
+  private async process(batch: Block[], scope: RequestScope): Promise<Result<void, ProviderError>> {
+    const session = this.session;
 
-    this.controllers.add(controller);
-
-    for (const block of batch) this.inFlight.set(block.id.value, controller);
+    if (session === undefined) return Result.ok();
 
     const plan = await settle(this.translateBatch(batch, session, scope));
+    const stale = !this.pump.isCurrent(scope) || scope.signal.aborted;
 
-    this.controllers.delete(controller);
+    if (!stale && plan.isSuccess) this.apply(plan.getValue());
 
-    for (const block of batch) this.inFlight.delete(block.id.value);
+    for (const block of batch) this.enqueue(block.id.value);
 
-    this.leading = false;
-
-    const stale = scope.epoch !== this.epoch || scope.signal.aborted;
-
-    if (stale || plan.isFailure) {
-      for (const block of batch) this.enqueueIfPending(block.id.value);
-
-      if (stale) return Result.ok();
-
-      return this.transportFailure(plan.getError(), generation);
-    }
-
-    this.transportRetried = false;
-    this.apply(plan.getValue());
-
-    for (const block of batch) this.enqueueIfPending(block.id.value);
-
-    return Result.ok();
-  }
-
-  private transportFailure(error: ProviderError, generation: number): Result<void, ProviderError> {
-    if (error.code !== "REQUEST_CANCELLED") return Result.fail(error);
-
-    if (generation !== this.transportGeneration) return Result.ok();
-
-    if (this.transportRetried) return Result.fail(workerDisconnected());
-
-    this.transportRetried = true;
-    this.transportGeneration += 1;
-
-    return Result.ok();
+    return plan.map(() => undefined);
   }
 
   private apply(plan: BatchPlan): void {
-    if (this.leading) {
-      this.leading = false;
-      this.wake();
-    }
-
     for (const block of plan.settled) {
       this.settled.add(block.id.value);
       this.refreshing.delete(block.id.value);
@@ -602,9 +478,10 @@ export class PageTranslationService {
           const block = sendable[Number(outcome.id)];
           const nodes = structuredNodes(outcome);
 
-          if (scope.epoch !== this.epoch || block === undefined || nodes.isNone()) return;
+          if (!this.pump.isCurrent(scope) || block === undefined || nodes.isNone()) return;
 
           committed.add(outcome.id);
+          this.pump.release();
           this.apply({
             translations: [{ blockId: block.id, kind: "structured", nodes: nodes.unwrap() }],
             settled: [block],

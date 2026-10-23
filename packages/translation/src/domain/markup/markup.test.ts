@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { InlineNode } from "../block/inline-node";
-import { parseMarkup, toMarkup } from "./markup";
+import { parseMarkup, plainTextOf, toMarkup } from "./markup";
 
 describe("markup", () => {
   test("roundtrips_text_atoms_and_nested_groups", () => {
@@ -76,6 +76,16 @@ describe("markup", () => {
   test("parse_rejects_close_without_open_and_adversarial_tags", () => {
     for (const markup of ["a</g1>", "a <x1 /> b", "a <X1/> b", '<g1 class="a">b</g1>']) {
       expect(parseMarkup(markup).getError().code).toBe("MARKUP_MALFORMED");
+    }
+  });
+
+  test("plainTextOf_reads_a_single_text_node", () => {
+    expect(plainTextOf("Bonjour &amp; merci").unwrap()).toBe("Bonjour & merci");
+  });
+
+  test("plainTextOf_is_none_for_atoms_or_groups", () => {
+    for (const markup of ["Run <x1/>", "<g1>read</g1>", "", "a <g1>b"]) {
+      expect(plainTextOf(markup).isNone()).toBe(true);
     }
   });
 });
