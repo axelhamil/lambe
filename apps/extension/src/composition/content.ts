@@ -13,6 +13,7 @@ import { catalogUiText } from "../i18n/ui-text";
 import { connectWorker } from "../messaging/connect-worker";
 import { toggleMessageSchema } from "../messaging/toggle.contract";
 import { SettingsStore } from "../settings/settings-store";
+import { followPageRules, type PageRules, pageNeedsTranslation } from "./page-rules";
 
 function blockIds(): () => BlockId {
   let next = 0;
@@ -29,10 +30,8 @@ interface ContentApp {
   translator: PortBatchTranslator;
 }
 
-async function buildApp(): Promise<ContentApp> {
-  const config = await loadRuntimeConfig(
-    new SettingsStore(chrome.storage.local, chrome.i18n.getUILanguage()),
-  );
+async function buildApp(store: SettingsStore): Promise<ContentApp> {
+  const config = await loadRuntimeConfig(store);
   const translator = new PortBatchTranslator(connectWorker);
   const service = new PageTranslationService({
     surface: new DomPageSurface({ doc: document, window, ids: blockIds() }),
@@ -59,11 +58,15 @@ interface MountedBubble {
 
 type AppAction = (app: ContentApp) => Promise<void>;
 
-async function showBubble(
+interface BubbleSlot {
+  show(visible: boolean): void;
+}
+
+async function bubbleSlot(
   ctx: ContentScriptContext,
   page: PageTranslationService,
   handlers: ClickHandlers,
-): Promise<void> {
+): Promise<BubbleSlot> {
   const ui = await createShadowRootUi<MountedBubble>(ctx, {
     name: "lambe-bubble",
     css: bubbleCss,
@@ -83,12 +86,24 @@ async function showBubble(
       mounted?.bubble.destroy();
     },
   });
+  let visible = false;
 
-  ui.mount();
+  return {
+    show(next) {
+      if (next === visible) return;
+
+      visible = next;
+
+      if (next) ui.mount();
+      else ui.remove();
+    },
+  };
 }
 
 export function startContent(ctx: ContentScriptContext): void {
-  const app = buildApp();
+  const store = new SettingsStore(chrome.storage.local, chrome.i18n.getUILanguage());
+  const app = buildApp(store);
+  let touched = false;
   const run = (action: AppAction, failure: string): void => {
     void app.then(action).catch((cause: unknown) => console.error(failure, cause));
   };
@@ -99,16 +114,33 @@ export function startContent(ctx: ContentScriptContext): void {
 
       return action(page);
     };
-  const toggle = () =>
+  const toggle = (): void => {
+    touched = true;
     run(
       translating((page) => page.toggle()),
       "Lambë could not toggle the page.",
     );
-  const retranslate = () =>
+  };
+  const retranslate = (): void => {
+    touched = true;
     run(
       translating((page) => page.retranslate()),
       "Lambë could not translate the page again.",
     );
+  };
+  const follow: AppAction = async ({ page }) => {
+    const bubble = await bubbleSlot(ctx, page, { onSingle: toggle, onDouble: retranslate });
+    const apply = (rules: PageRules): void => {
+      page.retarget(rules.target);
+      bubble.show(!rules.hideBubble);
+
+      if (touched || !pageNeedsTranslation(rules, document.documentElement.lang)) return;
+
+      toggle();
+    };
+
+    ctx.onInvalidated(await followPageRules(store, location.origin, apply));
+  };
 
   chrome.runtime.onMessage.addListener((message) => {
     if (!toggleMessageSchema.safeParse(message).success) return false;
@@ -118,8 +150,5 @@ export function startContent(ctx: ContentScriptContext): void {
     return false;
   });
 
-  run(
-    ({ page }) => showBubble(ctx, page, { onSingle: toggle, onDouble: retranslate }),
-    "Lambë could not show its bubble.",
-  );
+  run(follow, "Lambë could not follow its settings.");
 }

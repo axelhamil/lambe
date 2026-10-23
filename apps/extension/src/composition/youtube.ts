@@ -8,6 +8,7 @@ import { connectWorker } from "../messaging/connect-worker";
 import { SettingsStore } from "../settings/settings-store";
 import { mountCaptionOverlay } from "../youtube/caption-overlay";
 import { mountPlayerButton, type PlayerButton } from "../youtube/player-button";
+import { followPageRules } from "./page-rules";
 
 interface YoutubeApp {
   captions: CaptionTranslationService;
@@ -16,9 +17,8 @@ interface YoutubeApp {
 }
 
 async function buildApp(button: PlayerButton): Promise<YoutubeApp> {
-  const config = await loadRuntimeConfig(
-    new SettingsStore(chrome.storage.local, chrome.i18n.getUILanguage()),
-  );
+  const store = new SettingsStore(chrome.storage.local, chrome.i18n.getUILanguage());
+  const config = await loadRuntimeConfig(store);
   const translator = new PortBatchTranslator(connectWorker);
   const overlay = mountCaptionOverlay(document, catalogUiText);
   const captions = new CaptionTranslationService({
@@ -36,10 +36,15 @@ async function buildApp(button: PlayerButton): Promise<YoutubeApp> {
 
   button.render(captions.state());
 
+  const unfollow = await followPageRules(store, location.origin, (rules) =>
+    captions.retarget(rules.target),
+  );
+
   return {
     captions,
     translator,
     release() {
+      unfollow();
       unsubscribe();
       detach();
       captions.dispose();

@@ -1,7 +1,12 @@
+import type { Settings } from "../settings/settings";
 import type { SettingsStore } from "../settings/settings-store";
+
+export function isConsented(settings: Settings): boolean {
+  return settings.consentAt !== undefined;
+}
 
 export async function hasConsent(settings: SettingsStore): Promise<boolean> {
   const { settings: current } = await settings.load();
 
-  return current.consentAt !== undefined;
+  return isConsented(current);
 }

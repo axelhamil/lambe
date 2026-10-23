@@ -7,8 +7,9 @@ import type {
   SegmentOutcome,
 } from "@lambe/translation/application/batch-translation.service";
 import type { ProviderError } from "@lambe/translation/domain/provider/provider-error";
-import { requestCancelled } from "@lambe/translation/domain/provider/provider-error";
+import { providerError, requestCancelled } from "@lambe/translation/domain/provider/provider-error";
 import { fakeRuntimePort } from "./testing/fake-runtime-port";
+import { workerMessageSchema } from "./translate-batch.contract";
 import { respondToTranslateBatch, serveTranslatePort } from "./translate-batch.handler";
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -95,6 +96,24 @@ describe("respondToTranslateBatch", () => {
         concurrency: 2,
       },
     ]);
+  });
+
+  test("consent_required_travels_the_port_as_a_typed_error", async () => {
+    const { port, deliver, posted } = fakeRuntimePort();
+    const refusal = providerError("CONSENT_REQUIRED", "Consent is missing.");
+    serveTranslatePort(port, async () => ({ ok: false, error: refusal }), {
+      concurrency: () => Option.none(),
+    });
+
+    deliver({ type: "translate", requestId: "1", payload });
+    await tick();
+
+    const [done] = posted();
+    expect(workerMessageSchema.parse(done)).toEqual({
+      type: "done",
+      requestId: "1",
+      response: { ok: false, error: refusal },
+    });
   });
 
   test("worker_tells_a_new_page_the_concurrency_it_learned_and_nothing_before_learning", async () => {
