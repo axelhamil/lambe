@@ -44,7 +44,6 @@ const silentPorts = (): WatcherPorts => ({
   mutations: () => ({ observe: () => {}, takeRecords: () => [], disconnect: () => {} }),
   intersections: () => ({ observe: () => {}, unobserve: () => {}, disconnect: () => {} }),
   nextFrame: (callback) => callback(),
-  viewportHeight: () => 800,
 });
 
 interface Setup {

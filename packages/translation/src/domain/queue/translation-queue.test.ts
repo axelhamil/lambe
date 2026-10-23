@@ -68,16 +68,22 @@ describe("TranslationQueue", () => {
     expect(values(taken)).toEqual(["title", "navbar", "next-paragraph", "footer"]);
   });
 
-  test("reenqueue_upgrades_but_never_downgrades", () => {
+  test("reenqueue_moves_the_block_to_its_new_rank_in_both_directions", () => {
     const queue = new TranslationQueue();
-    queue.enqueue(id("upgraded"), 1, "content", 1);
-    queue.enqueue(id("visible"), 0, "content", 0);
-    queue.enqueue(id("ahead"), 1, "content", 2);
+    queue.enqueue(id("scrolled-out"), 0, "content", 0);
+    queue.enqueue(id("scrolled-in"), 1, "content", 1);
+    queue.enqueue(id("still-visible"), 0, "content", 2);
+    queue.enqueue(id("ahead"), 1, "content", 3);
 
-    queue.enqueue(id("upgraded"), 0, "content", 1);
-    queue.enqueue(id("visible"), 1, "content", 0);
+    queue.enqueue(id("scrolled-out"), 1, "content", 0);
+    queue.enqueue(id("scrolled-in"), 0, "content", 1);
 
-    expect(values(queue.take(3))).toEqual(["visible", "upgraded", "ahead"]);
+    expect(values(queue.take(4))).toEqual([
+      "scrolled-in",
+      "still-visible",
+      "scrolled-out",
+      "ahead",
+    ]);
     expect(queue.size()).toBe(0);
   });
 

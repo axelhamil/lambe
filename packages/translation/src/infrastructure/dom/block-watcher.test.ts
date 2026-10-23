@@ -67,36 +67,36 @@ class FakeIntersections implements IntersectionPort {
 
 interface Harness {
   ports: WatcherPorts;
-  resize: (height: number) => void;
   frames: ReturnType<typeof mock<(callback: () => void) => void>>;
-  intersections: () => FakeIntersections | undefined;
+  near: () => FakeIntersections | undefined;
+  viewport: () => FakeIntersections | undefined;
 }
 
+const NEAR_MARGIN = "100% 0px 100% 0px";
+const VIEWPORT_MARGIN = "0px";
+
 const harness = (realMutations: boolean): Harness => {
-  let intersections: FakeIntersections | undefined;
-  let height = 800;
+  const observers = new Map<string, FakeIntersections>();
   const frames = mock((callback: () => void) => {
     setTimeout(callback, 0);
   });
 
   return {
-    resize: (next) => {
-      height = next;
-    },
     frames,
-    intersections: () => intersections,
+    near: () => observers.get(NEAR_MARGIN),
+    viewport: () => observers.get(VIEWPORT_MARGIN),
     ports: {
       mutations: (callback) =>
         realMutations
           ? new MutationObserver(callback)
           : { observe: () => {}, takeRecords: () => [], disconnect: () => {} },
       intersections: (callback, options) => {
-        intersections = new FakeIntersections(callback, options.rootMargin);
+        const observer = new FakeIntersections(callback, options.rootMargin);
+        observers.set(options.rootMargin, observer);
 
-        return intersections;
+        return observer;
       },
       nextFrame: frames,
-      viewportHeight: () => height,
     },
   };
 };
@@ -119,10 +119,9 @@ const callFunction = (scope: Scope, name: string, ...args: unknown[]): void => {
 
 const textOf = (block: Block): string => textSlots(block.nodes).join("").trim();
 
-const entry = (target: Element, isIntersecting: boolean, top: number): ProximityEntry => ({
+const entry = (target: Element, isIntersecting: boolean): ProximityEntry => ({
   target,
   isIntersecting,
-  boundingClientRect: { top, bottom: top + 20 },
 });
 
 describe("BlockWatcher through DomPageSurface.watch", () => {
@@ -187,35 +186,42 @@ describe("BlockWatcher through DomPageSurface.watch", () => {
       "<!doctype html><html><body><p>Visible text</p><p>Next screen</p><p>Far below</p>Loose text</body></html>",
       "text/html",
     );
-    const { ports, intersections } = harness(false);
+    const { ports, near, viewport } = harness(false);
     const surface = new DomPageSurface({ doc, window, ids: idSource(), observers: ports });
     const events = listener();
     const blocks = surface.scan();
     surface.watch(events);
-    const observer = intersections();
     const [visible, margin, far] = [...doc.querySelectorAll("p")];
 
     if (visible && margin && far) {
-      observer?.emit([
-        entry(visible, true, 10),
-        entry(margin, true, 900),
-        entry(far, false, 4000),
-        entry(doc.body, false, 0),
+      near()?.emit([
+        entry(visible, true),
+        entry(margin, true),
+        entry(far, false),
+        entry(doc.body, false),
+      ]);
+      await Promise.resolve();
+      viewport()?.emit([
+        entry(visible, true),
+        entry(margin, false),
+        entry(far, false),
+        entry(doc.body, false),
       ]);
     }
+    await settle();
     const reports = events.onProximity.mock.calls.map(
       ([id, rank]) => `${id.value}:${rankLabel(rank)}`,
     );
 
     expect(blocks.length).toBe(4);
-    expect(observer?.rootMargin).toBe("100% 0px 100% 0px");
-    expect(observer?.observed.size).toBe(4);
+    expect(near()?.observed.size).toBe(4);
+    expect(viewport()?.observed.size).toBe(4);
     expect(reports.join(",")).toBe("b1:0,b2:1,b3:none,b4:none");
   });
 
   test("unsubscribe_disconnects_both_observers", async () => {
     const { doc, scope } = await loadFixture("spa-feed.html");
-    const { ports, intersections } = harness(true);
+    const { ports, near, viewport } = harness(true);
     const surface = new DomPageSurface({ doc, window, ids: idSource(), observers: ports });
     const events = listener();
     surface.scan();
@@ -223,13 +229,14 @@ describe("BlockWatcher through DomPageSurface.watch", () => {
 
     callFunction(scope, "__append", 1);
     await settle();
-    const observedBefore = intersections()?.observed.size;
+    const observedBefore = [near()?.observed.size, viewport()?.observed.size];
     stop();
     callFunction(scope, "__append", 1);
     await settle();
 
-    expect(observedBefore).toBe(2);
-    expect(intersections()?.observed.size).toBe(0);
+    expect(observedBefore).toEqual([2, 2]);
+    expect(near()?.observed.size).toBe(0);
+    expect(viewport()?.observed.size).toBe(0);
     expect(events.onBlocks.mock.calls.length).toBe(1);
   });
 
@@ -238,12 +245,13 @@ describe("BlockWatcher through DomPageSurface.watch", () => {
       "<!doctype html><html><body>Loose one<p>Para text</p></body></html>",
       "text/html",
     );
-    const { ports, intersections } = harness(true);
+    const { ports, near, viewport } = harness(true);
     const surface = new DomPageSurface({ doc, window, ids: idSource(), observers: ports });
     const events = listener();
     surface.scan();
     const stop = surface.watch(events);
-    intersections()?.deliverInitial((target) => entry(target, true, 10));
+    near()?.deliverInitial((target) => entry(target, true));
+    viewport()?.deliverInitial((target) => entry(target, true));
 
     doc.body.append("Loose two");
     await settle();
@@ -254,33 +262,66 @@ describe("BlockWatcher through DomPageSurface.watch", () => {
     stop();
 
     expect(added.map(textOf).join("|")).toBe("Loose two");
-    expect(intersections()?.pending.length).toBe(0);
+    expect(near()?.pending.length).toBe(0);
+    expect(viewport()?.pending.length).toBe(0);
     expect(reports.join(",")).toBe("b1:0,b2:0,b3:0");
   });
 
-  test("rank_follows_the_viewport_height_after_a_resize", () => {
+  test("jump_from_far_to_visible_reports_rank_zero_without_passing_through_near", async () => {
     const doc = new DOMParser().parseFromString(
-      "<!doctype html><html><body><p>Below the fold</p></body></html>",
+      "<!doctype html><html><body><p>Anchor target</p></body></html>",
       "text/html",
     );
-    const { ports, intersections, resize } = harness(false);
+    const { ports, near, viewport } = harness(false);
     const surface = new DomPageSurface({ doc, window, ids: idSource(), observers: ports });
     const events = listener();
     surface.scan();
     surface.watch(events);
     const paragraph = doc.querySelector("p");
 
-    if (paragraph) intersections()?.emit([entry(paragraph, true, 900)]);
-    resize(1000);
-    if (paragraph) intersections()?.emit([entry(paragraph, true, 900)]);
+    if (paragraph) {
+      near()?.emit([entry(paragraph, false)]);
+      viewport()?.emit([entry(paragraph, false)]);
+      await settle();
+      near()?.emit([entry(paragraph, true)]);
+      viewport()?.emit([entry(paragraph, true)]);
+    }
+    await settle();
     const reports = events.onProximity.mock.calls.map(([, rank]) => rankLabel(rank));
 
-    expect(reports.join(",")).toBe("1,0");
+    expect(reports.join(",")).toBe("none,0");
+  });
+
+  test("rank_follows_scrolling_into_and_out_of_the_viewport", async () => {
+    const doc = new DOMParser().parseFromString(
+      "<!doctype html><html><body><p>On screen</p><p>Below the fold</p></body></html>",
+      "text/html",
+    );
+    const { ports, near, viewport } = harness(false);
+    const surface = new DomPageSurface({ doc, window, ids: idSource(), observers: ports });
+    const events = listener();
+    surface.scan();
+    surface.watch(events);
+    const [onScreen, below] = [...doc.querySelectorAll("p")];
+
+    if (onScreen && below) {
+      near()?.emit([entry(onScreen, true), entry(below, true)]);
+      viewport()?.emit([entry(onScreen, true), entry(below, false)]);
+      await settle();
+      events.onProximity.mockClear();
+      viewport()?.emit([entry(onScreen, false), entry(below, true)]);
+    }
+    await settle();
+    const reports = events.onProximity.mock.calls.map(
+      ([id, rank]) => `${id.value}:${rankLabel(rank)}`,
+    );
+
+    expect(reports.join(",")).toBe("b1:1,b2:0");
   });
 
   test("detached_blocks_are_forgotten_by_the_surface", async () => {
     const { doc, scope } = await loadFixture("spa-feed.html");
-    const { ports, intersections } = harness(true);
+    const { ports, near } = harness(true);
     const surface = new DomPageSurface({ doc, window, ids: idSource(), observers: ports });
     const events = listener();
     surface.scan();
@@ -292,7 +333,7 @@ describe("BlockWatcher through DomPageSurface.watch", () => {
     const article = doc.querySelector("article");
     callFunction(scope, "__trim");
     await settle();
-    const observedAfterTrim = intersections()?.observed.size;
+    const observedAfterTrim = near()?.observed.size;
     if (article) doc.querySelector("main")?.append(article);
     await settle();
     const result =

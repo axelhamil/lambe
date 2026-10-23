@@ -28,10 +28,6 @@ export class TranslationQueue {
   private readonly entries = new Map<string, QueueEntry>();
 
   public enqueue(id: BlockId, rank: ProximityRank, role: BlockRole, position: number): void {
-    const existing = this.entries.get(id.value);
-
-    if (existing !== undefined && existing.rank <= rank) return;
-
     this.entries.set(id.value, { id, rank, role, position });
   }
 

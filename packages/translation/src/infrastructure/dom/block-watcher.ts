@@ -7,7 +7,6 @@ import type { BlockReader, ReadBlock } from "./block-reader";
 export interface ProximityEntry {
   target: Element;
   isIntersecting: boolean;
-  boundingClientRect: { top: number; bottom: number };
 }
 
 export interface MutationPort {
@@ -29,7 +28,6 @@ export interface WatcherPorts {
     options: { rootMargin: string },
   ): IntersectionPort;
   nextFrame(callback: () => void): void;
-  viewportHeight(): number;
 }
 
 export function browserWatcherPorts(window: Window): WatcherPorts {
@@ -39,7 +37,6 @@ export function browserWatcherPorts(window: Window): WatcherPorts {
     nextFrame: (callback) => {
       window.requestAnimationFrame(callback);
     },
-    viewportHeight: () => window.innerHeight,
   };
 }
 
@@ -47,6 +44,11 @@ interface Tracked {
   id: BlockId;
   head: Node;
   target: Element;
+}
+
+interface Sighting {
+  near?: boolean;
+  visible?: boolean;
 }
 
 interface BlockWatcherDeps {
@@ -62,11 +64,23 @@ const MUTATION_OPTIONS: MutationObserverInit = { childList: true, subtree: true 
 
 const ONE_VIEWPORT_MARGIN = "100% 0px 100% 0px";
 
+const NO_MARGIN = "0px";
+
+function rankOf(near: boolean, visible: boolean): Option<ProximityRank> {
+  if (visible) return Option.some(0);
+
+  return near ? Option.some(1) : Option.none();
+}
+
 export class BlockWatcher {
   private readonly mutations: MutationPort;
-  private readonly intersections: IntersectionPort;
+  private readonly near: IntersectionPort;
+  private readonly viewport: IntersectionPort;
   private readonly tracked = new Map<string, Tracked>();
   private targets = new WeakMap<Element, Set<string>>();
+  private sightings = new WeakMap<Element, Sighting>();
+  private readonly sighted = new Set<Element>();
+  private sightingScheduled = false;
   private ranks = new WeakMap<Element, Option<ProximityRank>>();
   private readonly addedRoots = new Set<Node>();
   private removals = false;
@@ -76,8 +90,11 @@ export class BlockWatcher {
 
   public constructor(private readonly deps: BlockWatcherDeps) {
     this.mutations = deps.ports.mutations((records) => this.collect(records));
-    this.intersections = deps.ports.intersections((entries) => this.report(entries), {
+    this.near = deps.ports.intersections((entries) => this.report(entries, "near"), {
       rootMargin: ONE_VIEWPORT_MARGIN,
+    });
+    this.viewport = deps.ports.intersections((entries) => this.report(entries, "visible"), {
+      rootMargin: NO_MARGIN,
     });
   }
 
@@ -89,9 +106,12 @@ export class BlockWatcher {
   public stop(): void {
     this.stopped = true;
     this.mutations.disconnect();
-    this.intersections.disconnect();
+    this.near.disconnect();
+    this.viewport.disconnect();
     this.tracked.clear();
     this.targets = new WeakMap();
+    this.sightings = new WeakMap();
+    this.sighted.clear();
     this.ranks = new WeakMap();
     this.addedRoots.clear();
   }
@@ -175,7 +195,8 @@ export class BlockWatcher {
 
     if (!ids) {
       this.targets.set(target, new Set([id.value]));
-      this.intersections.observe(target);
+      this.near.observe(target);
+      this.viewport.observe(target);
 
       return;
     }
@@ -211,22 +232,51 @@ export class BlockWatcher {
     if (ids && ids.size > 0) return;
 
     this.targets.delete(target);
+    this.sightings.delete(target);
+    this.sighted.delete(target);
     this.ranks.delete(target);
-    this.intersections.unobserve(target);
+    this.near.unobserve(target);
+    this.viewport.unobserve(target);
   }
 
-  private report(entries: ProximityEntry[]): void {
+  private report(entries: ProximityEntry[], zone: keyof Sighting): void {
     if (this.stopped) return;
 
-    const viewportHeight = this.deps.ports.viewportHeight();
-
     for (const entry of entries) {
-      const ids = this.targets.get(entry.target);
+      if (!this.targets.has(entry.target)) continue;
 
-      if (!ids) continue;
+      const sighting = { ...this.sightings.get(entry.target), [zone]: entry.isIntersecting };
 
-      const rank = this.rankOf(entry, viewportHeight);
-      this.ranks.set(entry.target, rank);
+      this.sightings.set(entry.target, sighting);
+      this.sighted.add(entry.target);
+    }
+
+    if (this.sightingScheduled || this.sighted.size === 0) return;
+
+    this.sightingScheduled = true;
+    this.deps.ports.nextFrame(() => this.rerank());
+  }
+
+  private rerank(): void {
+    this.sightingScheduled = false;
+
+    if (this.stopped) return;
+
+    const sighted = [...this.sighted];
+    this.sighted.clear();
+
+    for (const target of sighted) {
+      const ids = this.targets.get(target);
+      const sighting = this.sightings.get(target);
+
+      if (!ids || sighting?.near === undefined || sighting.visible === undefined) continue;
+
+      const rank = rankOf(sighting.near, sighting.visible);
+      const previous = this.ranks.get(target);
+
+      this.ranks.set(target, rank);
+
+      if (previous !== undefined && previous.toUndefined() === rank.toUndefined()) continue;
 
       for (const key of ids) {
         const tracked = this.tracked.get(key);
@@ -234,14 +284,5 @@ export class BlockWatcher {
         if (tracked) this.deps.listener.onProximity(tracked.id, rank);
       }
     }
-  }
-
-  private rankOf(entry: ProximityEntry, viewportHeight: number): Option<ProximityRank> {
-    if (!entry.isIntersecting) return Option.none();
-
-    const rect = entry.boundingClientRect;
-    const visible = rect.bottom > 0 && rect.top < viewportHeight;
-
-    return Option.some(visible ? 0 : 1);
   }
 }
