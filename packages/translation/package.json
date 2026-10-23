@@ -9,6 +9,7 @@
     "./application/page-translation.service": "./src/application/page-translation.service.ts",
     "./application/ports/batch-translator": "./src/application/ports/batch-translator.ts",
     "./application/ports/caption-display": "./src/application/ports/caption-display.ts",
+    "./application/ports/debug-log": "./src/application/ports/debug-log.ts",
     "./application/ports/language-detector": "./src/application/ports/language-detector.ts",
     "./application/ports/model-catalog": "./src/application/ports/model-catalog.ts",
     "./application/ports/provider-capacity": "./src/application/ports/provider-capacity.ts",

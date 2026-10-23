@@ -57,6 +57,6 @@ if (problems.length > 0) {
 }
 
 const buildKind = storeBuild ? "store" : "dev";
-console.log(
-  `Manifest is narrow and its key is ${hasKey ? "present" : "absent"} for a ${buildKind} build.`,
+process.stdout.write(
+  `Manifest is narrow and its key is ${hasKey ? "present" : "absent"} for a ${buildKind} build.\n`,
 );

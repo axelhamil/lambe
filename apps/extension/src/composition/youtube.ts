@@ -4,6 +4,7 @@ import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { PortBatchTranslator } from "../adapters/chrome/port-batch-translator";
 import { loadRuntimeConfig } from "../config/runtime-config";
 import { catalogUiText } from "../i18n/ui-text";
+import { createLogger, debugSetting } from "../logging/logger";
 import { connectWorker } from "../messaging/connect-worker";
 import { SettingsStore } from "../settings/settings-store";
 import { mountCaptionOverlay } from "../youtube/caption-overlay";
@@ -22,7 +23,11 @@ async function buildApp(button: PlayerButton): Promise<YoutubeApp> {
   const translator = new PortBatchTranslator(connectWorker);
   const overlay = mountCaptionOverlay(document, catalogUiText);
   const captions = new CaptionTranslationService({
-    surface: new YoutubePlayerSurface({ doc: document, window }),
+    surface: new YoutubePlayerSurface({
+      doc: document,
+      window,
+      log: createLogger(debugSetting(store)),
+    }),
     display: overlay,
     translator,
     capacity: translator,

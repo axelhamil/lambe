@@ -11,6 +11,7 @@
     "check:unused": "knip",
     "check:duplication": "jscpd ./packages ./apps",
     "check:boundaries": "depcruise apps packages --config .dependency-cruiser.cjs",
+    "zip": "pnpm --filter @lambe/extension zip",
     "verify": "pnpm check && pnpm type-check && pnpm test && pnpm check:unused && pnpm check:duplication && pnpm check:boundaries",
     "prepare": "husky"
   },

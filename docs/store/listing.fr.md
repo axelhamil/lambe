@@ -1,6 +1,6 @@
 # Fiche Chrome Web Store (français)
 
-Texte à coller dans le tableau de bord développeur. Chaque section `##` correspond à un champ du tableau de bord. La seule valeur à remplir à la main est `<PRIVACY_POLICY_URL>` : l'URL publique de `docs/privacy-policy.md` une fois le dépôt publié.
+Texte à coller dans le tableau de bord développeur. Chaque section `##` correspond à un champ du tableau de bord. L'URL des règles de confidentialité pointe vers `docs/privacy-policy.md` sur GitHub ; elle répond dès que le dépôt est public.
 
 ## Nom
 
@@ -93,7 +93,7 @@ Non, je n'utilise pas de code distant. Tous les scripts sont dans le paquet.
 
 Types de données à cocher dans le tableau de bord :
 
-- Contenu de site web : le texte des pages que l'utilisateur demande de traduire et les sous-titres des vidéos YouTube qu'il traduit. Envoyés uniquement au fournisseur qu'il a configuré, pour recevoir la traduction.
+- Contenu de site web : le texte des pages que l'utilisateur demande de traduire et les sous-titres des vidéos YouTube qu'il traduit, avec le titre, la description et les intertitres de la page ou de la vidéo comme contexte. Envoyés uniquement au fournisseur qu'il a configuré, pour recevoir la traduction.
 - Informations d'authentification : la clé d'API facultative d'un fournisseur compatible OpenAI. Stockée sur l'appareil et envoyée uniquement à ce fournisseur, dans l'en-tête `Authorization`.
 
 Aucun autre type n'est collecté. Les réglages et le cache des traductions restent sur l'appareil. Rien n'est envoyé au développeur : aucune statistique d'usage, aucune publicité, aucun pistage. Avant la première traduction, un écran d'accueil explique ce qui est envoyé et où, puis demande le consentement ; l'utilisateur peut le retirer à tout moment dans les réglages.
@@ -108,9 +108,9 @@ L'utilisation des informations reçues des API Google respectera le Règlement s
 
 ## URL des règles de confidentialité
 
-`<PRIVACY_POLICY_URL>`
+https://github.com/axelhamil/lambe/blob/main/docs/privacy-policy.md
 
-Étape manuelle : publier `docs/privacy-policy.md` (par exemple sur la page du dépôt) et coller son URL publique ici et dans le tableau de bord.
+Étape manuelle : rendre le dépôt public pour que cette URL réponde, puis la coller dans le tableau de bord.
 
 ## Visuels
 

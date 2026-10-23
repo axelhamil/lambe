@@ -1,6 +1,6 @@
 # Chrome Web Store listing (English)
 
-Text to paste in the developer dashboard. Each `##` section matches a dashboard field. The only value to fill by hand is `<PRIVACY_POLICY_URL>`: the public URL of `docs/privacy-policy.md` once the repository is published.
+Text to paste in the developer dashboard. Each `##` section matches a dashboard field. The privacy policy URL points to `docs/privacy-policy.md` on GitHub; it resolves once the repository is public.
 
 ## Name
 
@@ -93,7 +93,7 @@ No, I am not using remote code. Every script ships in the package.
 
 Data types to check in the dashboard:
 
-- Website content: the text of the pages the user asks to translate and the captions of the YouTube videos the user translates. Sent only to the provider the user configured, to get the translation back.
+- Website content: the text of the pages the user asks to translate and the captions of the YouTube videos the user translates, with the page or video title, description and headings as context. Sent only to the provider the user configured, to get the translation back.
 - Authentication information: the optional API key of an OpenAI-compatible provider. Stored on the device and sent only to that provider in the `Authorization` header.
 
 No other type is collected. Settings and the translation cache stay on the device. Nothing is sent to the developer, there are no analytics, no ads and no tracking. Before the first translation, an onboarding screen explains what is sent and where, and asks for consent; the user can withdraw it at any time in the settings.
@@ -108,9 +108,9 @@ The use of information received from Google APIs will adhere to the Chrome Web S
 
 ## Privacy policy URL
 
-`<PRIVACY_POLICY_URL>`
+https://github.com/axelhamil/lambe/blob/main/docs/privacy-policy.md
 
-Manual step: publish `docs/privacy-policy.md` (for example on the repository page) and paste its public URL here and in the dashboard.
+Manual step: make the repository public so this URL resolves, then paste it in the dashboard.
 
 ## Assets
 

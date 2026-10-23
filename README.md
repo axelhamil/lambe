@@ -8,7 +8,7 @@ Lambë is Quenya for "tongue, language"; the bubble glyph is the tengwa of the s
 
 ## Requirements
 
-- Chrome (or any Chromium browser) with Manifest V3.
+- Chrome 130 or newer (or a Chromium browser on the same base) with Manifest V3.
 - Node 24.20 or newer (`.nvmrc`), pnpm 11 (`packageManager`), Bun 1.4.0 for tests and scripts (`.bun-version`, also read by CI).
 - A model server. The default is [Ollama](https://ollama.com) on `http://localhost:11434` with `ollama pull translategemma:12b`.
 - New to local models? Follow the [beginner guide to running a local AI](docs/local-ai.md): hardware, install, model and setup.
@@ -124,7 +124,7 @@ Turn on **YouTube** in the settings first: Chrome asks for access to `https://ww
 
 - Listing text, single purpose, permission justifications and data disclosures: [`docs/store/listing.en.md`](docs/store/listing.en.md) and [`docs/store/listing.fr.md`](docs/store/listing.fr.md). A test checks that the short descriptions fit 132 characters and that every manifest permission is justified, no more.
 - Promo tile: `docs/store/assets/promo-440x280.png`.
-- Privacy policy: [`docs/privacy-policy.md`](docs/privacy-policy.md). Its public URL replaces `<PRIVACY_POLICY_URL>` in the listing; that is the one manual step.
+- Privacy policy: [`docs/privacy-policy.md`](docs/privacy-policy.md). The listing and the settings link to it on GitHub, so the repository must be public before the store submission; that is the one manual step.
 - Store build: `pnpm zip`, then `LAMBE_STORE=1 pnpm --filter @lambe/extension check:manifest` to check it has no `key`, no static content script and exactly the narrow permissions.
 
 ## Release

@@ -64,6 +64,7 @@ function hostOver(initial: Record<string, unknown>) {
     cache: { getMany: async () => new Map(), setMany: async () => undefined },
     forbiddenHint: "chrome-extension://test",
     now: () => 0,
+    log: { debug: () => undefined },
   });
   const host = new WorkerHost({
     settings: new SettingsStore(storage.area, "en"),

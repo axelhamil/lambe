@@ -8,7 +8,7 @@ Lambë signifie « langue » en quenya ; le glyphe de la bulle est le tengwa du 
 
 ## Prérequis
 
-- Chrome (ou un navigateur Chromium) en Manifest V3.
+- Chrome 130 ou plus récent (ou un navigateur Chromium de même base) en Manifest V3.
 - Node 24.20 ou plus récent (`.nvmrc`), pnpm 11 (`packageManager`), Bun 1.4.0 pour les tests et les scripts (`.bun-version`, lu aussi par la CI).
 - Un serveur de modèles. Par défaut, [Ollama](https://ollama.com) sur `http://localhost:11434` avec `ollama pull translategemma:12b`.
 - Débutant avec les modèles locaux ? Suivez le [guide pour faire tourner une IA locale](docs/local-ai.fr.md) : matériel, installation, modèle et réglages.
@@ -119,7 +119,7 @@ Activez d'abord **YouTube** dans les réglages : Chrome demande l'accès à `htt
 
 - Texte de la fiche, objectif unique, justification des autorisations et déclarations sur les données : [`docs/store/listing.fr.md`](docs/store/listing.fr.md) et [`docs/store/listing.en.md`](docs/store/listing.en.md). Un test vérifie que les descriptions courtes tiennent en 132 caractères et que chaque autorisation du manifeste est justifiée, sans en ajouter.
 - Vignette promotionnelle : `docs/store/assets/promo-440x280.png`.
-- Règles de confidentialité : [`docs/privacy-policy.md`](docs/privacy-policy.md). Leur URL publique remplace `<PRIVACY_POLICY_URL>` dans la fiche ; c'est la seule étape manuelle.
+- Règles de confidentialité : [`docs/privacy-policy.md`](docs/privacy-policy.md). La fiche et les réglages pointent vers ce fichier sur GitHub : le dépôt doit être public avant l'envoi au store ; c'est la seule étape manuelle.
 - Version du store : `pnpm zip`, puis `LAMBE_STORE=1 pnpm --filter @lambe/extension check:manifest` pour vérifier qu'elle n'a ni `key` ni script de contenu statique, et exactement les autorisations prévues.
 
 La publication automatique, les secrets du dépôt et les mesures de vérification sont décrits dans le [README anglais](README.md#release).
