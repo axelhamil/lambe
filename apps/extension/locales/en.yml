@@ -3,6 +3,7 @@ ext:
   description: "Translates web pages in place with a local LLM."
   actionTitle: "Translate this page with Lambë"
   commandToggle: "Toggle the translation of the current page"
+  unavailableTitle: "Lambë cannot run on this page"
 
 common:
   save: "Save"
