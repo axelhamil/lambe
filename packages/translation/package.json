@@ -24,6 +24,7 @@
     "./infrastructure/providers/adaptive-concurrency-provider": "./src/infrastructure/providers/adaptive-concurrency-provider.ts",
     "./infrastructure/providers/ollama-provider": "./src/infrastructure/providers/ollama-provider.ts",
     "./infrastructure/youtube/timedtext-channel": "./src/infrastructure/youtube/timedtext-channel.ts",
+    "./infrastructure/youtube/timedtext-relay": "./src/infrastructure/youtube/timedtext-relay.ts",
     "./infrastructure/youtube/timedtext-hook": "./src/infrastructure/youtube/timedtext-hook.ts",
     "./infrastructure/youtube/youtube-player-surface": "./src/infrastructure/youtube/youtube-player-surface.ts",
     "./infrastructure/youtube/youtube-selectors": "./src/infrastructure/youtube/youtube-selectors.ts"

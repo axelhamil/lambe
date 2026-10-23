@@ -4,7 +4,7 @@ import type { Option } from "@lambe/kernel/option";
 import type { CaptionSurfaceListener } from "../../application/ports/caption-surface";
 import type { CaptionTrack } from "../../domain/caption/caption-track";
 import type { VideoId } from "../../domain/caption/value-objects/video-id.vo";
-import { createTimedtextRelay } from "./timedtext-channel";
+import { createTimedtextRelay } from "./timedtext-relay";
 import { YoutubePlayerSurface } from "./youtube-player-surface";
 import { YOUTUBE_SELECTORS } from "./youtube-selectors";
 
