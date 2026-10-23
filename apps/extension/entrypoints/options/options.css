@@ -39,6 +39,7 @@
   --accent: #dde8e4;
   --accent-foreground: #15201c;
   --destructive: #b8342a;
+  --caution: #8a5a00;
   --border: #d3ddd9;
   --input: #c4d1cc;
   --ring: #0d7059;
@@ -63,6 +64,7 @@
     --accent: #1d2a2c;
     --accent-foreground: #e3e9ee;
     --destructive: #ff7b72;
+    --caution: #e3b341;
     --border: #253039;
     --input: #2e3a45;
     --ring: #7ee0c3;
@@ -233,6 +235,72 @@
     list-style: disc;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.8125rem;
+  }
+
+  .provider-form {
+    max-width: var(--measure);
+  }
+
+  .provider-result {
+    --result-accent: var(--primary);
+    border-color: color-mix(in srgb, var(--result-accent) 40%, var(--border));
+    box-shadow: inset 3px 0 0 var(--result-accent);
+  }
+
+  .provider-result[data-state="warning"] {
+    --result-accent: var(--caution);
+  }
+
+  .provider-result[data-state="error"] {
+    --result-accent: var(--destructive);
+  }
+
+  .provider-result [data-slot="alert-title"] {
+    color: var(--result-accent);
+    font-size: var(--text-lead);
+  }
+
+  .provider-result [data-slot="alert-description"] {
+    color: var(--foreground);
+  }
+
+  .provider-result p {
+    margin: 0;
+  }
+
+  .provider-steps {
+    margin: 0;
+    padding-left: 1.25rem;
+    list-style: decimal;
+  }
+
+  .provider-steps li::marker {
+    color: var(--muted-foreground);
+  }
+
+  .provider-command {
+    padding: 0.25rem 0.25rem 0.25rem 0.75rem;
+    background: var(--muted);
+    border-radius: var(--radius-md);
+  }
+
+  .provider-command code {
+    overflow-wrap: anywhere;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.8125rem;
+  }
+
+  .provider-steps p + .provider-command {
+    margin-top: 0.5rem;
+  }
+
+  .provider-saved {
+    margin: 0;
+    color: var(--primary);
+  }
+
+  .provider-saved[data-state="error"] {
+    color: var(--destructive);
   }
 
   @media (min-width: 48rem) {
