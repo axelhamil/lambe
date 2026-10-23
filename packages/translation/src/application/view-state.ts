@@ -1,10 +1,11 @@
+import type { CaptionError } from "../domain/caption/caption-error";
 import type { ProviderError } from "../domain/provider/provider-error";
 
 export type ViewState =
   | { kind: "original" }
   | { kind: "translating" }
   | { kind: "translated" }
-  | { kind: "error"; error: ProviderError };
+  | { kind: "error"; error: ProviderError | CaptionError };
 
 type StateListener = (state: ViewState) => void;
 

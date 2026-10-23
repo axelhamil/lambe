@@ -1,6 +1,7 @@
 import { Option } from "@lambe/kernel/option";
 import { Result } from "@lambe/kernel/result";
 import type { CaptionBrief } from "../domain/caption/caption-brief";
+import { noCaptions } from "../domain/caption/caption-error";
 import type { CaptionSentence } from "../domain/caption/caption-sentence";
 import {
   type CaptionLine,
@@ -32,6 +33,7 @@ export interface CaptionTranslationDeps {
   maxConcurrency: number;
   sentencesPerRequest: number;
   aheadMs: number;
+  captionWaitMs?: number;
 }
 
 type Settlement = Option<string>;
@@ -49,6 +51,8 @@ interface Session {
 }
 
 const PRECEDING_SENTENCES = 2;
+
+const CAPTION_WAIT_MS = 8000;
 
 const REMEMBERED_TRACKS = 5;
 
@@ -95,6 +99,7 @@ export class CaptionTranslationService {
   private sessions = 0;
   private active = false;
   private leadPending = false;
+  private wait: ReturnType<typeof setTimeout> | undefined;
 
   public constructor(private readonly deps: CaptionTranslationDeps) {
     this.pump = new RequestPump<CaptionSentence>(
@@ -122,10 +127,11 @@ export class CaptionTranslationService {
     if (this.active) return this.turnOff(true);
 
     this.active = true;
-    this.deps.surface.loadCaptions();
+    const available = this.deps.surface.loadCaptions();
     this.deps.surface.hideNative(true);
     this.views.set({ kind: "translating" });
     this.startKnownTrack(this.deps.surface.videoId());
+    this.awaitTrack(available);
   }
 
   public whenIdle(): Promise<void> {
@@ -159,9 +165,30 @@ export class CaptionTranslationService {
 
     if (!this.active) return;
 
-    this.deps.surface.loadCaptions();
+    const available = this.deps.surface.loadCaptions();
+    this.deps.surface.hideNative(true);
     this.views.set({ kind: "translating" });
     this.startKnownTrack(videoId);
+    this.awaitTrack(available);
+  }
+
+  private awaitTrack(available: boolean): void {
+    if (this.session !== undefined) return;
+
+    if (!available) {
+      this.giveUp();
+
+      return;
+    }
+
+    this.wait = setTimeout(() => this.giveUp(), this.deps.captionWaitMs ?? CAPTION_WAIT_MS);
+  }
+
+  private giveUp(): void {
+    if (!this.active || this.session !== undefined) return;
+
+    this.deps.surface.hideNative(false);
+    this.views.set({ kind: "error", error: noCaptions() });
   }
 
   private turnOff(restore: boolean): void {
@@ -177,6 +204,8 @@ export class CaptionTranslationService {
   }
 
   private endSession(): void {
+    clearTimeout(this.wait);
+    this.wait = undefined;
     this.pump.cancelAll();
 
     for (const sentence of this.session?.sentences ?? []) this.queue.drop(sentence.id);
@@ -215,6 +244,7 @@ export class CaptionTranslationService {
     };
 
     this.session = session;
+    this.deps.surface.hideNative(true);
     this.deps.display.update([...session.lines]);
     this.rank(session, this.deps.surface.playheadMs().unwrapOr(0));
     this.leadPending = true;

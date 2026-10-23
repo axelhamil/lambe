@@ -99,13 +99,19 @@ export class YoutubePlayerSurface implements CaptionSurface {
     };
   }
 
-  loadCaptions(): void {
+  loadCaptions(): boolean {
     const button = this.subtitlesButton();
 
-    if (button === null || button.getAttribute(PRESSED) !== "false") return;
+    if (button === null || button.getAttribute("aria-disabled") === "true") return false;
+
+    const pressed = button.getAttribute(PRESSED);
+
+    if (pressed !== "false") return pressed === "true";
 
     this.turnedCaptionsOn = true;
     button.click();
+
+    return true;
   }
 
   restoreCaptions(): void {

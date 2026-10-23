@@ -230,6 +230,20 @@ describe("YoutubePlayerSurface", () => {
     expect(onButton.getAttribute("aria-pressed")).toBe("true");
   });
 
+  test("load_captions_reports_whether_the_player_has_captions", () => {
+    const off = watchPage();
+    simulateYoutubeCcButton(off.element(YOUTUBE_SELECTORS.subtitlesButton));
+    const disabled = watchPage();
+    disabled.element(YOUTUBE_SELECTORS.subtitlesButton).setAttribute("aria-disabled", "true");
+    const missing = watchPage();
+    missing.element(YOUTUBE_SELECTORS.subtitlesButton).remove();
+
+    expect(off.surface.loadCaptions()).toBe(true);
+    expect(off.surface.loadCaptions()).toBe(true);
+    expect(disabled.surface.loadCaptions()).toBe(false);
+    expect(missing.surface.loadCaptions()).toBe(false);
+  });
+
   test("user_turning_cc_off_is_reported", async () => {
     const { surface, element } = watchPage();
     const button = element(YOUTUBE_SELECTORS.subtitlesButton);

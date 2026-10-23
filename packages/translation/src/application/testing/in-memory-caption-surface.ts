@@ -8,6 +8,7 @@ export class InMemoryCaptionSurface implements CaptionSurface {
   public loads = 0;
   public restores = 0;
   public nativeHidden = false;
+  public captionsAvailable = true;
 
   public constructor(
     public video: Option<VideoId>,
@@ -35,8 +36,10 @@ export class InMemoryCaptionSurface implements CaptionSurface {
     };
   }
 
-  public loadCaptions(): void {
+  public loadCaptions(): boolean {
     this.loads += 1;
+
+    return this.captionsAvailable;
   }
 
   public restoreCaptions(): void {

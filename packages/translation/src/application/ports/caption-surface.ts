@@ -15,7 +15,7 @@ export interface CaptionSurface {
   playheadMs(): Option<number>;
   readBrief(): Omit<CaptionBrief, "generated" | "preceding">;
   watch(listener: CaptionSurfaceListener): () => void;
-  loadCaptions(): void;
+  loadCaptions(): boolean;
   restoreCaptions(): void;
   hideNative(hidden: boolean): void;
 }

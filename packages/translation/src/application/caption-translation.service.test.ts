@@ -2,6 +2,7 @@ import { describe, expect, mock, test } from "bun:test";
 import { Option } from "@lambe/kernel/option";
 import { Result } from "@lambe/kernel/result";
 import type { CaptionBrief } from "../domain/caption/caption-brief";
+import { noCaptions } from "../domain/caption/caption-error";
 import type { CaptionLine } from "../domain/caption/caption-timeline";
 import type { CaptionTrack, TimedText } from "../domain/caption/caption-track";
 import { VideoId } from "../domain/caption/value-objects/video-id.vo";
@@ -143,6 +144,7 @@ function setup(
     playhead?: number;
     sentencesPerRequest?: number;
     aheadMs?: number;
+    captionWaitMs?: number;
   } = {},
 ) {
   const surface = new InMemoryCaptionSurface(
@@ -169,6 +171,7 @@ function setup(
     maxConcurrency: 1,
     sentencesPerRequest: options.sentencesPerRequest ?? 3,
     aheadMs: options.aheadMs ?? 10000,
+    captionWaitMs: options.captionWaitMs,
   });
 
   service.attach();
@@ -642,6 +645,46 @@ describe("CaptionTranslationService", () => {
     expect(texts()).toEqual([]);
     expect(surface.nativeHidden).toBe(false);
     expect(surface.restores).toBe(0);
+  });
+
+  test("video_without_a_cc_button_reports_no_captions", async () => {
+    const { service, surface, translator } = setup();
+    surface.captionsAvailable = false;
+
+    await service.toggle();
+
+    expect(service.state()).toEqual({ kind: "error", error: noCaptions() });
+    expect(surface.nativeHidden).toBe(false);
+    expect(translator.translate).not.toHaveBeenCalled();
+  });
+
+  test("no_track_within_the_wait_reports_no_captions_until_one_arrives", async () => {
+    const { service, surface, load, texts } = setup({ captionWaitMs: 5 });
+
+    await service.toggle();
+    const waiting = service.state();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const gaveUp = { state: service.state(), nativeHidden: surface.nativeHidden };
+    load(manualTrack(2));
+    await service.whenIdle();
+
+    expect(waiting).toEqual({ kind: "translating" });
+    expect(gaveUp).toEqual({ state: { kind: "error", error: noCaptions() }, nativeHidden: false });
+    expect(noCaptions().message).toBe("This video has no captions to translate.");
+    expect(texts()).toEqual(["fr Sentence 0.", "fr Sentence 1."]);
+    expect(service.state()).toEqual({ kind: "translated" });
+    expect(surface.nativeHidden).toBe(true);
+  });
+
+  test("track_arriving_in_time_cancels_the_wait", async () => {
+    const { service, load } = setup({ captionWaitMs: 5 });
+
+    await service.toggle();
+    load(manualTrack(2));
+    await service.whenIdle();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(service.state()).toEqual({ kind: "translated" });
   });
 
   test("provider_error_sets_error_state_and_keeps_originals", async () => {
