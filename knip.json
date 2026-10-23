@@ -6,7 +6,10 @@
     },
     "apps/extension": {
       "entry": ["entrypoints/*.ts", "entrypoints/*/main.tsx", "scripts/*.ts"],
-      "project": ["src/**/*.{ts,tsx}", "entrypoints/**/*.{ts,tsx}", "scripts/**/*.ts"]
+      "project": ["src/**/*.{ts,tsx}", "entrypoints/**/*.{ts,tsx}", "scripts/**/*.ts"],
+      "ignoreIssues": {
+        "src/options/components/ui/**": ["exports", "types"]
+      }
     }
   },
   "ignoreWorkspaces": ["packages/typescript-config"],

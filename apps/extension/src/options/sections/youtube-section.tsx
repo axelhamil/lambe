@@ -1,13 +1,11 @@
 import { chromeHostAccess } from "../../access/host-access";
 import { t } from "../../i18n/t";
-import { Switch } from "../components/ui/switch";
-import { SettingRow } from "../setting-row";
+import { Card, CardContent } from "../components/ui/card";
+import { SwitchField } from "../switch-field";
 import { useGrantedOrigins } from "../use-granted-origins";
 import { useSettings } from "../use-settings";
 import { ChangeNotice, PermissionMissing, useChangeFeedback } from "./permission-feedback";
 import { youtubeModel, youtubeState } from "./youtube-model";
-
-const ID = "youtube-captions";
 
 export function YoutubeSection() {
   const { loaded, update } = useSettings();
@@ -19,24 +17,23 @@ export function YoutubeSection() {
 
   return (
     <>
-      <div className="settings-panel">
-        <SettingRow
-          id={ID}
-          label={t("options.youtube.enableLabel")}
-          hint={t("options.youtube.enableHint")}
-          control={
-            <Switch
-              id={ID}
-              aria-describedby={`${ID}-hint`}
-              checked={state.on}
-              onCheckedChange={(on) => follow(model.setEnabled(on))}
-            />
-          }
-        >
-          {missing && <PermissionMissing onRegrant={() => follow(model.setEnabled(true))} />}
-        </SettingRow>
-      </div>
       <ChangeNotice error={error} />
+      <Card>
+        <CardContent>
+          <SwitchField
+            id="youtube-captions"
+            label={t("options.youtube.enableLabel")}
+            description={t("options.youtube.enableHint")}
+            tip={t("options.youtube.enableTip")}
+            checked={state.on}
+            onCheckedChange={(on) =>
+              follow(model.setEnabled(on), t(on ? "options.youtube.on" : "options.youtube.off"))
+            }
+          >
+            {missing && <PermissionMissing onRegrant={() => follow(model.setEnabled(true))} />}
+          </SwitchField>
+        </CardContent>
+      </Card>
     </>
   );
 }

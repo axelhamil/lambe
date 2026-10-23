@@ -2,6 +2,7 @@ import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { t } from "../../i18n/t";
 import { Button } from "../components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
 import {
   Command,
   CommandEmpty,
@@ -9,8 +10,11 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandShortcut,
 } from "../components/ui/command";
+import { Field, FieldDescription } from "../components/ui/field";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
+import { TipLabel } from "../help-tip";
 import {
   browserLanguage,
   type LanguageOption,
@@ -18,12 +22,12 @@ import {
   languageOptions,
   searchLanguages,
 } from "../languages";
-import { SettingRow } from "../setting-row";
+import { toastSaved } from "../saved-toast";
 import { useSettings } from "../use-settings";
 
 const ID = "target-language";
 
-interface LanguageItemProps {
+export interface LanguageItemProps {
   option: LanguageOption;
   value: string;
   selected: boolean;
@@ -35,9 +39,7 @@ function LanguageItem({ option, value, selected, onChoose }: LanguageItemProps) 
     <CommandItem value={value} onSelect={() => onChoose(option.code)}>
       <CheckIcon className={selected ? undefined : "invisible"} />
       {option.label}
-      {option.native !== option.label && (
-        <span className="language-native ml-auto">{option.native}</span>
-      )}
+      {option.native !== option.label && <CommandShortcut>{option.native}</CommandShortcut>}
     </CommandItem>
   );
 }
@@ -49,23 +51,27 @@ export function TranslationSection() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const target = loaded.settings.target;
-  const suggested = browserLanguage(options, uiLanguage)
-    .filter(() => query.trim() === "")
-    .toUndefined();
+  const browser = browserLanguage(options, uiLanguage);
+  const suggested = browser.filter(() => query.trim() === "").toUndefined();
+  const browserName = browser.map(({ label }) => label).unwrapOr(uiLanguage);
 
   const choose = (code: string): void => {
     setOpen(false);
     setQuery("");
-    void update((current) => ({ ...current, target: code }));
+    void update((current) => ({ ...current, target: code })).then((saved) =>
+      toastSaved(saved, t("options.translation.saved", labelOf(code, uiLanguage))),
+    );
   };
 
   return (
-    <div className="settings-panel">
-      <SettingRow
-        id={ID}
-        label={t("options.translation.targetLabel")}
-        hint={t("options.translation.targetHint")}
-        control={
+    <Card>
+      <CardContent>
+        <Field>
+          <TipLabel
+            htmlFor={ID}
+            label={t("options.translation.targetLabel")}
+            tip={t("options.translation.targetTip", browserName)}
+          />
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -73,14 +79,14 @@ export function TranslationSection() {
                 variant="outline"
                 role="combobox"
                 aria-expanded={open}
-                aria-describedby={`${ID}-hint`}
-                className="w-full justify-between max-md:col-span-2 md:w-60"
+                aria-describedby={`${ID}-description`}
+                className="justify-between md:max-w-xs"
               >
                 {labelOf(target, uiLanguage)}
-                <ChevronsUpDownIcon className="opacity-50" />
+                <ChevronsUpDownIcon />
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-(--radix-popover-trigger-width) p-0 md:w-72">
+            <PopoverContent align="start" className="w-(--radix-popover-trigger-width) p-0">
               <Command shouldFilter={false} label={t("options.translation.pick")}>
                 <CommandInput
                   value={query}
@@ -114,8 +120,11 @@ export function TranslationSection() {
               </Command>
             </PopoverContent>
           </Popover>
-        }
-      />
-    </div>
+          <FieldDescription id={`${ID}-description`}>
+            {t("options.translation.targetHint")}
+          </FieldDescription>
+        </Field>
+      </CardContent>
+    </Card>
   );
 }

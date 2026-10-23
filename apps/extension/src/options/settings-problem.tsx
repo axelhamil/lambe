@@ -1,3 +1,4 @@
+import { CircleAlertIcon } from "lucide-react";
 import { useState } from "react";
 import { renderError } from "../i18n/render-error";
 import { t } from "../i18n/t";
@@ -14,16 +15,17 @@ export function SettingsProblem() {
   const problem = loaded.problem.unwrap();
 
   return (
-    <Alert className="settings-problem">
+    <Alert variant="destructive">
+      <CircleAlertIcon />
       <AlertTitle>{t("options.shell.problemTitle")}</AlertTitle>
-      <AlertDescription className="gap-3">
+      <AlertDescription className="flex flex-col gap-list">
         <p>{renderError({ code: problem.code })}</p>
-        <ul className="settings-issues flex flex-col gap-1">
+        <ul className="flex flex-col gap-tight">
           {problem.issues.map((issue) => (
             <li key={issue}>{issue}</li>
           ))}
         </ul>
-        <span className="flex flex-wrap gap-2">
+        <span className="flex flex-wrap gap-inline">
           <Button size="sm" onClick={() => void reset()}>
             {t("options.shell.resetDefaults")}
           </Button>

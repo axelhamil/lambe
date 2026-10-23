@@ -1,5 +1,5 @@
-interface LambeGlyphProps {
-  className: string;
+export interface LambeGlyphProps {
+  className?: string;
 }
 
 const GLYPH_PATH =
@@ -7,7 +7,14 @@ const GLYPH_PATH =
 
 export function LambeGlyph({ className }: LambeGlyphProps) {
   return (
-    <svg className={className} viewBox="2.5 16 28.5 29" aria-hidden="true" focusable="false">
+    <svg
+      data-slot="glyph"
+      className={className}
+      viewBox="2.5 16 28.5 29"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+    >
       <path d={GLYPH_PATH} />
     </svg>
   );
