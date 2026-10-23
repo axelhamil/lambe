@@ -21,7 +21,7 @@ describe("youtube model", () => {
   });
 
   test("denied_grant_leaves_it_off", async () => {
-    const fake = fakePermissionDeps({}, false);
+    const fake = fakePermissionDeps({ youtube: false }, false);
 
     const changed = await youtubeModel(fake.deps).setEnabled(true);
 

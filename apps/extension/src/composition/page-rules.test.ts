@@ -18,6 +18,7 @@ const consented = (change: Partial<Settings>): Settings => ({
   ...defaultSettings("en"),
   consentAt: 1,
   target: "fr",
+  bubbleEverywhere: false,
   ...change,
 });
 

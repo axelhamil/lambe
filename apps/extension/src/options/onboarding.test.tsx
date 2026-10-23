@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 import { act } from "react";
 import { t } from "../i18n/t";
+import { OPTIONAL_HOSTS } from "../permissions";
 import { App } from "./app";
 import { buttonNamed, renderWithSettings } from "./testing/render";
 
@@ -37,9 +38,14 @@ describe("onboarding", () => {
   });
 
   test("consent_click_stores_consent_at_and_hides_the_welcome", async () => {
+    const request = mock(async (_request: { origins: string[] }) => false);
+    Object.defineProperty(chrome, "permissions", { configurable: true, value: { request } });
     const before = Date.now();
     const rendered = await renderWithSettings(<App />);
-    cleanup = rendered.unmount;
+    cleanup = async () => {
+      Reflect.deleteProperty(chrome, "permissions");
+      await rendered.unmount();
+    };
 
     await act(async () => {
       buttonNamed(rendered.container, t("onboarding.consent"))?.click();
@@ -47,6 +53,7 @@ describe("onboarding", () => {
 
     const consentAt = (await rendered.store.load()).settings.consentAt ?? 0;
 
+    expect(request).toHaveBeenCalledWith({ origins: OPTIONAL_HOSTS });
     expect(consentAt).toBeGreaterThanOrEqual(before);
     expect(welcomeShown(rendered.container)).toBe(false);
   });

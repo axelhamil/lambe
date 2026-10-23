@@ -37,7 +37,7 @@ describe("sites model", () => {
   });
 
   test("denied_grant_leaves_the_setting_off", async () => {
-    const fake = fakePermissionDeps({}, false);
+    const fake = fakePermissionDeps({ bubbleEverywhere: false }, false);
 
     const changed = await sitesModel(fake.deps).setBubbleEverywhere(true);
 
@@ -60,7 +60,7 @@ describe("sites model", () => {
   });
 
   test("turning_it_off_removes_https_access_and_says_http_access_stays", async () => {
-    const fake = fakePermissionDeps({ bubbleEverywhere: true });
+    const fake = fakePermissionDeps({ bubbleEverywhere: true, youtube: false });
 
     const changed = await sitesModel(fake.deps).setBubbleEverywhere(false);
 
@@ -107,6 +107,7 @@ describe("sites model", () => {
 
   test("removing_the_last_flag_removes_the_rule_and_its_permission", async () => {
     const fake = fakePermissionDeps({
+      bubbleEverywhere: false,
       sites: [{ origin: ORIGIN, autoTranslate: true, hideBubble: false }],
     });
 

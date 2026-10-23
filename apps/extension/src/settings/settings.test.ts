@@ -15,8 +15,8 @@ describe("settings", () => {
       concurrency: 8,
       timeoutMs: 120000,
     });
-    expect(settings.bubbleEverywhere).toBe(false);
-    expect(settings.youtube).toBe(false);
+    expect(settings.bubbleEverywhere).toBe(true);
+    expect(settings.youtube).toBe(true);
     expect(settings.sites).toEqual([]);
     expect(settings.debug).toBe(false);
   });
