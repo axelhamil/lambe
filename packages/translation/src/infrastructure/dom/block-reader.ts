@@ -23,6 +23,8 @@ export interface ReadBlock {
   scope: Node[];
   atoms: Map<number, Node>;
   groups: Map<number, Element>;
+  carriers: Map<Node, Node>;
+  inert: Set<Text>;
   textNodes: Text[];
   commentAffixes: Map<Text, CommentAffix>;
 }
@@ -97,6 +99,12 @@ const ASCII_BLANK = /^[\t\n\f\r ]*$/;
 
 const LETTER = /\p{L}/u;
 
+const BLANK = /^\s*$/u;
+
+const WRAPPER_TAGS = new Set(["span", "font"]);
+
+const HELD_ATTRIBUTE = /^(?:style|hidden|role|lang|dir|aria-.+)$/;
+
 const collapseWhitespace = (text: string): string => text.replace(ASCII_WHITESPACE_RUN, " ");
 
 const hasLetter = (nodes: InlineNode[]): boolean => LETTER.test(textSlots(nodes).join(""));
@@ -164,14 +172,68 @@ function isOutermostCodeComment(comment: Element): boolean {
   return !outer || outer === container || !container.contains(outer);
 }
 
+interface Wrapper {
+  element: Element;
+  bare: boolean;
+  texts: Text[];
+}
+
+const isAtom = (el: Element): boolean => isExcluded(el) || isProtectedInline(el);
+
+function isBlankElement(el: Element): boolean {
+  return [...el.childNodes].every((child) => {
+    if (child instanceof Text) return BLANK.test(child.data);
+
+    return !(child instanceof Element) || (!isAtom(child) && isBlankElement(child));
+  });
+}
+
+function innermost(el: Element): Element {
+  const [only, ...others] = el.childNodes;
+
+  if (others.length > 0 || !(only instanceof Element) || isAtom(only) || isBlankElement(only))
+    return el;
+
+  return innermost(only);
+}
+
+function chainOf(outer: Element, inner: Element): Element[] {
+  const chain: Element[] = [];
+
+  for (let el: Element | null = inner; el && el !== outer; el = el.parentElement) chain.push(el);
+
+  return [...chain, outer];
+}
+
+const isPlainWrapper = (el: Element): boolean =>
+  WRAPPER_TAGS.has(el.localName) &&
+  !el.getAttributeNames().some((name) => HELD_ATTRIBUTE.test(name));
+
+function textsUnder(node: Node): Text[] {
+  return [...node.childNodes].flatMap((child) =>
+    child instanceof Text ? [child] : textsUnder(child),
+  );
+}
+
 class RunBuilder {
   readonly atoms = new Map<number, Node>();
   readonly groups = new Map<number, Element>();
+  readonly carriers = new Map<Node, Node>();
+  readonly inert = new Set<Text>();
   readonly textNodes: Text[] = [];
+  private readonly wrappers = new Map<number, Wrapper>();
   private nextKey = 0;
 
   nodesOf(children: Iterable<Node>): InlineNode[] {
-    return [...children].flatMap((child) => this.nodeOf(child));
+    const nodes = [...children].flatMap((child) => this.nodeOf(child));
+
+    const out: InlineNode[] = [];
+
+    nodes.forEach((node, index) => {
+      out.push(...this.unwrapped(node, out.at(-1), nodes[index + 1]));
+    });
+
+    return out;
   }
 
   private nodeOf(node: Node): InlineNode[] {
@@ -186,15 +248,75 @@ class RunBuilder {
     this.nextKey += 1;
     const key = this.nextKey;
 
-    if (isExcluded(node) || isProtectedInline(node)) {
+    if (isAtom(node)) {
       this.atoms.set(key, node);
 
       return [{ kind: "atom", key }];
     }
 
-    this.groups.set(key, node);
+    if (isBlankElement(node)) return this.blank(node);
 
-    return [{ kind: "group", key, children: this.nodesOf(node.childNodes) }];
+    const inner = innermost(node);
+    const start = this.textNodes.length;
+    this.groups.set(key, inner);
+
+    if (inner !== node) this.carriers.set(inner, node);
+
+    const children = this.nodesOf(inner.childNodes);
+    const texts = this.textNodes.slice(start);
+
+    if (this.isWrapper(node, inner, children, texts)) {
+      const bare = chainOf(node, inner).every((el) => el.attributes.length === 0);
+      this.wrappers.set(key, { element: node, bare, texts });
+    }
+
+    return [{ kind: "group", key, children }];
+  }
+
+  private blank(el: Element): InlineNode[] {
+    const texts = textsUnder(el);
+
+    for (const text of texts) {
+      this.textNodes.push(text);
+      this.inert.add(text);
+    }
+
+    return texts.map((text) => ({ kind: "text", text: collapseWhitespace(text.data) }));
+  }
+
+  private isWrapper(
+    outer: Element,
+    inner: Element,
+    children: InlineNode[],
+    texts: Text[],
+  ): boolean {
+    if (!chainOf(outer, inner).every(isPlainWrapper)) return false;
+
+    if (!children.every((child) => child.kind === "text")) return false;
+
+    return texts.filter((text) => !this.inert.has(text)).length === 1;
+  }
+
+  private unwrapped(
+    node: InlineNode,
+    previous: InlineNode | undefined,
+    next: InlineNode | undefined,
+  ): InlineNode[] {
+    const wrapper = node.kind === "group" ? this.wrappers.get(node.key) : undefined;
+
+    if (node.kind !== "group" || wrapper === undefined) return [node];
+
+    if (!wrapper.bare && (previous?.kind === "text" || next?.kind === "text")) return [node];
+
+    const inner = this.groups.get(node.key);
+
+    if (inner) this.carriers.delete(inner);
+
+    this.groups.delete(node.key);
+
+    for (const text of wrapper.texts) this.carriers.set(text, wrapper.element);
+
+    return node.children;
   }
 }
 
@@ -285,6 +407,8 @@ export class BlockReader {
       scope,
       atoms: builder.atoms,
       groups: builder.groups,
+      carriers: builder.carriers,
+      inert: builder.inert,
       textNodes: builder.textNodes,
       commentAffixes: new Map(),
     });
@@ -336,6 +460,8 @@ export class BlockReader {
       scope: [comment],
       atoms: new Map(),
       groups: new Map(),
+      carriers: new Map(),
+      inert: new Set(),
       textNodes,
       commentAffixes,
     });
