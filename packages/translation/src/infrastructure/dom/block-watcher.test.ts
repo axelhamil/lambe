@@ -401,46 +401,57 @@ describe("BlockWatcher on content revealed later", () => {
       `<!doctype html><html><head><style>.collapsed{display:none}</style></head><body>${body}</body></html>`,
       "text/html",
     );
-    const { ports } = harness(true);
+    const { ports, near, viewport } = harness(true);
     const surface = new DomPageSurface({ doc, window, ids: idSource(), observers: ports });
     const events = listener();
     const initial = surface.scan().map(textOf);
     const stop = surface.watch(events);
     const reported = (): string[] =>
       events.onBlocks.mock.calls.flatMap(([blocks]) => blocks).map(textOf);
+    const ranks = (): string[] =>
+      events.onProximity.mock.calls.map(([id, rank]) => `${id.value}:${rankLabel(rank)}`);
 
-    return { doc, initial, stop, reported };
+    return { doc, initial, stop, reported, ranks, near, viewport };
   };
 
-  test("hidden_section_revealed_by_a_class_change_is_reported", async () => {
-    const { doc, initial, stop, reported } = watchedPage(
+  test("hidden_section_is_read_at_scan_and_ranked_once_it_becomes_visible", async () => {
+    const { doc, initial, stop, reported, ranks, near, viewport } = watchedPage(
       '<main><p>Lead paragraph</p><section id="more" class="collapsed"><p>Early life</p></section></main>',
     );
+    const hidden = doc.querySelector("#more p");
 
+    near()?.deliverInitial((target) => entry(target, target !== hidden));
+    viewport()?.deliverInitial((target) => entry(target, target !== hidden));
+    await settle();
     doc.getElementById("more")?.classList.remove("collapsed");
+    if (hidden) {
+      near()?.emit([entry(hidden, true)]);
+      viewport()?.emit([entry(hidden, true)]);
+    }
     await settle();
     stop();
 
-    expect(initial).toEqual(["Lead paragraph"]);
-    expect(reported()).toEqual(["Early life"]);
+    expect(initial).toEqual(["Lead paragraph", "Early life"]);
+    expect(reported()).toEqual([]);
+    expect(ranks()).toEqual(["b1:0", "b2:none", "b2:0"]);
   });
 
-  test("details_opened_later_is_reported_once", async () => {
+  test("attribute_changes_on_links_and_footnotes_create_no_block", async () => {
     const { doc, initial, stop, reported } = watchedPage(
-      '<main><details id="faq" style="display:none"><summary>Question</summary><p>Answer text</p></details></main>',
+      '<main><p>See <a href="https://example.com/docs">https://example.com/docs</a> for details.</p><p>Notes<sup class="reference">[note a]</sup> here.</p></main>',
     );
-    const faq = doc.getElementById("faq");
 
-    faq?.removeAttribute("style");
-    faq?.setAttribute("open", "");
+    doc.querySelector("a")?.setAttribute("href", "https://example.com/other");
+    doc.querySelector("a")?.setAttribute("class", "visited");
+    doc.querySelector("sup")?.setAttribute("class", "reference highlighted");
     await settle();
     stop();
 
-    expect(initial).toEqual([]);
-    expect(reported()).toEqual(["Question", "Answer text"]);
+    expect(initial).toEqual(["See  for details.", "Notes here."]);
+    expect(reported()).toEqual([]);
   });
 
-  test("text_added_directly_into_a_hidden_root_is_not_read", async () => {
+  test("text_added_into_a_hidden_root_is_read_and_waits_to_be_shown", async () => {
     const { doc, stop, reported } = watchedPage(
       '<main><div id="menu" class="collapsed"></div></main>',
     );
@@ -449,6 +460,6 @@ describe("BlockWatcher on content revealed later", () => {
     await settle();
     stop();
 
-    expect(reported()).toEqual([]);
+    expect(reported()).toEqual(["Appearance settings"]);
   });
 });

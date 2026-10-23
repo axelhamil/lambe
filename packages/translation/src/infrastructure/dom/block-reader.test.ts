@@ -369,14 +369,29 @@ describe("BlockReader roles", () => {
 });
 
 describe("BlockReader on visually hidden text", () => {
-  test("text_under_display_none_or_visibility_hidden_is_not_a_block", () => {
+  test("text_hidden_until_shown_is_still_a_block_so_it_is_ready_when_revealed", () => {
     const doc = htmlDocument(
       '<main><div style="display: none"><p>Collapsed menu entry</p></div><p style="visibility: hidden">Invisible label</p><p hidden>Hidden attribute text</p><p>Shown paragraph</p></main>',
     );
 
     const texts = readerFor(doc).read(doc).map(textOf);
 
-    expect(texts).toEqual(["Shown paragraph"]);
+    expect(texts).toEqual([
+      "Collapsed menu entry",
+      "Invisible label",
+      "Hidden attribute text",
+      "Shown paragraph",
+    ]);
+  });
+
+  test("inline_text_hidden_by_a_parent_class_is_part_of_its_paragraph", () => {
+    const doc = htmlDocument(
+      '<style>.c .more{display:none}</style><p class="c">Intro <span class="more">suite</span> fin.</p>',
+    );
+
+    const texts = readerFor(doc).read(doc).map(textOf);
+
+    expect(texts).toEqual(["Intro suite fin."]);
   });
 
   test("aria_hidden_text_still_shown_on_screen_is_a_block", () => {
@@ -460,11 +475,13 @@ describe("BlockReader markup weight", () => {
     expect(shape).toBe("See <g>the page</g> now.");
   });
 
-  test("plain_wrappers_are_dropped_while_links_emphasis_code_and_hidden_text_keep_their_tags", () => {
+  test("plain_wrappers_are_dropped_while_links_emphasis_code_and_styled_text_keep_their_tags", () => {
     const shape = shapeOf(
       '<p><a href="/a">Link</a><span class="geo">34.05</span><em>stress</em> and <span>plain</span> text <code>x()</code> <span class="note">kept</span> here <span style="display:none">hidden</span></p>',
     );
 
-    expect(shape).toBe("<g>Link</g>34.05<g>stress</g> and plain text <x/> <g>kept</g> here <x/>");
+    expect(shape).toBe(
+      "<g>Link</g>34.05<g>stress</g> and plain text <x/> <g>kept</g> here <g>hidden</g>",
+    );
   });
 });

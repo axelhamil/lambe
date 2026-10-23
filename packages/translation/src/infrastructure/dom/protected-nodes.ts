@@ -14,11 +14,11 @@ const EXCLUDED_TAGS = new Set([
   "math",
 ]);
 
-const HIDDEN_SELECTOR = "[hidden], .sr-only, .visually-hidden, .screen-reader-text";
+const SCREEN_READER_ONLY_SELECTOR = ".sr-only, .visually-hidden, .screen-reader-text";
 
 const MEDIAWIKI_EXCLUDED_SELECTOR = ".mw-editsection";
 
-const EXCLUDED_ATTRIBUTES_SELECTOR = `[contenteditable], [translate="no"], .notranslate, ${HIDDEN_SELECTOR}, ${MEDIAWIKI_EXCLUDED_SELECTOR}`;
+const EXCLUDED_ATTRIBUTES_SELECTOR = `[contenteditable], [translate="no"], .notranslate, ${SCREEN_READER_ONLY_SELECTOR}, ${MEDIAWIKI_EXCLUDED_SELECTOR}`;
 
 export const EXCLUDED_SELECTOR = `${[...EXCLUDED_TAGS].join(", ")}, ${EXCLUDED_ATTRIBUTES_SELECTOR}`;
 
@@ -93,8 +93,10 @@ function clipsToNothing(clip: string): boolean {
   return right <= left || bottom <= top;
 }
 
-function isScreenReaderOnly(style: CSSStyleDeclaration): boolean {
-  if (style.position !== "absolute" && style.position !== "fixed") return false;
+function isScreenReaderOnly(el: Element): boolean {
+  const style = el.ownerDocument.defaultView?.getComputedStyle(el);
+
+  if (!style || (style.position !== "absolute" && style.position !== "fixed")) return false;
 
   if (clipsToNothing(style.clip) || /^inset\(\s*50%/.test(style.clipPath)) return true;
 
@@ -105,30 +107,10 @@ function isScreenReaderOnly(style: CSSStyleDeclaration): boolean {
   );
 }
 
-function isVisuallyHidden(el: Element): boolean {
-  const style = el.ownerDocument.defaultView?.getComputedStyle(el);
-
-  if (!style) return false;
-
-  if (style.display === "none" || style.visibility === "hidden") return true;
-
-  return isScreenReaderOnly(style);
-}
-
 export function isExcluded(el: Element): boolean {
   if (EXCLUDED_TAGS.has(el.localName)) return true;
 
-  return el.matches(EXCLUDED_ATTRIBUTES_SELECTOR) || isVisuallyHidden(el);
-}
-
-export const isHidden = (el: Element): boolean =>
-  el.matches(HIDDEN_SELECTOR) || isVisuallyHidden(el);
-
-export function isInHiddenSubtree(el: Element): boolean {
-  for (let node: Element | null = el; node; node = node.parentElement)
-    if (isHidden(node)) return true;
-
-  return false;
+  return el.matches(EXCLUDED_ATTRIBUTES_SELECTOR) || isScreenReaderOnly(el);
 }
 
 export function isProtectedInline(el: Element): boolean {
