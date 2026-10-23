@@ -446,27 +446,49 @@ export class BatchTranslationService {
 
       if (attempt.isFailure) return Result.fail(attempt.getError());
 
-      const failed: Piece[] = [];
+      const together: Piece[] = [];
+      const alone: Piece[] = [];
 
       for (const [piece, result] of attempt.getValue()) {
-        if (result.isSuccess || !worthRetrying(piece, result.getError())) {
+        if (result.isSuccess) {
           run.record(piece, result);
           continue;
         }
 
-        failed.push(piece);
+        const code = result.getError();
+
+        if (worthRetrying(piece, code)) together.push(piece);
+        else if (code === "PLACEHOLDER_LOST") alone.push(piece);
+        else run.record(piece, result);
       }
 
-      const retried = failed.filter((piece) => !run.isSettled(piece.group));
+      const retries = [together, ...alone.map((piece) => [piece])];
 
-      if (retried.length === 0) continue;
+      for (const retry of retries) {
+        const retried = await this.retry(retry, request, run, signal);
 
-      const retry = await this.attempt(retried, request, run, signal);
-
-      if (retry.isFailure) return Result.fail(retry.getError());
-
-      for (const [piece, result] of retry.getValue()) run.record(piece, result);
+        if (retried.isFailure) return retried;
+      }
     }
+
+    return Result.ok();
+  }
+
+  private async retry(
+    pieces: Piece[],
+    request: BatchRequest,
+    run: BatchRun,
+    signal: AbortSignal | undefined,
+  ): Promise<Result<void, ProviderError>> {
+    const pending = pieces.filter((piece) => !run.isSettled(piece.group));
+
+    if (pending.length === 0) return Result.ok();
+
+    const retry = await this.attempt(pending, request, run, signal);
+
+    if (retry.isFailure) return Result.fail(retry.getError());
+
+    for (const [piece, result] of retry.getValue()) run.record(piece, result);
 
     return Result.ok();
   }
