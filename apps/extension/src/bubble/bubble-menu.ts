@@ -155,7 +155,8 @@ export function mountBubbleMenu(
       event.preventDefault();
 
       const all = items();
-      const current = all.findIndex((candidate) => candidate === shadow.activeElement);
+      const focused = shadow.activeElement;
+      const current = focused instanceof HTMLButtonElement ? all.indexOf(focused) : -1;
 
       all[step(Math.max(current, 0), all.length)]?.focus();
     },
