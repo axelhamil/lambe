@@ -1,3 +1,4 @@
+import { textSlots } from "../block/block-translation";
 import type { InlineNode } from "../block/inline-node";
 
 interface Boundary {
@@ -8,29 +9,36 @@ interface Boundary {
 
 const WORD_END = /\S(?=\s)/gu;
 
-function textLength(nodes: InlineNode[]): number {
-  return nodes.reduce((sum, node) => {
-    if (node.kind === "text") return sum + node.text.length;
+const WHITESPACE = /\s/u;
 
-    if (node.kind === "group") return sum + textLength(node.children);
-
-    return sum;
-  }, 0);
-}
+const textLength = (nodes: InlineNode[]): number => textSlots(nodes).join("").length;
 
 function wordEnds(text: string): number[] {
   return [...text.matchAll(WORD_END)].map((match) => match.index + match[0].length);
 }
 
+function characterEnds(text: string): number[] {
+  const ends: number[] = [];
+  let end = 0;
+
+  for (const character of text) {
+    end += character.length;
+    ends.push(end);
+  }
+
+  return ends.slice(0, -1);
+}
+
 function boundaries(nodes: InlineNode[]): Boundary[] {
   const found: Boundary[] = [];
+  const cutsOf = WHITESPACE.test(textSlots(nodes).join("")) ? wordEnds : characterEnds;
   let offset = 0;
 
   nodes.forEach((node, index) => {
     found.push({ offset, index, cut: 0 });
 
     if (node.kind === "text") {
-      for (const cut of wordEnds(node.text)) found.push({ offset: offset + cut, index, cut });
+      for (const cut of cutsOf(node.text)) found.push({ offset: offset + cut, index, cut });
     }
 
     offset += textLength([node]);

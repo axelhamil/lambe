@@ -35,6 +35,8 @@ describe("checkAgainstSource", () => {
       "<g1>Lisez le guide</g1> aujourd'hui.",
       "<g1>Lisez le guide<x1/></g1> aujourd'hui.",
     ],
+    ["前半の文章<x1/>後半の文章", "前半の文後半の文", "前半の文<x1/>後半の文"],
+    ["Donau<x1/>dampfschiff", "Donaudampfschiff", "Donau<x1/>dampfschiff"],
   ])("reinserts_a_dropped_atom_at_its_relative_source_position %#", (from, answer, expected) => {
     const repaired = checkAgainstSource(
       parseMarkup(from).getValue(),
