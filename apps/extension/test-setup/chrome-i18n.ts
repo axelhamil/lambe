@@ -17,6 +17,9 @@ if (!("chrome" in globalThis)) {
         getMessage: (name: string) => catalog.get(name) ?? "",
         getUILanguage: () => "en",
       },
+      runtime: {
+        getManifest: () => ({ version: "0.0.0" }),
+      },
     },
   });
 }

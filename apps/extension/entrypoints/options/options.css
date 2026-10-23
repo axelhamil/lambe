@@ -14,6 +14,8 @@
   --text-lead: 1.0625rem;
   --text-brand: 1.3125rem;
   --text-heading: 1.625rem;
+  --text-subheading: 1.25rem;
+  --text-small: 0.8125rem;
   --text-title: 2.125rem;
   --leading-body: 1.6;
   --leading-tight: 1.2;
@@ -106,17 +108,17 @@
   html {
     color-scheme: light dark;
   }
+}
 
-  body {
-    margin: 0;
-    background: var(--background);
-    color: var(--foreground);
-    font-family: var(--font-body);
-    font-size: var(--text-body);
-    line-height: var(--leading-body);
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
-  }
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -316,5 +318,80 @@
     .onboarding-glyph {
       height: var(--glyph-onboarding);
     }
+  }
+}
+
+@layer components {
+  .settings-group h2 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: var(--text-subheading);
+    font-weight: 500;
+    line-height: var(--leading-tight);
+  }
+
+  .settings-group p,
+  .settings-note,
+  .settings-status,
+  .settings-meta {
+    margin: 0;
+    max-width: var(--measure);
+  }
+
+  .settings-note,
+  .settings-meta {
+    color: var(--muted-foreground);
+  }
+
+  .settings-meta {
+    font-size: var(--text-small);
+  }
+
+  .settings-status:empty {
+    display: none;
+  }
+
+  .prompt-guidelines {
+    padding: 1rem 1.125rem;
+    background: var(--card);
+    font-family: var(--font-display);
+  }
+
+  .cache-figures {
+    margin: 0;
+  }
+
+  .cache-figures dt {
+    color: var(--muted-foreground);
+  }
+
+  .cache-figures dd {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: var(--text-heading);
+    line-height: var(--leading-tight);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .shortcut-row {
+    margin: 0;
+    font-size: var(--text-lead);
+  }
+
+  .shortcut-keys kbd {
+    min-width: 2.5rem;
+    padding: 0.3rem 0.7rem;
+    background: var(--card);
+    border: 1px solid var(--input);
+    border-bottom-width: 3px;
+    border-radius: var(--radius-md);
+    font-family: var(--font-body);
+    font-size: var(--text-body);
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .shortcut-unset {
+    color: var(--muted-foreground);
   }
 }
