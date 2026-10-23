@@ -8,7 +8,7 @@
     "build": "wxt build",
     "fixtures": "bun scripts/serve-fixtures.ts",
     "type-check": "wxt prepare && tsc --noEmit",
-    "test": "bun test",
+    "test": "BUN_RUNTIME_TRANSPILER_CACHE_PATH=0 bun test",
     "check:manifest": "bun scripts/check-manifest-key.ts"
   },
   "dependencies": {
