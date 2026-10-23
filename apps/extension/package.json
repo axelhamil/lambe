@@ -7,13 +7,14 @@
     "dev": "wxt",
     "build": "wxt build",
     "fixtures": "bun scripts/serve-fixtures.ts",
-    "type-check": "tsc --noEmit",
+    "type-check": "wxt prepare && tsc --noEmit",
     "test": "bun test",
     "check:manifest": "bun scripts/check-manifest-key.ts"
   },
   "dependencies": {
     "@lambe/kernel": "workspace:*",
     "@lambe/translation": "workspace:*",
+    "@wxt-dev/i18n": "0.2.8",
     "zod": "4.6.7"
   },
   "devDependencies": {

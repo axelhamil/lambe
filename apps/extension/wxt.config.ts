@@ -17,23 +17,25 @@ const STORE_BUILD = process.env.LAMBE_STORE === "1";
 
 export default defineConfig({
   imports: false,
+  modules: ["@wxt-dev/i18n/module"],
   zip: {
     artifactTemplate: STORE_BUILD
       ? "{{name}}-{{version}}-{{browser}}-store.zip"
       : "{{name}}-{{version}}-{{browser}}.zip",
   },
   manifest: {
-    name: "Lambë",
-    description: "Translates web pages in place with a local LLM.",
+    name: "__MSG_ext_name__",
+    description: "__MSG_ext_description__",
+    default_locale: "en",
     ...(STORE_BUILD ? {} : { key: EXTENSION_PUBLIC_KEY }),
     permissions: ["storage", "unlimitedStorage"],
     host_permissions: [...PAGE_MATCHES, ...PROVIDER_HOSTS],
     icons: ICONS,
-    action: { default_title: "Translate this page with Lambë", default_icon: ICONS },
+    action: { default_title: "__MSG_ext_actionTitle__", default_icon: ICONS },
     commands: {
       "toggle-translation": {
         suggested_key: { default: "Alt+L" },
-        description: "Toggle the translation of the current page",
+        description: "__MSG_ext_commandToggle__",
       },
     },
   },

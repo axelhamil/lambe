@@ -1,0 +1,28 @@
+ext:
+  name: "Lambë"
+  description: "Translates web pages in place with a local LLM."
+  actionTitle: "Translate this page with Lambë"
+  commandToggle: "Toggle the translation of the current page"
+
+common:
+  save: "Save"
+  cancel: "Cancel"
+  reset: "Reset"
+  remove: "Remove"
+  copy: "Copy"
+  learnMore: "Learn more"
+
+error:
+  PROVIDER_UNREACHABLE: "The model server at {baseUrl} is not reachable. Start it or check the address, then try again."
+  PROVIDER_UNAUTHORIZED: "The server at {baseUrl} rejected the API key. Check the key in the settings, then try again."
+  PROVIDER_FORBIDDEN_ORIGIN: "Ollama refused requests from {origin}. Add this origin to OLLAMA_ORIGINS, restart Ollama, then try again."
+  PROVIDER_MODEL_MISSING: "The model {model} is not installed. Install it or pick another model in the settings."
+  PROVIDER_BAD_RESPONSE: "The model server sent an unexpected answer. Try again, or pick another model if it keeps happening."
+  PROVIDER_TIMEOUT: "The model server did not answer within {timeoutMs} ms. Try again, or pick a lighter model."
+  REQUEST_CANCELLED: "The translation was cancelled."
+  NO_CAPTIONS: "This video has no captions to translate."
+  CONSENT_REQUIRED: "Lambë needs your consent before it sends any text to a model. Open the settings to review and accept."
+  PAGE_UNAVAILABLE: "Lambë cannot run on this page. Browser pages and the Chrome Web Store are closed to extensions."
+  SETTINGS_INVALID: "Your saved settings are not valid, so Lambë is using the defaults. Fix them or reset to defaults."
+  SETTINGS_FROM_NEWER_VERSION: "Your settings come from a newer version of Lambë, so the defaults are in use. Update the extension or reset to defaults."
+  UNKNOWN: "Something went wrong. Try again."
