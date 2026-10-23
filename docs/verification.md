@@ -4,7 +4,7 @@ What each shipped plan was measured to do in a real browser, with the numbers. T
 
 ## Plan 1 verification
 
-Measured on 2026-10-18 in headless Brave over CDP, `translategemma:12b` on local Ollama, target `fr`, cache cleared before each frame, on `proof.html` (frames of 375, 753 and 1425 px of layout width once the scrollbar is removed).
+Measured on 2026-10-18 in headless Brave over CDP, `translategemma:12b` on local Ollama, target `fr`, cache cleared before each frame, on `proof.html` with the plan 1 build, which ran in every frame (frames of 375, 753 and 1425 px of layout width once the scrollbar is removed).
 
 | | 390 px | 768 px | 1440 px |
 | --- | --- | --- | --- |
