@@ -1,7 +1,7 @@
 import { Option } from "@lambe/kernel/option";
 import { Result } from "@lambe/kernel/result";
 import type { Block, BlockRole } from "../domain/block/block";
-import { type BlockTranslation, textSlots } from "../domain/block/block-translation";
+import { type BlockTranslation, letterCount, textSlots } from "../domain/block/block-translation";
 import type { InlineNode } from "../domain/block/inline-node";
 import type { BlockId } from "../domain/block/value-objects/block-id.vo";
 import type { CachePolicy } from "../domain/cache/cache-policy";
@@ -10,7 +10,11 @@ import type { LanguageCode } from "../domain/language/value-objects/language-cod
 import { parseMarkup, toMarkup } from "../domain/markup/markup";
 import type { PageBrief } from "../domain/page/page-brief";
 import { type ProviderError, providerError } from "../domain/provider/provider-error";
-import { type ProximityRank, TranslationQueue } from "../domain/queue/translation-queue";
+import {
+  type ProximityRank,
+  type TextMeasure,
+  TranslationQueue,
+} from "../domain/queue/translation-queue";
 import type {
   BatchTranslateOptions,
   SegmentOutcome,
@@ -58,25 +62,6 @@ interface RequestScope {
 type Outcomes = Map<string, SegmentOutcome>;
 
 const REQUESTS_AHEAD = 1;
-
-const MIN_REAL_TEXT_LETTERS = 12;
-
-interface FirstCandidate {
-  id: BlockId;
-  order: number;
-  tier: number;
-  real: boolean;
-  length: number;
-}
-
-function firstPriority(left: FirstCandidate, right: FirstCandidate): number {
-  return (
-    left.tier - right.tier ||
-    Number(right.real) - Number(left.real) ||
-    left.length - right.length ||
-    left.order - right.order
-  );
-}
 
 function structuredNodes(outcome: SegmentOutcome | undefined): Option<InlineNode[]> {
   if (outcome?.status !== "translated") return Option.none();
@@ -489,7 +474,7 @@ export class PageTranslationService {
 
     if (this.firstRequestPending) {
       const firstSize = Math.min(max, Math.max(1, this.deps.firstRequestSegments));
-      const first = this.takeFirst(firstSize, frontRank, maxRole);
+      const first = this.queue.takeFirst(firstSize, frontRank, maxRole, (id) => this.measure(id));
 
       if (first.length > 0) {
         this.firstRequestPending = false;
@@ -515,35 +500,10 @@ export class PageTranslationService {
     return next.length > 0 ? [next] : [];
   }
 
-  private takeFirst(size: number, maxRank: ProximityRank, maxRole: BlockRole): BlockId[] {
-    const candidates = this.queue.pending(maxRank, maxRole);
-    const chosen = new Set(
-      candidates
-        .map((id, order) => this.firstCandidate(id, order))
-        .sort(firstPriority)
-        .slice(0, size)
-        .map((candidate) => candidate.id.value),
-    );
-    const first = candidates.filter((id) => chosen.has(id.value));
+  private measure(id: BlockId): TextMeasure {
+    const nodes = this.blocks.get(id.value)?.nodes ?? [];
 
-    for (const id of first) this.queue.drop(id);
-
-    return first;
-  }
-
-  private firstCandidate(id: BlockId, order: number): FirstCandidate {
-    const block = this.blocks.get(id.value);
-    const content = block === undefined ? "" : textSlots(block.nodes).join("").trim();
-    const letters = content.match(/\p{L}/gu)?.length ?? 0;
-    const chrome = block?.role === "chrome" ? 2 : 0;
-
-    return {
-      id,
-      order,
-      tier: chrome + (this.ranks.get(id.value) ?? 1),
-      real: letters >= MIN_REAL_TEXT_LETTERS,
-      length: content.length,
-    };
+    return { letters: letterCount(nodes), length: textSlots(nodes).join("").trim().length };
   }
 
   private visibleContentOutstanding(): boolean {

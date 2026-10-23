@@ -1,5 +1,5 @@
 import type { Block } from "../../domain/block/block";
-import { textSlots } from "../../domain/block/block-translation";
+import { letterCount } from "../../domain/block/block-translation";
 import type { InlineNode } from "../../domain/block/inline-node";
 import type { BlockId } from "../../domain/block/value-objects/block-id.vo";
 import { splitCommentMarker } from "../../domain/markup/comment-marker";
@@ -97,8 +97,6 @@ const ASCII_WHITESPACE_RUN = /[\t\n\f\r ]+/g;
 
 const ASCII_BLANK = /^[\t\n\f\r ]*$/;
 
-const LETTER = /\p{L}/u;
-
 const BLANK = /^\s*$/u;
 
 const WRAPPER_TAGS = new Set(["span", "font"]);
@@ -106,8 +104,6 @@ const WRAPPER_TAGS = new Set(["span", "font"]);
 const HELD_ATTRIBUTE = /^(?:style|hidden|role|lang|dir|aria-.+)$/;
 
 const collapseWhitespace = (text: string): string => text.replace(ASCII_WHITESPACE_RUN, " ");
-
-const hasLetter = (nodes: InlineNode[]): boolean => LETTER.test(textSlots(nodes).join(""));
 
 const isBlank = (node: Node): boolean =>
   node instanceof Text && ASCII_BLANK.test(node.nodeValue ?? "");
@@ -399,7 +395,7 @@ export class BlockReader {
     const builder = new RunBuilder();
     const nodes = builder.nodesOf(scope);
 
-    if (!hasLetter(nodes) || this.anyClaimed(builder.textNodes)) return;
+    if (letterCount(nodes) === 0 || this.anyClaimed(builder.textNodes)) return;
 
     this.claim(builder.textNodes);
     out.push({
@@ -452,7 +448,7 @@ export class BlockReader {
       commentAffixes.set(node, split.affix);
     }
 
-    if (!hasLetter(nodes) || this.anyClaimed(textNodes)) return;
+    if (letterCount(nodes) === 0 || this.anyClaimed(textNodes)) return;
 
     this.claim(textNodes);
     out.push({

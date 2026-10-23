@@ -2,14 +2,14 @@ import { describe, expect, test } from "bun:test";
 import type { Result } from "@lambe/kernel/result";
 import type { InlineNode } from "../block/inline-node";
 import { type MarkupError, parseMarkup, toMarkup } from "./markup";
-import { checkAgainstSource } from "./structure-check";
+import { settleAgainstSource } from "./structure-check";
 
 const source = parseMarkup("Run <x1/> or <g1>read <x2/></g1>").getValue();
 
 const check = (translated: string): Result<InlineNode[], MarkupError> =>
-  parseMarkup(translated).flatMap((nodes) => checkAgainstSource(source, nodes));
+  parseMarkup(translated).flatMap((nodes) => settleAgainstSource(source, nodes));
 
-describe("checkAgainstSource", () => {
+describe("settleAgainstSource", () => {
   test("accepts_reordered_words_around_atoms", () => {
     const checked = check("<g1>lis <x2/></g1> ou lance <x1/>");
 
@@ -38,7 +38,7 @@ describe("checkAgainstSource", () => {
     ["前半の文章<x1/>後半の文章", "前半の文後半の文", "前半の文<x1/>後半の文"],
     ["Donau<x1/>dampfschiff", "Donaudampfschiff", "Donau<x1/>dampfschiff"],
   ])("reinserts_a_dropped_atom_at_its_relative_source_position %#", (from, answer, expected) => {
-    const repaired = checkAgainstSource(
+    const repaired = settleAgainstSource(
       parseMarkup(from).getValue(),
       parseMarkup(answer).getValue(),
     );
@@ -50,7 +50,7 @@ describe("checkAgainstSource", () => {
     const twoGroups = parseMarkup("<g1>a <x1/></g1> <g2>b</g2> <g3>c</g3>").getValue();
     const answer = parseMarkup("a <g2>b</g2> <g3>c</g3>").getValue();
 
-    expect(checkAgainstSource(twoGroups, answer).getError().code).toBe("PLACEHOLDER_LOST");
+    expect(settleAgainstSource(twoGroups, answer).getError().code).toBe("PLACEHOLDER_LOST");
   });
 
   test("rejects_duplicated_atom", () => {
@@ -96,7 +96,7 @@ describe("checkAgainstSource", () => {
     const plain = parseMarkup("Merge and close").getValue();
     const answer = parseMarkup("<x4/> Fusionner et fermer").getValue();
 
-    expect(checkAgainstSource(plain, answer).getValue()).toEqual([
+    expect(settleAgainstSource(plain, answer).getValue()).toEqual([
       { kind: "text", text: "Fusionner et fermer" },
     ]);
   });
@@ -105,7 +105,7 @@ describe("checkAgainstSource", () => {
     const twoGroups = parseMarkup("<g1>a</g1> <g2>b</g2>").getValue();
     const moved = parseMarkup("<g1>a <g2>b</g2></g1>").getValue();
 
-    expect(checkAgainstSource(twoGroups, moved).getValue()).toEqual([
+    expect(settleAgainstSource(twoGroups, moved).getValue()).toEqual([
       { kind: "group", key: 1, children: [{ kind: "text", text: "a b" }] },
     ]);
   });

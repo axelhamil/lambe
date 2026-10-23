@@ -23,6 +23,32 @@ function compare(left: QueueEntry, right: QueueEntry): number {
   );
 }
 
+export interface TextMeasure {
+  letters: number;
+  length: number;
+}
+
+interface FirstCandidate extends TextMeasure {
+  entry: QueueEntry;
+  order: number;
+}
+
+const MIN_REAL_TEXT_LETTERS = 12;
+
+const tierOf = (entry: QueueEntry): number => isChrome(entry) * 2 + entry.rank;
+
+const isReal = (candidate: FirstCandidate): number =>
+  candidate.letters >= MIN_REAL_TEXT_LETTERS ? 1 : 0;
+
+function firstPriority(left: FirstCandidate, right: FirstCandidate): number {
+  return (
+    tierOf(left.entry) - tierOf(right.entry) ||
+    isReal(right) - isReal(left) ||
+    left.length - right.length ||
+    left.order - right.order
+  );
+}
+
 function within(entry: QueueEntry, maxRank: ProximityRank, maxRole: BlockRole): boolean {
   return entry.rank <= maxRank && ROLE_ORDER[entry.role] <= ROLE_ORDER[maxRole];
 }
@@ -42,25 +68,41 @@ export class TranslationQueue {
     return [...this.entries.values()].some((entry) => within(entry, maxRank, maxRole));
   }
 
-  public pending(maxRank: ProximityRank, maxRole: BlockRole): BlockId[] {
-    return [...this.entries.values()]
-      .filter((entry) => within(entry, maxRank, maxRole))
-      .sort(compare)
-      .map((entry) => entry.id);
+  public take(max: number, maxRank: ProximityRank = 1, maxRole: BlockRole = "chrome"): BlockId[] {
+    return this.remove(this.ordered(maxRank, maxRole).slice(0, Math.max(0, max)));
   }
 
-  public take(max: number, maxRank: ProximityRank = 1, maxRole: BlockRole = "chrome"): BlockId[] {
-    const taken = [...this.entries.values()]
-      .filter((entry) => within(entry, maxRank, maxRole))
-      .sort(compare)
-      .slice(0, Math.max(0, max));
+  public takeFirst(
+    size: number,
+    maxRank: ProximityRank,
+    maxRole: BlockRole,
+    measure: (id: BlockId) => TextMeasure,
+  ): BlockId[] {
+    const candidates = this.ordered(maxRank, maxRole);
+    const chosen = new Set(
+      candidates
+        .map((entry, order): FirstCandidate => ({ entry, order, ...measure(entry.id) }))
+        .sort(firstPriority)
+        .slice(0, Math.max(0, size))
+        .map((candidate) => candidate.entry),
+    );
 
-    for (const entry of taken) this.entries.delete(entry.id.value);
-
-    return taken.map((entry) => entry.id);
+    return this.remove(candidates.filter((entry) => chosen.has(entry)));
   }
 
   public size(): number {
     return this.entries.size;
+  }
+
+  private ordered(maxRank: ProximityRank, maxRole: BlockRole): QueueEntry[] {
+    return [...this.entries.values()]
+      .filter((entry) => within(entry, maxRank, maxRole))
+      .sort(compare);
+  }
+
+  private remove(entries: QueueEntry[]): BlockId[] {
+    for (const entry of entries) this.entries.delete(entry.id.value);
+
+    return entries.map((entry) => entry.id);
   }
 }

@@ -18,3 +18,9 @@ export function textSlots(nodes: InlineNode[]): string[] {
 export function textNodeCount(nodes: InlineNode[]): number {
   return textSlots(nodes).length;
 }
+
+const LETTER = /\p{L}/gu;
+
+export function letterCount(nodes: InlineNode[]): number {
+  return textSlots(nodes).join("").match(LETTER)?.length ?? 0;
+}

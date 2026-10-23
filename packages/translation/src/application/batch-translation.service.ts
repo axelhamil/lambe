@@ -20,7 +20,7 @@ import {
   parseTolerant,
   toMarkup,
 } from "../domain/markup/markup";
-import { checkAgainstSource, missingGroups } from "../domain/markup/structure-check";
+import { missingGroups, settleAgainstSource } from "../domain/markup/structure-check";
 import type { PageBrief } from "../domain/page/page-brief";
 import type { PromptAdapter } from "../domain/prompt/prompt-adapter";
 import { PROMPT_VERSION } from "../domain/prompt/prompt-version";
@@ -97,7 +97,7 @@ function rewrap(shell: EdgeShell, markup: string): PieceResult {
 function validate(piece: Piece, response: string | undefined): PieceResult {
   if (response === undefined) return Result.fail("RESPONSE_MISSING_SEGMENT");
 
-  return checkAgainstSource(piece.nodes, restoreEmptyGroups(piece.nodes, parseTolerant(response)))
+  return settleAgainstSource(piece.nodes, restoreEmptyGroups(piece.nodes, parseTolerant(response)))
     .map(toMarkup)
     .mapError((error): SegmentFailureCode => error.code);
 }

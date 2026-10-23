@@ -1,4 +1,5 @@
 import { Result } from "@lambe/kernel/result";
+import { letterCount } from "../block/block-translation";
 import { appendNode, type InlineNode } from "../block/inline-node";
 import { reinsertAtom, relativeAtomPosition } from "./atom-reinsertion";
 import { type MarkupError, markupError } from "./markup";
@@ -151,16 +152,6 @@ function reinsertLostAtoms(
   return Result.ok(repaired);
 }
 
-const LETTER = /\p{L}/u;
-
-function hasLetters(nodes: InlineNode[]): boolean {
-  return nodes.some((node) => {
-    if (node.kind === "text") return LETTER.test(node.text);
-
-    return node.kind === "group" && hasLetters(node.children);
-  });
-}
-
 function groupIds(placements: Placements): string[] {
   return [...placements.keys()].filter((id) => id.startsWith("<g"));
 }
@@ -171,7 +162,7 @@ export function missingGroups(source: InlineNode[], translated: InlineNode[]): n
   return groupIds(collectPlacements(source)).filter((id) => !present.has(id)).length;
 }
 
-export function checkAgainstSource(
+export function settleAgainstSource(
   source: InlineNode[],
   answer: InlineNode[],
 ): Result<InlineNode[], MarkupError> {
@@ -188,7 +179,7 @@ export function checkAgainstSource(
 
   const translated = repaired.getValue();
 
-  if (hasLetters(source) && !hasLetters(translated))
+  if (letterCount(source) > 0 && letterCount(translated) === 0)
     return Result.fail(markupError("TRANSLATION_EMPTY", "The translation has no text."));
 
   const groups = groupIds(expected).length;
