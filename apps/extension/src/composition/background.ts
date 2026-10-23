@@ -13,9 +13,10 @@ import {
   KEEP_ALIVE_MS,
   OllamaProvider,
 } from "@lambe/translation/infrastructure/providers/ollama-provider";
+import { activateTab, showUnavailable, type TabScripting } from "../activation/activate-tab";
 import { StorageTranslationCache } from "../adapters/chrome/storage-translation-cache";
 import { loadRuntimeConfig } from "../config/runtime-config";
-import { TOGGLE_MESSAGE } from "../messaging/toggle.contract";
+import { t } from "../i18n/t";
 import {
   TRANSLATE_PORT_NAME,
   type TranslateBatchResponse,
@@ -29,17 +30,17 @@ import { SettingsStore } from "../settings/settings-store";
 
 const TOGGLE_COMMAND = "toggle-translation";
 
-const MISSING_RECEIVER = "Receiving end does not exist";
-
 interface Worker {
   service: BatchTranslationService;
   capacity: ProviderCapacity;
 }
 
+function settingsStore(): SettingsStore {
+  return new SettingsStore(chrome.storage.local, chrome.i18n.getUILanguage());
+}
+
 async function buildWorker(): Promise<Worker> {
-  const config = await loadRuntimeConfig(
-    new SettingsStore(chrome.storage.local, chrome.i18n.getUILanguage()),
-  );
+  const config = await loadRuntimeConfig(settingsStore());
   const { provider } = config;
   const ollama = new OllamaProvider({
     baseUrl: provider.baseUrl,
@@ -69,27 +70,41 @@ async function buildWorker(): Promise<Worker> {
   return { service, capacity: adaptive };
 }
 
-function isMissingReceiver(cause: unknown): boolean {
-  return cause instanceof Error && cause.message.includes(MISSING_RECEIVER);
-}
+const tabScripting: TabScripting = {
+  sendMessage: (tabId, message) => chrome.tabs.sendMessage(tabId, message),
+  injectFiles: async (tabId, files) => {
+    await chrome.scripting.executeScript({ target: { tabId }, files });
+  },
+};
 
-async function toggleTab(tabId: number | undefined): Promise<void> {
+async function activate(tabId: number | undefined): Promise<void> {
   if (tabId === undefined) return;
 
-  try {
-    await chrome.tabs.sendMessage(tabId, TOGGLE_MESSAGE);
-  } catch (cause) {
-    if (isMissingReceiver(cause)) return;
+  const deps = {
+    tabs: tabScripting,
+    settings: settingsStore(),
+    openOptions: () => chrome.runtime.openOptionsPage(),
+  };
 
-    console.error("Lambë could not toggle the tab.", cause);
+  try {
+    const outcome = await activateTab(deps, tabId);
+
+    if (outcome !== "unavailable") return;
+
+    await showUnavailable(chrome.action, tabId, {
+      unavailable: t("ext.unavailableTitle"),
+      idle: t("ext.actionTitle"),
+    });
+  } catch (cause) {
+    console.error("Lambë could not activate the tab.", cause);
   }
 }
 
-async function toggleActiveTab(): Promise<void> {
+async function activateActiveTab(): Promise<void> {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    await toggleTab(tab?.id);
+    await activate(tab?.id);
   } catch (cause) {
     console.error("Lambë could not find the active tab.", cause);
   }
@@ -135,13 +150,21 @@ export function startBackground(): void {
     serveTranslatePort(port, answer, reported);
   });
 
+  chrome.runtime.onInstalled.addListener(({ reason }) => {
+    if (reason !== "install") return;
+
+    void chrome.runtime.openOptionsPage().catch((cause: unknown) => {
+      console.error("Lambë could not open its settings.", cause);
+    });
+  });
+
   chrome.action.onClicked.addListener((tab) => {
-    void toggleTab(tab.id);
+    void activate(tab.id);
   });
 
   chrome.commands.onCommand.addListener((command, tab) => {
     if (command !== TOGGLE_COMMAND) return;
 
-    void (tab?.id === undefined ? toggleActiveTab() : toggleTab(tab.id));
+    void (tab?.id === undefined ? activateActiveTab() : activate(tab.id));
   });
 }
