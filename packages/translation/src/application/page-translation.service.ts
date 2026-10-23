@@ -25,12 +25,9 @@ import type { LanguageDetector } from "./ports/language-detector";
 import type { PageSurface } from "./ports/page-surface";
 import type { ProviderCapacity } from "./ports/provider-capacity";
 import { RequestPump, type RequestScope, settle } from "./request-pump";
+import { type ViewState, ViewStateStore } from "./view-state";
 
-export type ViewState =
-  | { kind: "original" }
-  | { kind: "translating" }
-  | { kind: "translated" }
-  | { kind: "error"; error: ProviderError };
+export type { ViewState } from "./view-state";
 
 export interface PageTranslationDeps {
   surface: PageSurface;
@@ -42,8 +39,6 @@ export interface PageTranslationDeps {
   maxSegmentsPerRequest: number;
   firstRequestSegments: number;
 }
-
-type StateListener = (state: ViewState) => void;
 
 interface Session {
   brief: PageBrief;
@@ -128,8 +123,7 @@ function balancedRuns<T>(
 }
 
 export class PageTranslationService {
-  private view: ViewState = { kind: "original" };
-  private readonly listeners = new Set<StateListener>();
+  private readonly views = new ViewStateStore();
   private readonly queue = new TranslationQueue();
   private readonly blocks = new Map<string, Block>();
   private readonly ranks = new Map<string, ProximityRank>();
@@ -158,7 +152,7 @@ export class PageTranslationService {
   }
 
   public async toggle(): Promise<void> {
-    const kind = this.view.kind;
+    const kind = this.views.current().kind;
 
     if (kind === "translating" || kind === "translated") return this.showOriginal();
 
@@ -184,20 +178,16 @@ export class PageTranslationService {
 
     for (const key of this.ranks.keys()) this.enqueueIfPending(key);
 
-    this.setView({ kind: "translating" });
+    this.views.set({ kind: "translating" });
     this.schedule();
   }
 
   public state(): ViewState {
-    return this.view;
+    return this.views.current();
   }
 
-  public subscribe(listener: StateListener): () => void {
-    this.listeners.add(listener);
-
-    return () => {
-      this.listeners.delete(listener);
-    };
+  public subscribe(listener: (state: ViewState) => void): () => void {
+    return this.views.subscribe(listener);
   }
 
   public whenIdle(): Promise<void> {
@@ -206,14 +196,14 @@ export class PageTranslationService {
 
   private async start(): Promise<void> {
     this.started = true;
-    this.setView({ kind: "translating" });
+    this.views.set({ kind: "translating" });
 
     const brief = this.deps.surface.readBrief();
     const source = await this.sourceLanguage(brief);
 
     if (source.isFailure) {
       this.started = false;
-      this.setView({ kind: "error", error: source.getError() });
+      this.views.set({ kind: "error", error: source.getError() });
 
       return;
     }
@@ -269,11 +259,11 @@ export class PageTranslationService {
   private showOriginal(): void {
     this.pump.cancelAll();
     this.deps.surface.show("original");
-    this.setView({ kind: "original" });
+    this.views.set({ kind: "original" });
   }
 
   private resume(): void {
-    this.setView({ kind: this.isComplete() ? "translated" : "translating" });
+    this.views.set({ kind: this.isComplete() ? "translated" : "translating" });
     this.schedule();
   }
 
@@ -348,7 +338,7 @@ export class PageTranslationService {
   private canPump(): boolean {
     if (this.session === undefined) return false;
 
-    return this.view.kind === "translating" || this.view.kind === "translated";
+    return this.views.isShowingTranslation();
   }
 
   private schedule(): void {
@@ -357,7 +347,7 @@ export class PageTranslationService {
 
   private afterDrain(failure: Option<ProviderError>): void {
     if (failure.isSome()) {
-      this.setView({ kind: "error", error: failure.unwrap() });
+      this.views.set({ kind: "error", error: failure.unwrap() });
 
       return;
     }
@@ -368,7 +358,8 @@ export class PageTranslationService {
       return;
     }
 
-    if (this.view.kind === "translating" && this.isComplete()) this.setView({ kind: "translated" });
+    if (this.views.current().kind === "translating" && this.isComplete())
+      this.views.set({ kind: "translated" });
   }
 
   private takeNext(free: number, concurrency: number): Block[][] {
@@ -598,11 +589,5 @@ export class PageTranslationService {
     );
 
     return result.map((outcomes) => new Map(outcomes.map((outcome) => [outcome.id, outcome])));
-  }
-
-  private setView(state: ViewState): void {
-    this.view = state;
-
-    for (const listener of this.listeners) listener(state);
   }
 }
