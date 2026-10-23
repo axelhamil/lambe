@@ -5,6 +5,7 @@ import type {
 } from "../../application/ports/caption-surface";
 import type { CaptionBrief } from "../../domain/caption/caption-brief";
 import { VideoId } from "../../domain/caption/value-objects/video-id.vo";
+import { cleanText } from "../dom/clean-text";
 import { parseTimedtext, type TimedtextCapture } from "./json3-track";
 import { listenTimedtext } from "./timedtext-channel";
 import { YOUTUBE_SELECTORS } from "./youtube-selectors";
@@ -19,9 +20,6 @@ const WATCH_PATH = "/watch";
 const PRESSED = "aria-pressed";
 
 const HIDE_NATIVE_CSS = `.${YOUTUBE_SELECTORS.nativeHiddenClass} ${YOUTUBE_SELECTORS.captionContainer} { display: none !important; }`;
-
-const cleanText = (text: string | null | undefined): string =>
-  (text ?? "").replace(/\s+/g, " ").trim();
 
 export class YoutubePlayerSurface implements CaptionSurface {
   private turnedCaptionsOn = false;

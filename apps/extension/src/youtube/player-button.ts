@@ -1,4 +1,4 @@
-import type { ViewState } from "@lambe/translation/application/page-translation.service";
+import { isShowingTranslation, type ViewState } from "@lambe/translation/application/view-state";
 import { YOUTUBE_SELECTORS } from "@lambe/translation/infrastructure/youtube/youtube-selectors";
 import glyphSvg from "../../../../assets/tengwa-lambe.svg?raw";
 
@@ -54,9 +54,7 @@ export function mountPlayerButton(doc: Document, onClick: () => void): PlayerBut
 
   return {
     render(state) {
-      const active = state.kind === "translating" || state.kind === "translated";
-
-      button.setAttribute("aria-pressed", String(active));
+      button.setAttribute("aria-pressed", String(isShowingTranslation(state)));
       button.classList.toggle(PULSE_CLASS, state.kind === "translating");
 
       if (state.kind !== "error") {

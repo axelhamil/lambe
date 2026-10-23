@@ -25,7 +25,7 @@ import type { LanguageDetector } from "./ports/language-detector";
 import type { PageSurface } from "./ports/page-surface";
 import type { ProviderCapacity } from "./ports/provider-capacity";
 import { RequestPump, type RequestScope, settle } from "./request-pump";
-import { type ViewState, ViewStateStore } from "./view-state";
+import { ViewStateSource } from "./view-state";
 
 export type { ViewState } from "./view-state";
 
@@ -122,8 +122,7 @@ function balancedRuns<T>(
   return runs;
 }
 
-export class PageTranslationService {
-  private readonly views = new ViewStateStore();
+export class PageTranslationService extends ViewStateSource {
   private readonly queue = new TranslationQueue();
   private readonly blocks = new Map<string, Block>();
   private readonly ranks = new Map<string, ProximityRank>();
@@ -139,6 +138,7 @@ export class PageTranslationService {
   private nextPosition = 0;
 
   public constructor(private readonly deps: PageTranslationDeps) {
+    super();
     this.pump = new RequestPump<Block>(
       {
         canPump: () => this.canPump(),
@@ -179,14 +179,6 @@ export class PageTranslationService {
 
     this.views.set({ kind: "translating" });
     this.schedule();
-  }
-
-  public state(): ViewState {
-    return this.views.current();
-  }
-
-  public subscribe(listener: (state: ViewState) => void): () => void {
-    return this.views.subscribe(listener);
   }
 
   public whenIdle(): Promise<void> {

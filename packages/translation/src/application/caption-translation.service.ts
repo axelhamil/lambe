@@ -22,7 +22,7 @@ import type { CaptionDisplay } from "./ports/caption-display";
 import type { CaptionSurface } from "./ports/caption-surface";
 import type { ProviderCapacity } from "./ports/provider-capacity";
 import { RequestPump, type RequestScope, settle } from "./request-pump";
-import { type ViewState, ViewStateStore } from "./view-state";
+import { ViewStateSource } from "./view-state";
 
 export interface CaptionTranslationDeps {
   surface: CaptionSurface;
@@ -89,8 +89,7 @@ function settlementOf(outcome: SegmentOutcome | undefined): Settlement {
   return plainTextOf(outcome.markup);
 }
 
-export class CaptionTranslationService {
-  private readonly views = new ViewStateStore();
+export class CaptionTranslationService extends ViewStateSource {
   private readonly queue = new TranslationQueue();
   private readonly tracks = new Map<string, CaptionTrack>();
   private readonly memory = new Map<string, Map<number, Settlement>>();
@@ -102,6 +101,7 @@ export class CaptionTranslationService {
   private wait: ReturnType<typeof setTimeout> | undefined;
 
   public constructor(private readonly deps: CaptionTranslationDeps) {
+    super();
     this.pump = new RequestPump<CaptionSentence>(
       {
         canPump: () => this.canPump(),
@@ -140,14 +140,6 @@ export class CaptionTranslationService {
 
   public whenIdle(): Promise<void> {
     return this.pump.whenIdle();
-  }
-
-  public state(): ViewState {
-    return this.views.current();
-  }
-
-  public subscribe(listener: (state: ViewState) => void): () => void {
-    return this.views.subscribe(listener);
   }
 
   private receiveTrack(track: CaptionTrack): void {

@@ -9,6 +9,10 @@ export type ViewState =
 
 type StateListener = (state: ViewState) => void;
 
+export function isShowingTranslation(state: ViewState): boolean {
+  return state.kind === "translating" || state.kind === "translated";
+}
+
 export class ViewStateStore {
   private view: ViewState = { kind: "original" };
   private readonly listeners = new Set<StateListener>();
@@ -18,7 +22,7 @@ export class ViewStateStore {
   }
 
   public isShowingTranslation(): boolean {
-    return this.view.kind === "translating" || this.view.kind === "translated";
+    return isShowingTranslation(this.view);
   }
 
   public subscribe(listener: StateListener): () => void {
@@ -33,5 +37,17 @@ export class ViewStateStore {
     this.view = state;
 
     for (const listener of this.listeners) listener(state);
+  }
+}
+
+export abstract class ViewStateSource {
+  protected readonly views = new ViewStateStore();
+
+  public state(): ViewState {
+    return this.views.current();
+  }
+
+  public subscribe(listener: StateListener): () => void {
+    return this.views.subscribe(listener);
   }
 }

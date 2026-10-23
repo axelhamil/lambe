@@ -12,6 +12,7 @@
     "./application/ports/language-detector": "./src/application/ports/language-detector.ts",
     "./application/ports/provider-capacity": "./src/application/ports/provider-capacity.ts",
     "./application/ports/translation-cache": "./src/application/ports/translation-cache.ts",
+    "./application/view-state": "./src/application/view-state.ts",
     "./domain/block/value-objects/block-id.vo": "./src/domain/block/value-objects/block-id.vo.ts",
     "./domain/caption/caption-timeline": "./src/domain/caption/caption-timeline.ts",
     "./domain/language/value-objects/language-code.vo": "./src/domain/language/value-objects/language-code.vo.ts",
