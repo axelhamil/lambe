@@ -364,6 +364,37 @@ describe("PageTranslationService", () => {
     expect(translator.translate).toHaveBeenCalledTimes(1);
   });
 
+  test("retarget_applies_to_the_next_toggle_without_showing_the_old_language", async () => {
+    const { service, surface, near, requests } = setup({ blocks: [ALPHA] });
+    await service.toggle();
+    near("alpha", 0);
+    await service.whenIdle();
+    await service.toggle();
+
+    service.retarget(language("es"));
+    const toggled = service.toggle();
+    const shownBeforeAnswer = surface.view;
+    await toggled;
+    await service.whenIdle();
+
+    expect(shownBeforeAnswer).toBe("original");
+    expect(requests().map((request) => request.target.value)).toEqual(["fr", "es"]);
+    expect(service.state()).toEqual({ kind: "translated" });
+  });
+
+  test("retarget_while_translated_translates_again_in_the_new_target", async () => {
+    const { service, near, requests } = setup({ blocks: [ALPHA] });
+    await service.toggle();
+    near("alpha", 0);
+    await service.whenIdle();
+
+    service.retarget(language("es"));
+    await service.whenIdle();
+
+    expect(requests().map((request) => request.target.value)).toEqual(["fr", "es"]);
+    expect(service.state()).toEqual({ kind: "translated" });
+  });
+
   test("third_toggle_shows_translated_without_calling_the_translator", async () => {
     const { service, surface, translator, near } = setup({ blocks: [ALPHA] });
     await service.toggle();

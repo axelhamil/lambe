@@ -1,24 +1,9 @@
-import { Option } from "@lambe/kernel/option";
-import {
-  type BatchTranslateOptions,
-  BatchTranslationService,
-} from "@lambe/translation/application/batch-translation.service";
-import type { ProviderCapacity } from "@lambe/translation/application/ports/provider-capacity";
-import { instructionPrompt } from "@lambe/translation/domain/prompt/instruction-prompt";
-import { modelFamilyOf } from "@lambe/translation/domain/prompt/prompt-adapter";
-import { translateGemmaPrompt } from "@lambe/translation/domain/prompt/translategemma-prompt";
-import { sha256Hasher } from "@lambe/translation/infrastructure/hashing/sha256-hasher";
-import { AdaptiveConcurrencyProvider } from "@lambe/translation/infrastructure/providers/adaptive-concurrency-provider";
-import {
-  KEEP_ALIVE_MS,
-  OllamaProvider,
-} from "@lambe/translation/infrastructure/providers/ollama-provider";
+import type { BatchTranslateOptions } from "@lambe/translation/application/batch-translation.service";
 import { chromeHostAccess } from "../access/host-access";
 import { reconciler } from "../access/reconcile";
 import { chromeScriptRegistrar } from "../access/script-registrar";
 import { activateTab, showUnavailable, type TabScripting } from "../activation/activate-tab";
 import { StorageTranslationCache } from "../adapters/chrome/storage-translation-cache";
-import { loadRuntimeConfig } from "../config/runtime-config";
 import { t } from "../i18n/t";
 import {
   TRANSLATE_PORT_NAME,
@@ -29,48 +14,27 @@ import {
   serveTranslatePort,
   unexpectedFailure,
 } from "../messaging/translate-batch.handler";
+import { SecretsStore } from "../settings/secrets-store";
 import { SettingsStore } from "../settings/settings-store";
+import { WorkerHost, workerBuilder } from "./worker-host";
 
 const TOGGLE_COMMAND = "toggle-translation";
-
-interface Worker {
-  service: BatchTranslationService;
-  capacity: ProviderCapacity;
-}
 
 function settingsStore(): SettingsStore {
   return new SettingsStore(chrome.storage.local, chrome.i18n.getUILanguage());
 }
 
-async function buildWorker(): Promise<Worker> {
-  const config = await loadRuntimeConfig(settingsStore());
-  const { provider } = config;
-  const ollama = new OllamaProvider({
-    baseUrl: provider.baseUrl,
-    model: provider.model,
-    fetch: globalThis.fetch.bind(globalThis),
-    timeoutMs: provider.timeoutMs,
-    forbiddenHint: `chrome-extension://${chrome.runtime.id}`,
+function workerHost(): WorkerHost {
+  return new WorkerHost({
+    settings: settingsStore(),
+    secrets: new SecretsStore(chrome.storage.local),
+    build: workerBuilder({
+      fetch: globalThis.fetch.bind(globalThis),
+      cache: new StorageTranslationCache(chrome.storage.local),
+      forbiddenHint: `chrome-extension://${chrome.runtime.id}`,
+      now: Date.now,
+    }),
   });
-
-  const adaptive = new AdaptiveConcurrencyProvider(ollama, {
-    maxConcurrency: provider.concurrency,
-    forgetAfterIdleMs: KEEP_ALIVE_MS,
-    now: Date.now,
-    onStats: (stats) => console.debug("Lambë: ollama stats", stats),
-  });
-  const service = new BatchTranslationService({
-    provider: adaptive,
-    cache: new StorageTranslationCache(chrome.storage.local),
-    hasher: sha256Hasher,
-    prompt:
-      modelFamilyOf(provider.model) === "translategemma" ? translateGemmaPrompt : instructionPrompt,
-    contextTokens: config.contextTokens,
-    maxSegmentsPerBatch: config.maxSegmentsPerBatch,
-    guidelines: "",
-  });
-
-  return { service, capacity: adaptive };
 }
 
 const tabScripting: TabScripting = {
@@ -130,32 +94,19 @@ function syncScriptRegistrations(): void {
 export function startBackground(): void {
   syncScriptRegistrations();
 
-  let worker: Promise<Worker> | undefined;
-  let capacity: ProviderCapacity | undefined;
-
-  const reported: ProviderCapacity = {
-    concurrency: () => capacity?.concurrency() ?? Option.none(),
-  };
-
-  const batchService = async (): Promise<BatchTranslationService> => {
-    worker ??= buildWorker();
-
-    const built = await worker;
-
-    capacity = built.capacity;
-
-    return built.service;
-  };
+  const host = workerHost();
 
   const answer = async (
     payload: unknown,
     options: BatchTranslateOptions,
   ): Promise<TranslateBatchResponse> => {
     try {
-      return await respondToTranslateBatch(payload, await batchService(), options);
-    } catch (cause) {
-      worker = undefined;
+      const service = await host.service();
 
+      if (service.isFailure) return { ok: false, error: service.getError() };
+
+      return await respondToTranslateBatch(payload, service.getValue(), options);
+    } catch (cause) {
       return unexpectedFailure(cause);
     }
   };
@@ -166,7 +117,7 @@ export function startBackground(): void {
     port.onDisconnect.addListener(() => {
       void chrome.runtime.lastError;
     });
-    serveTranslatePort(port, answer, reported);
+    serveTranslatePort(port, answer, host);
   });
 
   chrome.runtime.onInstalled.addListener(({ reason }) => {

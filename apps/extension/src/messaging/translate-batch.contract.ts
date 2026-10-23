@@ -67,6 +67,7 @@ const providerErrorSchema = z.object({
     "PROVIDER_BAD_RESPONSE",
     "PROVIDER_TIMEOUT",
     "REQUEST_CANCELLED",
+    "CONSENT_REQUIRED",
   ]),
   message: z.string(),
   params: z.record(z.string(), z.string()).optional(),

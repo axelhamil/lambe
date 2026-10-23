@@ -99,9 +99,11 @@ export class CaptionTranslationService extends ViewStateSource {
   private active = false;
   private leadPending = false;
   private wait: ReturnType<typeof setTimeout> | undefined;
+  private target: LanguageCode;
 
   public constructor(private readonly deps: CaptionTranslationDeps) {
     super();
+    this.target = deps.target;
     this.pump = new RequestPump<CaptionSentence>(
       {
         canPump: () => this.canPump(),
@@ -132,6 +134,17 @@ export class CaptionTranslationService extends ViewStateSource {
     this.views.set({ kind: "translating" });
     this.startKnownTrack(this.deps.surface.videoId());
     this.awaitTrack(available);
+  }
+
+  public retarget(target: LanguageCode): void {
+    if (target.value === this.target.value) return;
+
+    this.target = target;
+    this.memory.clear();
+
+    const track = this.session?.track;
+
+    if (track !== undefined) this.startSession(track);
   }
 
   public dispose(): void {
@@ -219,7 +232,7 @@ export class CaptionTranslationService extends ViewStateSource {
 
     remember(this.memory, signature, settled);
 
-    const sameLanguage = track.language.sharesPrimarySubtagWith(this.deps.target);
+    const sameLanguage = track.language.sharesPrimarySubtagWith(this.target);
 
     for (const sentence of sentences) {
       if (sameLanguage || sentence.sound) settled.set(sentence.index, Option.none());
@@ -362,7 +375,7 @@ export class CaptionTranslationService extends ViewStateSource {
             markup: toMarkup([{ kind: "text", text: sentence.text }]),
           })),
           source: Option.some(session.track.language),
-          target: this.deps.target,
+          target: this.target,
           brief: this.briefFor(session, sentences),
           cachePolicy: "use",
         },

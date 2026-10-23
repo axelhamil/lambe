@@ -5,7 +5,8 @@ export type ProviderErrorCode =
   | "PROVIDER_MODEL_MISSING"
   | "PROVIDER_BAD_RESPONSE"
   | "PROVIDER_TIMEOUT"
-  | "REQUEST_CANCELLED";
+  | "REQUEST_CANCELLED"
+  | "CONSENT_REQUIRED";
 
 export interface ProviderError {
   code: ProviderErrorCode;

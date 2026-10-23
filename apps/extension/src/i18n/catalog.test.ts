@@ -19,10 +19,10 @@ const ENGINE_CODES = {
   REQUEST_CANCELLED: true,
   PROVIDER_UNAUTHORIZED: true,
   NO_CAPTIONS: true,
+  CONSENT_REQUIRED: true,
 } satisfies Record<EngineErrorCode, true>;
 
 const APP_CODES = [
-  "CONSENT_REQUIRED",
   "PAGE_UNAVAILABLE",
   "SETTINGS_INVALID",
   "SETTINGS_FROM_NEWER_VERSION",
