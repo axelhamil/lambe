@@ -204,7 +204,7 @@ tooling/                Biome plugins and the CI scripts (tooling/ci/)
 docs/                   guides, privacy policy, store listing, design and plans
 ```
 
-**Fixtures.** `packages/translation/fixtures` holds saved pages for the DOM tests and the browser proof. `github-fork-a-repo.html` is GitHub Docs content under CC BY 4.0; its source and the changes made are listed in `packages/translation/fixtures/README.md`. `apps/extension/proof` holds `proof.html` (the fixture in 390, 768 and 1440 px frames) and `strict-csp.html`, served with a strict `Content-Security-Policy`. What each plan was measured to do in a real browser is in [docs/verification.md](docs/verification.md).
+**Fixtures.** `packages/translation/fixtures` holds saved pages for the DOM tests and the browser proof. `github-fork-a-repo.html` is GitHub Docs content under CC BY 4.0; its source and the changes made are listed in `packages/translation/fixtures/README.md`. `apps/extension/proof` holds `proof.html` (the fixture in 390, 768 and 1440 px frames, for comparing layouts only: the extension runs in the top frame, so to see a translation open `/github-fork-a-repo.html` directly at each width) and `strict-csp.html`, served with a strict `Content-Security-Policy`. What each plan was measured to do in a real browser is in [docs/verification.md](docs/verification.md).
 
 ## Chrome Web Store
 

@@ -1,18 +1,15 @@
 import { Option } from "@lambe/kernel/option";
 import { Result } from "@lambe/kernel/result";
-import type { ModelCatalog } from "@lambe/translation/application/ports/model-catalog";
 import { ProviderCheckService } from "@lambe/translation/application/provider-check.service";
-import { type OriginsFix, ollamaOriginsFix } from "@lambe/translation/domain/provider/origins-fix";
 import type { ProviderError } from "@lambe/translation/domain/provider/provider-error";
-import {
-  type OllamaConfig,
-  OllamaProvider,
-} from "@lambe/translation/infrastructure/providers/ollama-provider";
-import { OpenAiCompatibleProvider } from "@lambe/translation/infrastructure/providers/openai-compatible-provider";
+import type { OllamaConfig } from "@lambe/translation/infrastructure/providers/ollama-provider";
 import type { HostAccess } from "../../access/host-access";
+import { extensionOriginOf, remotePatternOf, webOriginOf, webUrlOf } from "../../access/web-origin";
+import { providerFor } from "../../composition/provider-factory";
 import type { SecretsStore } from "../../settings/secrets-store";
 import { defaultSettings, type ProviderSettings, type Settings } from "../../settings/settings";
 import type { SettingsProblem } from "../../settings/settings-store";
+import { type FixGuide, ollamaOriginsFix } from "../ollama-origins-fix";
 
 export type ProviderKind = ProviderSettings["kind"];
 
@@ -21,17 +18,6 @@ export interface ProviderDraft {
   baseUrl: string;
   model: string;
   apiKey: string;
-}
-
-export type FixNote = "linuxEdit" | "macosRestart" | "windowsRestart";
-
-export type FixStep =
-  | { kind: "command"; text: string }
-  | { kind: "note"; note: FixNote; line: Option<string> };
-
-export interface FixGuide {
-  os: OriginsFix["os"];
-  steps: FixStep[];
 }
 
 export type ConnectionView =
@@ -74,16 +60,6 @@ const DEFAULT_MODEL: Record<ProviderKind, string> = {
   "openai-compatible": "",
 };
 
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"]);
-
-const WEB_SCHEMES = new Set(["http:", "https:"]);
-
-const FIX_NOTE: Record<OriginsFix["os"], FixNote> = {
-  linux: "linuxEdit",
-  macos: "macosRestart",
-  windows: "windowsRestart",
-};
-
 const IMPLICIT_TAG = ":latest";
 
 export function providerDraft(provider: ProviderSettings, apiKey: Option<string>): ProviderDraft {
@@ -101,6 +77,19 @@ export function switchKind(draft: ProviderDraft, kind: ProviderKind): ProviderDr
   return { kind, baseUrl: DEFAULT_BASE_URL[kind], model: DEFAULT_MODEL[kind], apiKey: "" };
 }
 
+export function editBaseUrl(
+  draft: ProviderDraft,
+  baseUrl: string,
+  saved: ProviderSettings,
+): ProviderDraft {
+  const savedOrigin = webOriginOf(saved.baseUrl).toUndefined();
+  const sameOrigin = webOriginOf(baseUrl)
+    .filter((origin) => origin === savedOrigin)
+    .isSome();
+
+  return { ...draft, baseUrl, apiKey: sameOrigin ? draft.apiKey : "" };
+}
+
 const withTag = (model: string): string =>
   model.includes(":") ? model : `${model}${IMPLICIT_TAG}`;
 
@@ -116,79 +105,36 @@ export function listedModel(kind: ProviderKind, models: string[], wanted: string
   return Option.fromNullable(models.find((listed) => sameModel(kind, listed, model)));
 }
 
-function webUrlOf(baseUrl: string): Option<URL> {
-  return Option.fromNullable(URL.parse(baseUrl.trim())).filter((url) =>
-    WEB_SCHEMES.has(url.protocol),
-  );
-}
-
-function remoteOriginOf(url: URL): Option<string> {
-  if (url.protocol === "http:" && LOCAL_HOSTS.has(url.hostname)) return Option.none();
-
-  return Option.some(`${url.protocol}//${url.hostname}/*`);
-}
-
-function fixGuide({ os, origin, steps }: OriginsFix): FixGuide {
-  return {
-    os,
-    steps: steps.map((step): FixStep => {
-      if (step.kind === "command") return { kind: "command", text: step.text };
-
-      const line =
-        os === "linux"
-          ? Option.some(`Environment="OLLAMA_ORIGINS=${origin}"`)
-          : Option.none<string>();
-
-      return { kind: "note", note: FIX_NOTE[os], line };
-    }),
-  };
-}
-
 export function providerModel(deps: ProviderModelDeps) {
-  const catalogOf = (draft: ProviderDraft, baseUrl: string): ModelCatalog => {
-    if (draft.kind === "ollama") {
-      return new OllamaProvider({
-        baseUrl,
-        model: draft.model,
-        fetch: deps.fetch,
-        timeoutMs: CHECK_TIMEOUT_MS,
-        forbiddenHint: `chrome-extension://${deps.extensionId}`,
-      });
-    }
+  const grantedFor = async (baseUrl: string): Promise<Result<void, OriginDenied>> => {
+    const pattern = remotePatternOf(baseUrl);
 
-    return new OpenAiCompatibleProvider({
-      baseUrl,
-      model: draft.model,
-      apiKey: Option.some(draft.apiKey.trim()),
-      fetch: deps.fetch,
-      timeoutMs: CHECK_TIMEOUT_MS,
-      now: Date.now,
-    });
-  };
+    if (pattern.isNone()) return Result.ok();
 
-  const grantedFor = async (url: URL): Promise<Result<void, OriginDenied>> => {
-    const origin = remoteOriginOf(url);
+    const origin = pattern.unwrap();
+    const granted = await deps.hostAccess.request([origin]);
 
-    if (origin.isNone()) return Result.ok();
-
-    const pattern = origin.unwrap();
-    const granted = await deps.hostAccess.request([pattern]);
-
-    if (!granted) return Result.fail({ code: "ORIGIN_DENIED", origin: pattern });
+    if (!granted) return Result.fail({ code: "ORIGIN_DENIED", origin });
 
     return Result.ok();
   };
 
   const testConnection = async (draft: ProviderDraft): Promise<ConnectionView> => {
-    const url = webUrlOf(draft.baseUrl);
-    const access = url.isSome() ? await grantedFor(url.unwrap()) : Result.ok<OriginDenied>();
+    const access = await grantedFor(draft.baseUrl);
 
     if (access.isFailure) return { kind: "denied", origin: access.getError().origin };
 
-    const baseUrl = draft.baseUrl.trim();
-    const checked = await new ProviderCheckService({ catalog: catalogOf(draft, baseUrl) }).check(
-      draft.model,
+    const origin = extensionOriginOf(deps.extensionId);
+    const catalog = providerFor(
+      {
+        kind: draft.kind,
+        baseUrl: draft.baseUrl.trim(),
+        model: draft.model,
+        timeoutMs: CHECK_TIMEOUT_MS,
+      },
+      { fetch: deps.fetch, apiKey: Option.some(draft.apiKey.trim()), origin, now: Date.now },
     );
+    const checked = await new ProviderCheckService({ catalog }).check(draft.model);
 
     return checked.match<ConnectionView>({
       ok: ({ models }) => ({
@@ -199,23 +145,20 @@ export function providerModel(deps: ProviderModelDeps) {
       fail: (error) => ({
         kind: "error",
         error,
-        fix:
-          error.code === "PROVIDER_FORBIDDEN_ORIGIN"
-            ? ollamaOriginsFix(deps.extensionId).map(fixGuide)
-            : [],
+        fix: error.code === "PROVIDER_FORBIDDEN_ORIGIN" ? ollamaOriginsFix(origin) : [],
       }),
     });
   };
 
   const save = async (draft: ProviderDraft): Promise<SaveResult> => {
-    const url = webUrlOf(draft.baseUrl);
     const model = draft.model.trim();
+    const url = webUrlOf(draft.baseUrl);
 
     if (url.isNone()) return Result.fail({ code: "BASE_URL_INVALID" });
 
     if (model === "") return Result.fail({ code: "MODEL_REQUIRED" });
 
-    const access = await grantedFor(url.unwrap());
+    const access = await grantedFor(draft.baseUrl);
 
     if (access.isFailure) return access;
 
@@ -229,7 +172,7 @@ export function providerModel(deps: ProviderModelDeps) {
     const apiKey = draft.apiKey.trim();
 
     if (draft.kind === "openai-compatible" && apiKey !== "") {
-      await deps.secrets.setApiKey(apiKey);
+      await deps.secrets.setApiKey(apiKey, url.unwrap().origin);
 
       return Result.ok();
     }

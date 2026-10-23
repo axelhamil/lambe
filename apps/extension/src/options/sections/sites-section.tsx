@@ -151,7 +151,7 @@ export function SitesSection() {
   const { loaded, update } = useSettings();
   const granted = useGrantedOrigins();
   const pending = usePendingOrigin();
-  const { error, follow } = useChangeFeedback();
+  const { notice, follow } = useChangeFeedback();
   const [draft, setDraft] = useState("");
   const [invalid, setInvalid] = useState(false);
   const model = sitesModel({ access: chromeHostAccess, update });
@@ -183,7 +183,7 @@ export function SitesSection() {
   return (
     <>
       {prompt && <PendingSite origin={prompt} model={model} follow={follow} />}
-      <ChangeNotice error={error} />
+      <ChangeNotice notice={notice} />
       <div className="settings-panel">
         <SettingRow
           id={EVERYWHERE_ID}

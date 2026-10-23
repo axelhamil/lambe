@@ -1,3 +1,4 @@
+import { languageName } from "@lambe/translation/domain/language/language-name";
 import type { LanguageCode } from "@lambe/translation/domain/language/value-objects/language-code.vo";
 import type { MessageKey } from "../i18n/t";
 import type { SiteRule } from "../settings/site-rule";
@@ -46,10 +47,6 @@ function separator(): HTMLElement {
   return line;
 }
 
-function languageName(names: Intl.DisplayNames, language: LanguageCode): string {
-  return names.of(language.value) ?? language.value;
-}
-
 export function mountBubbleMenu(
   shadow: ShadowRoot,
   actions: MenuActions,
@@ -58,8 +55,6 @@ export function mountBubbleMenu(
   const menu = document.createElement("div");
   const listeners = new AbortController();
   const options = { signal: listeners.signal };
-  const names = new Intl.DisplayNames(undefined, { type: "language" });
-
   menu.className = "menu";
   menu.hidden = true;
   menu.setAttribute("role", "menu");
@@ -107,7 +102,7 @@ export function mountBubbleMenu(
     group.setAttribute("aria-labelledby", HEADING_ID);
     group.append(
       ...languages.map((language) =>
-        item(languageName(names, language), () => actions.translateTo(language)),
+        item(languageName(language.value, []), () => actions.translateTo(language)),
       ),
       item(translate("menu.moreLanguages"), () => actions.chooseLanguage()),
     );

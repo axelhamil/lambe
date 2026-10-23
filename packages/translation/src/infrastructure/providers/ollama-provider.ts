@@ -27,7 +27,7 @@ export interface OllamaConfig {
   model: string;
   fetch: FetchFn;
   timeoutMs: number;
-  forbiddenHint: string;
+  origin: string;
 }
 
 const counter = z.number().nonnegative().default(0);
@@ -127,12 +127,7 @@ class ChunkAccumulator implements LineDecoder {
   }
 }
 
-function ollamaFailures({
-  baseUrl,
-  model,
-  timeoutMs,
-  forbiddenHint,
-}: OllamaConfig): ProviderFailures {
+function ollamaFailures({ baseUrl, model, timeoutMs, origin }: OllamaConfig): ProviderFailures {
   return {
     name: "Ollama",
     refused(status) {
@@ -140,8 +135,8 @@ function ollamaFailures({
 
       return providerError(
         "PROVIDER_FORBIDDEN_ORIGIN",
-        `Ollama refused the origin ${forbiddenHint}. Run "sudo systemctl edit ollama", add Environment="OLLAMA_ORIGINS=${forbiddenHint}" under [Service], then run "sudo systemctl restart ollama".`,
-        { origin: forbiddenHint },
+        `Ollama refused requests from ${origin}. Add this origin to OLLAMA_ORIGINS, then restart Ollama.`,
+        { origin },
       );
     },
     modelMissing() {

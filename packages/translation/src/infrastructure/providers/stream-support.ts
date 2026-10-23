@@ -100,14 +100,37 @@ function transportError(failures: ProviderFailures, error: unknown): ProviderErr
   return failures.unreachable(reasonOf(error));
 }
 
+function retryAfterMs(header: string | null, now: number): number | undefined {
+  if (header === null || header.trim() === "") return undefined;
+
+  const seconds = Number(header);
+
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+
+  const date = Date.parse(header);
+
+  return Number.isNaN(date) ? undefined : Math.max(0, date - now);
+}
+
+function rateLimited(failures: ProviderFailures, headers: Headers): ProviderError {
+  const message = `${failures.name} is limiting requests (HTTP 429).`;
+  const delay = retryAfterMs(headers.get("retry-after"), Date.now());
+
+  if (delay === undefined) return providerError("PROVIDER_RATE_LIMITED", message);
+
+  return providerError("PROVIDER_RATE_LIMITED", message, { retryAfterMs: String(delay) });
+}
+
 function statusError(
   failures: ProviderFailures,
-  status: number,
+  { status, headers }: Response,
   operation: Operation,
 ): ProviderError | undefined {
   const refused = failures.refused(status);
 
   if (refused) return refused;
+
+  if (status === 429) return rateLimited(failures, headers);
 
   if (status === 404 && operation === "chat") return failures.modelMissing();
 
@@ -152,7 +175,7 @@ async function send(
 
   try {
     const response = await fetch(url, { ...init, signal });
-    const refused = statusError(failures, response.status, operation);
+    const refused = statusError(failures, response, operation);
 
     if (refused) return Result.fail(refused);
 

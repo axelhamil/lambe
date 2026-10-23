@@ -1,4 +1,5 @@
 import { Option } from "@lambe/kernel/option";
+import { withdrawConsent } from "../../activation/consent-gate";
 import type { Saved, SettingsAccess } from "./settings-access";
 
 interface PrivacyModelDeps extends SettingsAccess {
@@ -13,6 +14,6 @@ export function privacyModel({ settings, update, manifest }: PrivacyModelDeps) {
   return {
     version: (): string => manifest().version,
     consentAt: (): Option<number> => Option.fromNullable(settings.consentAt),
-    withdraw: (): Promise<Saved> => update((current) => ({ ...current, consentAt: undefined })),
+    withdraw: (): Promise<Saved> => update(withdrawConsent),
   };
 }

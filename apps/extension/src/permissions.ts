@@ -1,4 +1,6 @@
-export const LOCAL_HOSTS = ["http://localhost/*", "http://127.0.0.1/*"];
+export const LOCAL_HOSTNAMES = ["localhost", "127.0.0.1"];
+
+export const LOCAL_HOSTS = LOCAL_HOSTNAMES.map((hostname) => `http://${hostname}/*`);
 
 export const OPTIONAL_HOSTS = ["https://*/*", "http://*/*"];
 

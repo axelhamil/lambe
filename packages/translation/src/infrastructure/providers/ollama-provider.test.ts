@@ -48,7 +48,7 @@ const providerWith = (fetch: FetchFn, timeoutMs = 1000): OllamaProvider =>
     model: "translategemma:12b",
     fetch,
     timeoutMs,
-    forbiddenHint: ORIGIN,
+    origin: ORIGIN,
   });
 
 const fetchReturning = (response: () => Response | Promise<Response>) =>
@@ -103,18 +103,13 @@ describe("OllamaProvider", () => {
     expect(result.getValue()).toBe("Bonjour");
   });
 
-  test("maps_403_to_PROVIDER_FORBIDDEN_ORIGIN_with_the_systemd_fix_in_the_message", async () => {
+  test("maps_403_to_PROVIDER_FORBIDDEN_ORIGIN_with_the_origin", async () => {
     const error = await errorOf(fetchReturning(() => new Response("", { status: 403 })));
 
     expect(error.code).toBe("PROVIDER_FORBIDDEN_ORIGIN");
-    expect(error.message).toContain(`OLLAMA_ORIGINS=${ORIGIN}`);
-    expect(error.message).toContain("systemctl edit ollama");
-  });
-
-  test("forbidden_error_carries_origin_param", async () => {
-    const error = await errorOf(fetchReturning(() => new Response("", { status: 403 })));
-
     expect(error.params).toEqual({ origin: ORIGIN });
+    expect(error.message).toContain(ORIGIN);
+    expect(error.message).not.toContain("systemctl");
   });
 
   test("lists_models_from_api_tags", async () => {
@@ -248,7 +243,7 @@ describe("OllamaProvider", () => {
       model: "translategemma:12b",
       fetch,
       timeoutMs: 10,
-      forbiddenHint: ORIGIN,
+      origin: ORIGIN,
     });
 
     const result = await provider.chat(messages, { contextTokens: 2048 });
