@@ -117,9 +117,9 @@ sudo systemctl restart ollama
 
 1. Installez Lambë. La page des réglages s'ouvre d'elle-même ; sinon, faites un clic droit sur l'icône de Lambë dans la barre d'outils et choisissez **Options**.
 2. Lisez l'écran d'accueil et cliquez sur **Accepter et activer la traduction**. Lambë n'envoie rien avant votre accord.
-3. Ouvrez la section **Fournisseur**. Gardez **Ollama**, l'URL de base `http://localhost:11434`, et choisissez `translategemma:12b` (ou le modèle téléchargé) dans la liste des modèles.
-4. Lancez le test de connexion. Il confirme la connexion ou explique quoi corriger.
-5. Ouvrez une page et cliquez sur la bulle, ou appuyez sur `Alt+L`.
+3. Ouvrez la section **Fournisseur**. Gardez **Ollama** comme type de serveur et `http://localhost:11434` comme adresse du serveur, puis choisissez `translategemma:12b` (ou le modèle téléchargé) dans la liste des modèles.
+4. Cliquez sur **Tester la connexion**. Le test confirme la connexion ou explique quoi corriger ; cliquez ensuite sur **Enregistrer le fournisseur**.
+5. Ouvrez une page et cliquez sur l'icône de Lambë dans la barre d'outils, ou appuyez sur `Alt+L`. Pour garder la bulle sur toutes les pages, activez-la dans la section **Sites**.
 
 ## Autre option : un serveur compatible OpenAI
 
