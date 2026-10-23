@@ -7,16 +7,51 @@ import type {
   TranslationProvider,
 } from "../../application/ports/translation-provider";
 import type { ChatMessage } from "../../domain/prompt/prompt-adapter";
-import { type ProviderError, providerError } from "../../domain/provider/provider-error";
+import {
+  type ProviderError,
+  providerError,
+  requestCancelled,
+} from "../../domain/provider/provider-error";
+
+export type Sleep = (ms: number, signal?: AbortSignal) => Promise<void>;
 
 export interface AdaptiveConcurrencyOptions {
   maxConcurrency: number;
   forgetAfterIdleMs: number;
   now: () => number;
   onStats?: (stats: GenerationStats) => void;
+  sleep?: Sleep;
 }
 
 const PIPELINE_AHEAD = 1;
+
+const MAX_RETRIES = 3;
+
+const BACKOFF_MS = 1000;
+
+const MAX_RETRY_DELAY_MS = 30_000;
+
+const timerSleep: Sleep = (ms, signal) =>
+  new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+
+function retryDelayOf(error: ProviderError, retry: number): number {
+  const advised = Number(error.params?.retryAfterMs);
+
+  return Number.isFinite(advised) ? advised : BACKOFF_MS * 2 ** retry;
+}
+
+type Attempt = () => Promise<Result<string, ProviderError>>;
 
 export class AdaptiveConcurrencyProvider implements TranslationProvider, ProviderCapacity {
   public readonly id: string;
@@ -54,17 +89,20 @@ export class AdaptiveConcurrencyProvider implements TranslationProvider, Provide
     const call = Symbol("chat");
 
     try {
-      return await this.inner.chat(messages, {
-        ...options,
-        onText: (delta) => {
-          this.streamed(call);
-          options.onText?.(delta);
-        },
-        onStats: (stats) => {
-          this.options.onStats?.(stats);
-          options.onStats?.(stats);
-        },
-      });
+      const attempt: Attempt = () =>
+        this.inner.chat(messages, {
+          ...options,
+          onText: (delta) => {
+            this.streamed(call);
+            options.onText?.(delta);
+          },
+          onStats: (stats) => {
+            this.options.onStats?.(stats);
+            options.onStats?.(stats);
+          },
+        });
+
+      return await this.withRetry(attempt, options.signal, 0);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
 
@@ -75,6 +113,28 @@ export class AdaptiveConcurrencyProvider implements TranslationProvider, Provide
       this.streaming.delete(call);
       this.release();
     }
+  }
+
+  private async withRetry(
+    attempt: Attempt,
+    signal: AbortSignal | undefined,
+    retry: number,
+  ): Promise<Result<string, ProviderError>> {
+    const result = await attempt();
+
+    if (result.isSuccess || result.getError().code !== "PROVIDER_RATE_LIMITED") return result;
+
+    this.slots = Math.max(1, Math.floor(this.slots / 2));
+
+    const delay = retryDelayOf(result.getError(), retry);
+
+    if (retry >= MAX_RETRIES || delay > MAX_RETRY_DELAY_MS) return result;
+
+    await (this.options.sleep ?? timerSleep)(delay, signal);
+
+    if (signal?.aborted) return Result.fail(requestCancelled());
+
+    return this.withRetry(attempt, signal, retry + 1);
   }
 
   private limit(): number {

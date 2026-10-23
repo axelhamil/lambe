@@ -1,0 +1,5 @@
+rules:
+  github-app:
+    ignore:
+      - release.yml
+      - sync-develop.yml

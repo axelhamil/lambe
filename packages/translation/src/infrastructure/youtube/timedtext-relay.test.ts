@@ -14,7 +14,7 @@ globalThis.Function = new Proxy(original, {
   construct(target, args) { built += 1; return Reflect.construct(target, args); },
 });
 for (const path of ${JSON.stringify(MAIN_WORLD_MODULES)}) await import(path);
-console.log(built);
+process.stdout.write(String(built));
 `;
 
 describe("timedtext relay", () => {

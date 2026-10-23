@@ -23,7 +23,10 @@ const input: PromptInput = {
   target: language("fr"),
   brief,
   segments: [{ n: 1, markup: "Fork the <g1>repository</g1>." }],
+  guidelines: "",
 };
+
+const CUSTOM = "Use formal French and translate every technical term.";
 
 const systemOf = (): string => instructionPrompt.build(input)[0]?.content ?? "";
 
@@ -87,5 +90,38 @@ describe("instructionPrompt", () => {
     expect(system).not.toContain("Page context:");
     expect(system).not.toContain("<xN/>");
     expect(messages[1]?.content).toEndWith("[1] Fork the <g1>repository</g1>.");
+  });
+
+  test("custom_guidelines_replace_the_default_block", () => {
+    const system = instructionPrompt.build({ ...input, guidelines: CUSTOM })[0]?.content ?? "";
+
+    expect(system).toContain(CUSTOM);
+    expect(system).not.toContain("Leave terms of art");
+    expect(system).not.toContain("Keep the tone, register and formatting");
+  });
+
+  test("tag_rule_stays_when_guidelines_are_customized", () => {
+    const system = instructionPrompt.build({ ...input, guidelines: CUSTOM })[0]?.content ?? "";
+
+    expect(system).toContain("Never translate or change anything inside <xN/>");
+    expect(system).toContain("Return exactly the segments you received, one [N] line each");
+  });
+
+  test("caption_prompt_ignores_guidelines", () => {
+    const captionBrief: CaptionBrief = {
+      kind: "captions",
+      host: "www.youtube.com",
+      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      title: "How forks work",
+      channel: "Git Weekly",
+      description: "",
+      generated: false,
+      preceding: [],
+    };
+    const captions = { ...input, brief: captionBrief };
+
+    expect(instructionPrompt.build({ ...captions, guidelines: CUSTOM })).toEqual(
+      instructionPrompt.build(captions),
+    );
   });
 });

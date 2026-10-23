@@ -1,6 +1,7 @@
 import type { CaptionDisplay } from "@lambe/translation/application/ports/caption-display";
 import { activeLines, type CaptionLine } from "@lambe/translation/domain/caption/caption-timeline";
 import { YOUTUBE_SELECTORS } from "@lambe/translation/infrastructure/youtube/youtube-selectors";
+import type { UiText } from "../i18n/ui-text";
 import overlayCss from "./caption-overlay.css?raw";
 
 export interface CaptionOverlay extends CaptionDisplay {
@@ -31,13 +32,22 @@ function controlsLift(player: Element): number {
   return tops.length === 0 ? 0 : Math.max(0, Math.round(bottom - Math.min(...tops)));
 }
 
-export function mountCaptionOverlay(doc: Document): CaptionOverlay {
+export function mountCaptionOverlay(doc: Document, text: UiText): CaptionOverlay {
   const host = doc.createElement(HOST_TAG);
   const root = host.attachShadow({ mode: "open" });
   const style = doc.createElement("style");
   const box = doc.createElement("div");
   let lines: CaptionLine[] = [];
   let shown = "";
+
+  const textElement = (className: string, content: string): HTMLDivElement => {
+    const element = doc.createElement("div");
+
+    element.className = className;
+    element.textContent = content;
+
+    return element;
+  };
   let frame: number | undefined;
   let binding: Binding | undefined;
 
@@ -112,20 +122,15 @@ export function mountCaptionOverlay(doc: Document): CaptionOverlay {
 
     const current = video();
     const active = current === undefined ? [] : activeLines(lines, current.currentTime * 1000);
-    const key = active.map((line) => line.text).join("\n");
+    const pending = active.some((line) => !line.translated);
+    const key = `${pending}\n${active.map((line) => line.text).join("\n")}`;
 
     if (key === shown) return;
 
     shown = key;
     box.replaceChildren(
-      ...active.map((line) => {
-        const element = doc.createElement("div");
-
-        element.className = "line";
-        element.textContent = line.text;
-
-        return element;
-      }),
+      ...active.map((line) => textElement("line", line.text)),
+      ...(pending ? [textElement("status", text.translate("youtube.translating"))] : []),
     );
   };
 

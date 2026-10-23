@@ -2,6 +2,7 @@ import type { Option } from "@lambe/kernel/option";
 import type { BatchSegment } from "../batch/batch-format";
 import { estimateTokens } from "../batch/budget";
 import type { CaptionBrief } from "../caption/caption-brief";
+import { languageName } from "../language/language-name";
 import type { LanguageCode } from "../language/value-objects/language-code.vo";
 import type { PageBrief } from "../page/page-brief";
 
@@ -19,6 +20,7 @@ export interface PromptInput {
   target: LanguageCode;
   brief: ContentBrief;
   segments: BatchSegment[];
+  guidelines: string;
 }
 
 export interface PromptAdapter {
@@ -29,17 +31,12 @@ export interface PromptAdapter {
 export const TAG_RULE =
   "The text is a list of segments, one per line. Keep the [N] number at the start of every line and every <xN/> and <gN>...</gN> tag exactly as given, translate the text around and between them, and return every segment on its own line with its number. Never translate or change anything inside <xN/>. Keep non breaking spaces and HTML entities such as &amp; and &lt; as they are.";
 
-export const JARGON_RULE =
-  "Leave terms of art in their original form when professionals of the page's field use them that way in the target language, for example fork, pull request, merge, commit, branch and deploy in software.";
-
-const languageNames = new Intl.DisplayNames(["en"], { type: "language" });
-
 export function modelFamilyOf(model: string): ModelFamily {
   return model.startsWith("translategemma") ? "translategemma" : "instruction";
 }
 
 export function languageLabel(language: LanguageCode): { name: string; label: string } {
-  const name = languageNames.of(language.value) ?? language.value;
+  const name = languageName(language.value, ["en"]);
 
   return { name, label: `${name} (${language.value})` };
 }

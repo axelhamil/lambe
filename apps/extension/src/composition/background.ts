@@ -1,21 +1,17 @@
-import { Option } from "@lambe/kernel/option";
-import {
-  type BatchTranslateOptions,
-  BatchTranslationService,
-} from "@lambe/translation/application/batch-translation.service";
-import type { ProviderCapacity } from "@lambe/translation/application/ports/provider-capacity";
-import { instructionPrompt } from "@lambe/translation/domain/prompt/instruction-prompt";
-import { modelFamilyOf } from "@lambe/translation/domain/prompt/prompt-adapter";
-import { translateGemmaPrompt } from "@lambe/translation/domain/prompt/translategemma-prompt";
-import { sha256Hasher } from "@lambe/translation/infrastructure/hashing/sha256-hasher";
-import { AdaptiveConcurrencyProvider } from "@lambe/translation/infrastructure/providers/adaptive-concurrency-provider";
-import {
-  KEEP_ALIVE_MS,
-  OllamaProvider,
-} from "@lambe/translation/infrastructure/providers/ollama-provider";
+import type { BatchTranslateOptions } from "@lambe/translation/application/batch-translation.service";
+import { chromeHostAccess } from "../access/host-access";
+import { reconciler } from "../access/reconcile";
+import { chromeScriptRegistrar } from "../access/script-registrar";
+import { extensionOriginOf } from "../access/web-origin";
+import { activateTab, showUnavailable, type TabScripting } from "../activation/activate-tab";
 import { StorageTranslationCache } from "../adapters/chrome/storage-translation-cache";
-import { loadRuntimeConfig } from "../config/runtime-config";
-import { TOGGLE_MESSAGE } from "../messaging/toggle.contract";
+import { t } from "../i18n/t";
+import { createLogger, debugSetting } from "../logging/logger";
+import {
+  type OpenOptionsMessage,
+  openOptionsMessageSchema,
+  optionsPathOf,
+} from "../messaging/open-options.contract";
 import {
   TRANSLATE_PORT_NAME,
   type TranslateBatchResponse,
@@ -25,99 +21,126 @@ import {
   serveTranslatePort,
   unexpectedFailure,
 } from "../messaging/translate-batch.handler";
+import { SecretsStore } from "../settings/secrets-store";
+import { SettingsStore } from "../settings/settings-store";
+import { WorkerHost, workerBuilder } from "./worker-host";
 
 const TOGGLE_COMMAND = "toggle-translation";
 
-const MISSING_RECEIVER = "Receiving end does not exist";
-
-interface Worker {
-  service: BatchTranslationService;
-  capacity: ProviderCapacity;
+function settingsStore(): SettingsStore {
+  return new SettingsStore(chrome.storage.local, chrome.i18n.getUILanguage());
 }
 
-async function buildWorker(): Promise<Worker> {
-  const config = await loadRuntimeConfig(chrome.storage.local, chrome.i18n.getUILanguage());
-  const { provider } = config;
-  const ollama = new OllamaProvider({
-    baseUrl: provider.baseUrl,
-    model: provider.model,
-    fetch: globalThis.fetch.bind(globalThis),
-    timeoutMs: provider.timeoutMs,
-    forbiddenHint: `chrome-extension://${chrome.runtime.id}`,
+function workerHost(): WorkerHost {
+  return new WorkerHost({
+    settings: settingsStore(),
+    secrets: new SecretsStore(chrome.storage.local),
+    build: workerBuilder({
+      fetch: globalThis.fetch.bind(globalThis),
+      cache: new StorageTranslationCache(chrome.storage.local),
+      origin: extensionOriginOf(chrome.runtime.id),
+      now: Date.now,
+      log: createLogger(debugSetting(settingsStore())),
+    }),
   });
-
-  const adaptive = new AdaptiveConcurrencyProvider(ollama, {
-    maxConcurrency: provider.concurrency,
-    forgetAfterIdleMs: KEEP_ALIVE_MS,
-    now: Date.now,
-    onStats: (stats) => console.debug("Lambë: ollama stats", stats),
-  });
-  const service = new BatchTranslationService({
-    provider: adaptive,
-    cache: new StorageTranslationCache(chrome.storage.local),
-    hasher: sha256Hasher,
-    prompt:
-      modelFamilyOf(provider.model) === "translategemma" ? translateGemmaPrompt : instructionPrompt,
-    contextTokens: config.contextTokens,
-    maxSegmentsPerBatch: config.maxSegmentsPerBatch,
-  });
-
-  return { service, capacity: adaptive };
 }
 
-function isMissingReceiver(cause: unknown): boolean {
-  return cause instanceof Error && cause.message.includes(MISSING_RECEIVER);
-}
+const tabScripting: TabScripting = {
+  sendMessage: (tabId, message) => chrome.tabs.sendMessage(tabId, message),
+  injectFiles: async (tabId, files) => {
+    await chrome.scripting.executeScript({ target: { tabId }, files });
+  },
+};
 
-async function toggleTab(tabId: number | undefined): Promise<void> {
+async function activate(tabId: number | undefined): Promise<void> {
   if (tabId === undefined) return;
 
-  try {
-    await chrome.tabs.sendMessage(tabId, TOGGLE_MESSAGE);
-  } catch (cause) {
-    if (isMissingReceiver(cause)) return;
+  const deps = {
+    tabs: tabScripting,
+    settings: settingsStore(),
+    openOptions: () => chrome.runtime.openOptionsPage(),
+  };
 
-    console.error("Lambë could not toggle the tab.", cause);
+  try {
+    const outcome = await activateTab(deps, tabId);
+
+    if (outcome !== "unavailable") return;
+
+    await showUnavailable(chrome.action, tabId, {
+      unavailable: t("ext.unavailableTitle"),
+      idle: t("ext.actionTitle"),
+    });
+  } catch (cause) {
+    console.error("Lambë could not activate the tab.", cause);
   }
 }
 
-async function toggleActiveTab(): Promise<void> {
+async function activateActiveTab(): Promise<void> {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    await toggleTab(tab?.id);
+    await activate(tab?.id);
   } catch (cause) {
     console.error("Lambë could not find the active tab.", cause);
   }
 }
 
+async function openOptions(message: OpenOptionsMessage): Promise<void> {
+  if (message.section === undefined) {
+    await chrome.runtime.openOptionsPage();
+
+    return;
+  }
+
+  await chrome.tabs.create({ url: chrome.runtime.getURL(optionsPathOf(message)) });
+}
+
+function serveOpenOptions(): void {
+  chrome.runtime.onMessage.addListener((payload) => {
+    const message = openOptionsMessageSchema.safeParse(payload);
+
+    if (!message.success) return false;
+
+    void openOptions(message.data).catch((cause: unknown) => {
+      console.error("Lambë could not open its settings.", cause);
+    });
+
+    return false;
+  });
+}
+
+function syncScriptRegistrations(): void {
+  const settings = settingsStore();
+  const sync = reconciler({ settings, access: chromeHostAccess, registrar: chromeScriptRegistrar });
+  const resync = (): void => {
+    void sync();
+  };
+
+  chrome.runtime.onInstalled.addListener(resync);
+  chrome.runtime.onStartup.addListener(resync);
+  chrome.permissions.onAdded.addListener(resync);
+  chrome.permissions.onRemoved.addListener(resync);
+  settings.subscribe(resync);
+  resync();
+}
+
 export function startBackground(): void {
-  let worker: Promise<Worker> | undefined;
-  let capacity: ProviderCapacity | undefined;
+  syncScriptRegistrations();
+  serveOpenOptions();
 
-  const reported: ProviderCapacity = {
-    concurrency: () => capacity?.concurrency() ?? Option.none(),
-  };
-
-  const batchService = async (): Promise<BatchTranslationService> => {
-    worker ??= buildWorker();
-
-    const built = await worker;
-
-    capacity = built.capacity;
-
-    return built.service;
-  };
+  const host = workerHost();
 
   const answer = async (
     payload: unknown,
     options: BatchTranslateOptions,
   ): Promise<TranslateBatchResponse> => {
     try {
-      return await respondToTranslateBatch(payload, await batchService(), options);
-    } catch (cause) {
-      worker = undefined;
+      const service = await host.service();
 
+      if (service.isFailure) return { ok: false, error: service.getError() };
+
+      return await respondToTranslateBatch(payload, service.getValue(), options);
+    } catch (cause) {
       return unexpectedFailure(cause);
     }
   };
@@ -128,16 +151,24 @@ export function startBackground(): void {
     port.onDisconnect.addListener(() => {
       void chrome.runtime.lastError;
     });
-    serveTranslatePort(port, answer, reported);
+    serveTranslatePort(port, answer, host);
+  });
+
+  chrome.runtime.onInstalled.addListener(({ reason }) => {
+    if (reason !== "install") return;
+
+    void chrome.runtime.openOptionsPage().catch((cause: unknown) => {
+      console.error("Lambë could not open its settings.", cause);
+    });
   });
 
   chrome.action.onClicked.addListener((tab) => {
-    void toggleTab(tab.id);
+    void activate(tab.id);
   });
 
   chrome.commands.onCommand.addListener((command, tab) => {
     if (command !== TOGGLE_COMMAND) return;
 
-    void (tab?.id === undefined ? toggleActiveTab() : toggleTab(tab.id));
+    void (tab?.id === undefined ? activateActiveTab() : activate(tab.id));
   });
 }

@@ -50,4 +50,4 @@ const server = Bun.serve({
   },
 });
 
-console.log(`Fixtures on ${server.url.href}`);
+process.stdout.write(`Fixtures on ${server.url.href}\n`);

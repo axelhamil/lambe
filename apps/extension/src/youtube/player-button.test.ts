@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { providerError } from "@lambe/translation/domain/provider/provider-error";
 import { YOUTUBE_SELECTORS } from "@lambe/translation/infrastructure/youtube/youtube-selectors";
+import { fakeUiText } from "../i18n/testing/fake-ui-text";
 import { mountPlayerButton } from "./player-button";
 
 const FIXTURE = readFileSync(
@@ -34,12 +35,12 @@ afterEach(() => {
 describe("player button", () => {
   test("button_sits_right_before_cc", () => {
     const onClick = mock(() => {});
-    const button = mountPlayerButton(document, onClick);
+    const button = mountPlayerButton(document, onClick, fakeUiText);
     const lambe = lambeButton();
 
     expect(element(YOUTUBE_SELECTORS.subtitlesButton).previousElementSibling).toBe(lambe);
     expect(lambe.classList.contains("ytp-button")).toBe(true);
-    expect(lambe.getAttribute("aria-label")).toBe("Translated captions (Lambë)");
+    expect(lambe.getAttribute("aria-label")).toBe("<youtube.button>");
     expect(lambe.getAttribute("aria-pressed")).toBe("false");
 
     lambe.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -52,7 +53,7 @@ describe("player button", () => {
   });
 
   test("button_comes_back_after_controls_rebuild", async () => {
-    const button = mountPlayerButton(document, () => {});
+    const button = mountPlayerButton(document, () => {}, fakeUiText);
     const controls = element(YOUTUBE_SELECTORS.rightControls);
     const rebuilt = controls.cloneNode(true);
 
@@ -70,7 +71,7 @@ describe("player button", () => {
   });
 
   test("button_reflects_each_view_state", () => {
-    const button = mountPlayerButton(document, () => {});
+    const button = mountPlayerButton(document, () => {}, fakeUiText);
     const lambe = lambeButton();
 
     button.render({ kind: "translating" });
@@ -89,14 +90,72 @@ describe("player button", () => {
     });
 
     expect(lambe.getAttribute("data-state")).toBe("error");
-    expect(lambe.getAttribute("title")).toBe("Ollama is not running.");
+    expect(lambe.hasAttribute("aria-description")).toBe(true);
     expect(lambe.getAttribute("aria-pressed")).toBe("false");
 
     button.render({ kind: "original" });
 
     expect(lambe.getAttribute("aria-pressed")).toBe("false");
     expect(lambe.hasAttribute("data-state")).toBe(false);
+    expect(lambe.hasAttribute("aria-description")).toBe(false);
+
+    button.destroy();
+  });
+
+  test("hover_shows_a_player_tooltip_that_follows_the_state", () => {
+    const button = mountPlayerButton(document, () => {}, fakeUiText);
+    const lambe = lambeButton();
+
+    lambe.dispatchEvent(new MouseEvent("mouseenter"));
+
+    expect(element(`${YOUTUBE_SELECTORS.player} > .lambe-ytp-tooltip`).textContent).toBe(
+      "<youtube.button>",
+    );
     expect(lambe.hasAttribute("title")).toBe(false);
+
+    button.render({ kind: "translating" });
+
+    expect(lambe.getAttribute("aria-label")).toBe("<youtube.buttonOn>");
+    expect(element(".lambe-ytp-tooltip").textContent).toBe("<youtube.translating>");
+
+    button.render({
+      kind: "error",
+      error: providerError("PROVIDER_UNREACHABLE", "Ollama is not running.", {
+        baseUrl: "http://localhost:11434",
+      }),
+    });
+
+    expect(lambe.getAttribute("aria-label")).toBe("<youtube.button>");
+    expect(element(".lambe-ytp-tooltip").textContent).toBe(
+      "No model server at http://localhost:11434.",
+    );
+
+    lambe.dispatchEvent(new MouseEvent("mouseleave"));
+
+    expect(element(".lambe-ytp-tooltip").hasAttribute("hidden")).toBe(true);
+
+    button.destroy();
+
+    expect(document.querySelector(".lambe-ytp-tooltip")).toBeNull();
+  });
+
+  test("an_error_tooltip_wraps_so_the_whole_fix_stays_readable", () => {
+    const button = mountPlayerButton(document, () => {}, fakeUiText);
+    const lambe = lambeButton();
+
+    lambe.dispatchEvent(new MouseEvent("mouseenter"));
+    button.render({
+      kind: "error",
+      error: providerError("PROVIDER_FORBIDDEN_ORIGIN", "Origin refused.", {
+        baseUrl: "http://localhost:11434",
+      }),
+    });
+
+    expect(element(".lambe-ytp-tooltip").getAttribute("data-state")).toBe("error");
+
+    button.render({ kind: "original" });
+
+    expect(element(".lambe-ytp-tooltip").hasAttribute("data-state")).toBe(false);
 
     button.destroy();
   });

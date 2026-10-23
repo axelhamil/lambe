@@ -3,6 +3,7 @@ import type {
   CaptionSurface,
   CaptionSurfaceListener,
 } from "../../application/ports/caption-surface";
+import type { DebugLog } from "../../application/ports/debug-log";
 import type { CaptionBrief } from "../../domain/caption/caption-brief";
 import { VideoId } from "../../domain/caption/value-objects/video-id.vo";
 import { cleanText } from "../dom/clean-text";
@@ -13,6 +14,7 @@ import { YOUTUBE_SELECTORS } from "./youtube-selectors";
 interface YoutubePlayerSurfaceDeps {
   doc: Document;
   window: Window;
+  log: DebugLog;
 }
 
 const WATCH_PATH = "/watch";
@@ -135,7 +137,7 @@ export class YoutubePlayerSurface implements CaptionSurface {
     const parsed = parseTimedtext(capture);
 
     if (parsed.isFailure) {
-      console.debug("lambe: timedtext capture dropped", parsed.getError());
+      this.deps.log.debug("Lambë: timedtext capture dropped", parsed.getError());
       return;
     }
 

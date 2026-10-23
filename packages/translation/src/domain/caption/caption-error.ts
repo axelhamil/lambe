@@ -1,6 +1,7 @@
 export interface CaptionError {
   code: "NO_CAPTIONS";
   message: string;
+  params?: Record<string, string>;
 }
 
 export function noCaptions(): CaptionError {

@@ -12,6 +12,8 @@
   --lambe-caption-controls-gap: 8px;
   --lambe-caption-layer: 40;
   --lambe-caption-glide: 0.2s ease;
+  --lambe-caption-status-ink: rgb(255 255 255 / 70%);
+  --lambe-caption-status-size: 0.6em;
 
   position: absolute;
   inset: 0;
@@ -54,4 +56,11 @@
   background: var(--lambe-caption-fill);
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
+}
+
+.status {
+  padding: var(--lambe-caption-padding);
+  color: var(--lambe-caption-status-ink);
+  background: var(--lambe-caption-fill);
+  font-size: var(--lambe-caption-status-size);
 }

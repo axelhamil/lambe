@@ -1,7 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { GenerationStats } from "../../application/ports/translation-provider";
 import type { ChatMessage } from "../../domain/prompt/prompt-adapter";
-import { type FetchFn, OllamaProvider } from "./ollama-provider";
+import { OllamaProvider } from "./ollama-provider";
+import type { FetchFn } from "./stream-support";
 
 const ORIGIN = "chrome-extension://abcdefghijklmnop";
 
@@ -47,7 +48,7 @@ const providerWith = (fetch: FetchFn, timeoutMs = 1000): OllamaProvider =>
     model: "translategemma:12b",
     fetch,
     timeoutMs,
-    forbiddenHint: ORIGIN,
+    origin: ORIGIN,
   });
 
 const fetchReturning = (response: () => Response | Promise<Response>) =>
@@ -102,12 +103,48 @@ describe("OllamaProvider", () => {
     expect(result.getValue()).toBe("Bonjour");
   });
 
-  test("maps_403_to_PROVIDER_FORBIDDEN_ORIGIN_with_the_systemd_fix_in_the_message", async () => {
+  test("maps_403_to_PROVIDER_FORBIDDEN_ORIGIN_with_the_origin", async () => {
     const error = await errorOf(fetchReturning(() => new Response("", { status: 403 })));
 
     expect(error.code).toBe("PROVIDER_FORBIDDEN_ORIGIN");
-    expect(error.message).toContain(`OLLAMA_ORIGINS=${ORIGIN}`);
-    expect(error.message).toContain("systemctl edit ollama");
+    expect(error.params).toEqual({ origin: ORIGIN });
+    expect(error.message).toContain(ORIGIN);
+    expect(error.message).not.toContain("systemctl");
+  });
+
+  test("lists_models_from_api_tags", async () => {
+    const fetch = fetchReturning(() =>
+      json({ models: [{ name: "translategemma:12b" }, { name: "gemma3:4b" }] }),
+    );
+
+    const models = await providerWith(fetch).listModels();
+
+    expect(String(fetch.mock.calls[0]?.[0])).toBe("http://localhost:11434/api/tags");
+    expect(models.getValue()).toEqual(["translategemma:12b", "gemma3:4b"]);
+  });
+
+  test("listing_models_reports_a_forbidden_origin_that_only_a_post_reveals", async () => {
+    const fetch = mock(async (_input: RequestInfo | URL, init?: RequestInit) =>
+      init?.method === "POST"
+        ? new Response("", { status: 403 })
+        : json({ models: [{ name: "translategemma:12b" }] }),
+    );
+
+    const models = await providerWith(fetch).listModels();
+
+    expect(models.getError().code).toBe("PROVIDER_FORBIDDEN_ORIGIN");
+  });
+
+  test("listing_models_accepts_any_answer_but_403_to_the_origin_probe", async () => {
+    const fetch = mock(async (_input: RequestInfo | URL, init?: RequestInit) =>
+      init?.method === "POST"
+        ? json({ error: "model not found" }, 404)
+        : json({ models: [{ name: "gemma3:4b" }] }),
+    );
+
+    const models = await providerWith(fetch).listModels();
+
+    expect(models.getValue()).toEqual(["gemma3:4b"]);
   });
 
   test("maps_connection_refused_to_PROVIDER_UNREACHABLE", async () => {
@@ -206,7 +243,7 @@ describe("OllamaProvider", () => {
       model: "translategemma:12b",
       fetch,
       timeoutMs: 10,
-      forbiddenHint: ORIGIN,
+      origin: ORIGIN,
     });
 
     const result = await provider.chat(messages, { contextTokens: 2048 });

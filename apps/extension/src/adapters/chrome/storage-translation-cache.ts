@@ -4,6 +4,14 @@ import { z } from "zod";
 export interface StorageAreaLike {
   get(keys: string[]): Promise<Record<string, unknown>>;
   set(items: Record<string, string>): Promise<void>;
+  getKeys(): Promise<string[]>;
+  getBytesInUse(keys: string[]): Promise<number>;
+  remove(keys: string[]): Promise<void>;
+}
+
+export interface CacheSize {
+  entries: number;
+  bytes: number;
 }
 
 const KEY_PREFIX = "tc:";
@@ -45,5 +53,27 @@ export class StorageTranslationCache implements TranslationCache {
     } catch {
       return;
     }
+  }
+
+  public async size(): Promise<CacheSize> {
+    const keys = await this.cacheKeys();
+
+    if (keys.length === 0) return { entries: 0, bytes: 0 };
+
+    return { entries: keys.length, bytes: await this.area.getBytesInUse(keys) };
+  }
+
+  public async clear(): Promise<void> {
+    const keys = await this.cacheKeys();
+
+    if (keys.length === 0) return;
+
+    await this.area.remove(keys);
+  }
+
+  private async cacheKeys(): Promise<string[]> {
+    const keys = await this.area.getKeys();
+
+    return keys.filter((key) => key.startsWith(KEY_PREFIX));
   }
 }

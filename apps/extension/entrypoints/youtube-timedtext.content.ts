@@ -1,10 +1,9 @@
 import { installTimedtextHook } from "@lambe/translation/infrastructure/youtube/timedtext-hook";
 import { createTimedtextRelay } from "@lambe/translation/infrastructure/youtube/timedtext-relay";
 import { defineContentScript } from "wxt/utils/define-content-script";
-import { YOUTUBE_MATCHES } from "../src/permissions";
 
 export default defineContentScript({
-  matches: YOUTUBE_MATCHES,
+  registration: "runtime",
   runAt: "document_start",
   world: "MAIN",
   main() {

@@ -136,9 +136,12 @@ export class PageTranslationService extends ViewStateSource {
   private refreshScan = false;
   private firstRequestPending = true;
   private nextPosition = 0;
+  private target: LanguageCode;
+  private retargeted = false;
 
   public constructor(private readonly deps: PageTranslationDeps) {
     super();
+    this.target = deps.target;
     this.pump = new RequestPump<Block>(
       {
         canPump: () => this.canPump(),
@@ -158,6 +161,8 @@ export class PageTranslationService extends ViewStateSource {
 
     if (!this.started) return this.start();
 
+    if (this.retargeted) return this.restart();
+
     if (kind === "error") return this.resume();
 
     this.deps.surface.show("translated");
@@ -170,15 +175,23 @@ export class PageTranslationService extends ViewStateSource {
 
     if (!this.started) return this.start();
 
-    this.pump.cancelAll();
-    this.firstRequestPending = true;
-    this.deps.surface.show("original");
-    this.settled.clear();
+    this.restart();
+  }
 
-    for (const key of this.ranks.keys()) this.enqueueIfPending(key);
+  public retarget(target: LanguageCode): void {
+    if (target.value === this.target.value) return;
 
-    this.views.set({ kind: "translating" });
-    this.schedule();
+    this.target = target;
+
+    if (!this.started) return;
+
+    if (this.views.isShowingTranslation()) {
+      this.restart();
+
+      return;
+    }
+
+    this.retargeted = true;
   }
 
   public whenIdle(): Promise<void> {
@@ -245,6 +258,19 @@ export class PageTranslationService extends ViewStateSource {
     const source = this.sourceLanguage(brief).then((detected) => detected.unwrapOr(Option.none()));
 
     this.session = { brief, source };
+  }
+
+  private restart(): void {
+    this.retargeted = false;
+    this.pump.cancelAll();
+    this.firstRequestPending = true;
+    this.deps.surface.show("original");
+    this.settled.clear();
+
+    for (const key of this.ranks.keys()) this.enqueueIfPending(key);
+
+    this.views.set({ kind: "translating" });
+    this.schedule();
   }
 
   private showOriginal(): void {
@@ -553,7 +579,7 @@ export class PageTranslationService extends ViewStateSource {
 
     return shouldSkipBlock({
       detected,
-      target: this.deps.target,
+      target: this.target,
       charCount: content.trim().length,
     });
   }
@@ -572,7 +598,7 @@ export class PageTranslationService extends ViewStateSource {
       {
         segments,
         source: await session.source,
-        target: this.deps.target,
+        target: this.target,
         brief: session.brief,
         cachePolicy,
       },

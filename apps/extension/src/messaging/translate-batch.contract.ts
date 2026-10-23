@@ -62,12 +62,16 @@ const providerErrorSchema = z.object({
   code: z.enum([
     "PROVIDER_UNREACHABLE",
     "PROVIDER_FORBIDDEN_ORIGIN",
+    "PROVIDER_UNAUTHORIZED",
     "PROVIDER_MODEL_MISSING",
     "PROVIDER_BAD_RESPONSE",
+    "PROVIDER_RATE_LIMITED",
     "PROVIDER_TIMEOUT",
     "REQUEST_CANCELLED",
+    "CONSENT_REQUIRED",
   ]),
   message: z.string(),
+  params: z.record(z.string(), z.string()).optional(),
 }) satisfies z.ZodType<ProviderError>;
 
 const segmentOutcomeSchema = z.discriminatedUnion("status", [

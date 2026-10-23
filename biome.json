@@ -79,6 +79,11 @@
       "bracketSameLine": false
     }
   },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -89,6 +94,25 @@
       "includes": ["apps/extension/src/**", "apps/extension/entrypoints/**"],
       "javascript": {
         "globals": ["chrome"]
+      }
+    },
+    {
+      "includes": ["apps/extension/src/options/components/ui/**"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useSemanticElements": "off",
+            "useKeyWithClickEvents": "off"
+          },
+          "correctness": {
+            "useExhaustiveDependencies": "off"
+          },
+          "suspicious": {
+            "noDocumentCookie": "off",
+            "noDoubleEquals": "off",
+            "noArrayIndexKey": "off"
+          }
+        }
       }
     },
     {

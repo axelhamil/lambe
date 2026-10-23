@@ -1,78 +1,62 @@
 import { resolve } from "node:path";
 import { z } from "zod";
-import { YOUTUBE_MATCHES } from "../src/permissions";
+import { LOCAL_HOSTS, OPTIONAL_HOSTS } from "../src/permissions";
 
 const MANIFEST_PATH = resolve(import.meta.dir, "../.output/chrome-mv3/manifest.json");
 
-const ALL_SITES = new Set(["<all_urls>", "*://*/*"]);
+const EXPECTED_PERMISSIONS = ["storage", "unlimitedStorage", "activeTab", "scripting"];
 
 const manifestSchema = z.object({
+  name: z.string(),
+  default_locale: z.string().optional(),
   key: z.string().optional(),
+  permissions: z.array(z.string()).default([]),
   host_permissions: z.array(z.string()).default([]),
-  content_scripts: z
-    .array(
-      z.object({
-        matches: z.array(z.string()).default([]),
-        run_at: z.string().optional(),
-        world: z.string().optional(),
-      }),
-    )
-    .default([]),
+  optional_host_permissions: z.array(z.string()).default([]),
+  content_scripts: z.array(z.unknown()).default([]),
 });
-
-const YOUTUBE_SITES = new Set(YOUTUBE_MATCHES);
 
 const storeBuild = process.env.LAMBE_STORE === "1";
 const manifest = manifestSchema.parse(await Bun.file(MANIFEST_PATH).json());
 const hasKey = manifest.key !== undefined;
-const allSites = [
-  ...manifest.host_permissions.map((pattern) => ({ field: "host_permissions", pattern })),
-  ...manifest.content_scripts.flatMap((script) =>
-    script.matches.map((pattern) => ({ field: "content_scripts.matches", pattern })),
-  ),
-].filter(({ pattern }) => ALL_SITES.has(pattern));
-const mainWorldScripts = manifest.content_scripts.filter((script) => script.world === "MAIN");
-const mainWorldProblems = [
-  ...(mainWorldScripts.length === 0 ? ["no MAIN world content script"] : []),
-  ...mainWorldScripts.flatMap((script) => [
-    ...(script.run_at === "document_start" ? [] : [`runs at \`${script.run_at ?? "default"}\``]),
-    ...script.matches
-      .filter((pattern) => !YOUTUBE_SITES.has(pattern))
-      .map((pattern) => `matches \`${pattern}\``),
-  ]),
+
+const sameSet = (actual: string[], expected: string[]): boolean =>
+  actual.length === expected.length && expected.every((entry) => actual.includes(entry));
+
+const listed = (entries: string[]): string =>
+  entries.length === 0 ? "nothing" : entries.join(", ");
+
+const exactly = (field: string, actual: string[], expected: string[]): string[] =>
+  sameSet(actual, expected)
+    ? []
+    : [`\`${field}\` must be exactly ${listed(expected)}, found ${listed(actual)}.`];
+
+const problems = [
+  ...(manifest.content_scripts.length === 0
+    ? []
+    : ["`content_scripts` must be empty: every script is registered at runtime."]),
+  ...exactly("permissions", manifest.permissions, EXPECTED_PERMISSIONS),
+  ...exactly("host_permissions", manifest.host_permissions, LOCAL_HOSTS),
+  ...exactly("optional_host_permissions", manifest.optional_host_permissions, OPTIONAL_HOSTS),
+  ...(manifest.default_locale === "en" ? [] : ["`default_locale` must be `en`."]),
+  ...(manifest.name.startsWith("__MSG_") ? [] : ["`name` must come from the locale catalog."]),
+  ...(storeBuild && hasKey
+    ? ["Store build manifest must not contain `key`: the Chrome Web Store rejects it."]
+    : []),
+  ...(!storeBuild && !hasKey
+    ? ["Dev build manifest must contain `key` to keep the unpacked extension id stable."]
+    : []),
 ];
 
-if (mainWorldProblems.length > 0) {
-  for (const problem of mainWorldProblems) {
-    console.error(`The YouTube timedtext hook is misplaced: ${problem}.`);
+if (problems.length > 0) {
+  for (const problem of problems) {
+    console.error(problem);
   }
 
-  console.error(
-    `It must exist, run at document_start and match only ${YOUTUBE_MATCHES.join(", ")}.`,
-  );
-  process.exit(1);
-}
-
-if (storeBuild && hasKey) {
-  console.error("Store build manifest must not contain `key`: the Chrome Web Store rejects it.");
-  process.exit(1);
-}
-
-if (storeBuild && allSites.length > 0) {
-  for (const { field, pattern } of allSites) {
-    console.error(`Store build manifest still requests \`${pattern}\` in ${field}.`);
-  }
-
-  console.error(
-    "Narrow the permissions to activeTab plus optional host permissions before any store release.",
-  );
-  process.exit(1);
-}
-
-if (!storeBuild && !hasKey) {
-  console.error("Dev build manifest must contain `key` to keep the unpacked extension id stable.");
   process.exit(1);
 }
 
 const buildKind = storeBuild ? "store" : "dev";
-console.log(`Manifest key ${hasKey ? "present" : "absent"} as expected for a ${buildKind} build.`);
+process.stdout.write(
+  `Manifest is narrow and its key is ${hasKey ? "present" : "absent"} for a ${buildKind} build.\n`,
+);

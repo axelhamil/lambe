@@ -1,11 +1,14 @@
 {
   "extends": "@lambe/typescript-config/base.json",
-  "compilerOptions": { "types": ["bun", "chrome", "vite/client"] },
+  "compilerOptions": { "types": ["bun", "chrome", "vite/client"], "jsx": "react-jsx" },
   "include": [
     "src/**/*.ts",
+    "src/**/*.tsx",
     "entrypoints/**/*.ts",
+    "entrypoints/**/*.tsx",
     "scripts/**/*.ts",
     "test-setup/**/*.ts",
-    "wxt.config.ts"
+    "wxt.config.ts",
+    ".wxt/types/paths.d.ts"
   ]
 }

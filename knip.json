@@ -5,8 +5,11 @@
       "project": ["src/**/*.ts"]
     },
     "apps/extension": {
-      "entry": ["entrypoints/*.ts", "scripts/*.ts"],
-      "project": ["src/**/*.ts", "entrypoints/**/*.ts", "scripts/**/*.ts"]
+      "entry": ["entrypoints/*.ts", "entrypoints/*/main.tsx", "scripts/*.ts"],
+      "project": ["src/**/*.{ts,tsx}", "entrypoints/**/*.{ts,tsx}", "scripts/**/*.ts"],
+      "ignoreIssues": {
+        "src/options/components/ui/**": ["exports", "types"]
+      }
     }
   },
   "ignoreWorkspaces": ["packages/typescript-config"],

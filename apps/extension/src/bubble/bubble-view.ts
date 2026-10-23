@@ -1,8 +1,13 @@
 import type { ViewState } from "@lambe/translation/application/page-translation.service";
-import glyphSvg from "../../../../assets/tengwa-lambe.svg?raw";
+import { GLYPH_PATH } from "../brand/glyph-path";
+import type { UiText } from "../i18n/ui-text";
 import { type BubbleClass, bubbleStateOf } from "./bubble-state";
 import { type ClickHandlers, createClickClassifier, type Scheduler } from "./click-classifier";
-import { clampTop, restingLeft, type Side, snapSide } from "./placement";
+import { clampTop } from "./placement";
+
+export interface BubbleHandlers extends ClickHandlers {
+  onMenu(anchor: DOMRect): void;
+}
 
 export interface Bubble {
   render(state: ViewState): void;
@@ -12,53 +17,37 @@ export interface Bubble {
 interface Drag {
   startX: number;
   startY: number;
-  originLeft: number;
   originTop: number;
   moved: boolean;
 }
 
+export const BUBBLE_SELECTOR = "button.bubble";
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 const DRAG_THRESHOLD = 4;
 const INITIAL_TOP = 150;
-const LABEL = "Translate this page with Lambë";
-const OUTLINE_PATH =
-  "M9 7h22a5 5 0 0 1 5 5v11a5 5 0 0 1-5 5h-1l5 6-9-6H9a5 5 0 0 1-5-5V12a5 5 0 0 1 5-5z";
-const GLYPH_PATH = /\sd="([^"]+)"/.exec(glyphSvg)?.[1] ?? "";
-const STATE_CLASSES: BubbleClass[] = ["on", "busy", "error"];
+const STATE_CLASSES: BubbleClass[] = ["on", "busy", "error", "unavailable"];
 
-function svgElement(name: string, attributes: Record<string, string>): SVGElement {
-  const element = document.createElementNS(SVG_NS, name);
-
-  for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, value);
-
-  return element;
-}
-
-function createButton(): HTMLButtonElement {
+function createButton(text: UiText): HTMLButtonElement {
   const button = document.createElement("button");
-  const icon = svgElement("svg", { viewBox: "0 0 40 40", "aria-hidden": "true" });
-  const label = svgElement("text", { class: "label", x: "20", y: "21.5", "text-anchor": "middle" });
+  const icon = document.createElementNS(SVG_NS, "svg");
+  const glyph = document.createElementNS(SVG_NS, "path");
 
-  label.textContent = "Aa";
-  icon.append(
-    svgElement("path", { class: "outline", d: OUTLINE_PATH }),
-    label,
-    svgElement("path", {
-      class: "glyph",
-      transform: "translate(9.6,-0.9) scale(0.6)",
-      d: GLYPH_PATH,
-    }),
-  );
+  icon.setAttribute("viewBox", "1.7 15.6 30 30");
+  icon.setAttribute("aria-hidden", "true");
+  glyph.setAttribute("d", GLYPH_PATH);
+  icon.append(glyph);
   button.type = "button";
   button.className = "bubble";
-  button.setAttribute("aria-label", LABEL);
+  button.setAttribute("aria-label", text.translate("bubble.translate"));
+  button.setAttribute("aria-description", text.translate("bubble.dragHint"));
   button.setAttribute("aria-pressed", "false");
   button.append(icon);
 
   return button;
 }
 
-function viewport(): { width: number; height: number } {
+export function viewport(): { width: number; height: number } {
   const layout = document.documentElement;
 
   return {
@@ -67,8 +56,8 @@ function viewport(): { width: number; height: number } {
   };
 }
 
-export function mountBubble(root: ShadowRoot, handlers: ClickHandlers): Bubble {
-  const button = createButton();
+export function mountBubble(root: ShadowRoot, handlers: BubbleHandlers, text: UiText): Bubble {
+  const button = createButton(text);
   const listeners = new AbortController();
   const timers = new Set<number>();
   const scheduler: Scheduler = {
@@ -88,27 +77,18 @@ export function mountBubble(root: ShadowRoot, handlers: ClickHandlers): Bubble {
     },
   };
   const classifier = createClickClassifier(scheduler, handlers);
-  let side: Side = "right";
-  let left = 0;
-  let top = INITIAL_TOP;
+  let wantedTop = INITIAL_TOP;
+  let shownTop = INITIAL_TOP;
   let drag: Drag | undefined;
 
-  const moveTo = (x: number, y: number): void => {
-    left = x;
-    top = y;
-    button.style.setProperty("--lambe-left", `${x}px`);
-    button.style.setProperty("--lambe-top", `${y}px`);
+  const place = (): void => {
+    shownTop = clampTop(wantedTop, viewport().height, button.getBoundingClientRect().height);
+    button.style.setProperty("--lambe-top", `${shownTop}px`);
   };
 
-  const size = (): number => button.getBoundingClientRect().width;
-
-  const sideUnderCenter = (): Side => snapSide(left + size() / 2, viewport().width);
-
-  const place = (): void => {
-    const { width, height } = viewport();
-
-    button.classList.toggle("left", side === "left");
-    moveTo(restingLeft(side, width, size()), clampTop(top, height, size()));
+  const moveTo = (y: number): void => {
+    wantedTop = y;
+    place();
   };
 
   const endDrag = (): Drag | undefined => {
@@ -132,8 +112,7 @@ export function mountBubble(root: ShadowRoot, handlers: ClickHandlers): Bubble {
       drag = {
         startX: event.clientX,
         startY: event.clientY,
-        originLeft: left,
-        originTop: top,
+        originTop: shownTop,
         moved: false,
       };
 
@@ -156,8 +135,7 @@ export function mountBubble(root: ShadowRoot, handlers: ClickHandlers): Bubble {
 
       drag.moved = true;
       button.classList.add("dragging");
-      moveTo(drag.originLeft + dx, drag.originTop + dy);
-      button.classList.toggle("left", sideUnderCenter() === "left");
+      moveTo(drag.originTop + dy);
     },
     options,
   );
@@ -177,8 +155,7 @@ export function mountBubble(root: ShadowRoot, handlers: ClickHandlers): Bubble {
         return;
       }
 
-      side = sideUnderCenter();
-      place();
+      moveTo(shownTop);
     },
     options,
   );
@@ -186,8 +163,11 @@ export function mountBubble(root: ShadowRoot, handlers: ClickHandlers): Bubble {
   button.addEventListener(
     "pointercancel",
     () => {
-      endDrag();
-      place();
+      const cancelled = endDrag();
+
+      if (cancelled === undefined) return;
+
+      moveTo(cancelled.originTop);
     },
     options,
   );
@@ -202,18 +182,29 @@ export function mountBubble(root: ShadowRoot, handlers: ClickHandlers): Bubble {
     options,
   );
 
+  button.addEventListener(
+    "contextmenu",
+    (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      handlers.onMenu(button.getBoundingClientRect());
+    },
+    options,
+  );
+
   window.addEventListener("resize", place, options);
   root.append(button);
   place();
 
   return {
     render(state) {
-      const view = bubbleStateOf(state);
+      const view = bubbleStateOf(state, text);
 
       for (const name of STATE_CLASSES) button.classList.toggle(name, view.classes.includes(name));
 
       button.setAttribute("aria-pressed", String(state.kind === "translated"));
       button.setAttribute("aria-busy", String(state.kind === "translating"));
+      button.setAttribute("aria-label", view.label);
 
       if (view.tooltip.isSome()) button.title = view.tooltip.unwrap();
       else button.removeAttribute("title");

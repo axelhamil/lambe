@@ -1,9 +1,26 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "node",
+  "include-component-in-tag": false,
   "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": true,
+  "prerelease": true,
+  "initial-version": "0.1.0",
+  "pull-request-title-pattern": "chore: release ${version}",
+  "pull-request-header": "Merging this PR publishes the release below as a GitHub pre-release, attaches its zips and submits it to the Chrome Web Store.",
+  "changelog-sections": [
+    { "type": "feat", "section": "Features" },
+    { "type": "fix", "section": "Bug fixes" },
+    { "type": "perf", "section": "Performance" },
+    { "type": "docs", "section": "Documentation" },
+    { "type": "revert", "section": "Reverts" },
+    { "type": "refactor", "section": "Refactoring", "hidden": true },
+    { "type": "ci", "section": "CI", "hidden": true },
+    { "type": "chore", "section": "Chores", "hidden": true },
+    { "type": "test", "section": "Tests", "hidden": true }
+  ],
   "packages": {
     ".": {
-      "release-type": "node",
       "package-name": "lambe",
       "extra-files": [
         {
