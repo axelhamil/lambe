@@ -3,6 +3,7 @@ import { YoutubePlayerSurface } from "@lambe/translation/infrastructure/youtube/
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { PortBatchTranslator } from "../adapters/chrome/port-batch-translator";
 import { loadRuntimeConfig } from "../config/runtime-config";
+import { catalogUiText } from "../i18n/ui-text";
 import { connectWorker } from "../messaging/connect-worker";
 import { SettingsStore } from "../settings/settings-store";
 import { mountCaptionOverlay } from "../youtube/caption-overlay";
@@ -19,7 +20,7 @@ async function buildApp(button: PlayerButton): Promise<YoutubeApp> {
     new SettingsStore(chrome.storage.local, chrome.i18n.getUILanguage()),
   );
   const translator = new PortBatchTranslator(connectWorker);
-  const overlay = mountCaptionOverlay(document);
+  const overlay = mountCaptionOverlay(document, catalogUiText);
   const captions = new CaptionTranslationService({
     surface: new YoutubePlayerSurface({ doc: document, window }),
     display: overlay,
@@ -48,7 +49,7 @@ async function buildApp(button: PlayerButton): Promise<YoutubeApp> {
 }
 
 export function startYoutube(ctx: ContentScriptContext): void {
-  const button = mountPlayerButton(document, () => toggle());
+  const button = mountPlayerButton(document, () => toggle(), catalogUiText);
   const app = buildApp(button);
   const toggle = (): void => {
     void app

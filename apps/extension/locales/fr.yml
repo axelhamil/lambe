@@ -26,3 +26,16 @@ error:
   SETTINGS_INVALID: "Vos réglages enregistrés ne sont pas valides, Lambë utilise donc les valeurs par défaut. Corrigez-les ou réinitialisez-les."
   SETTINGS_FROM_NEWER_VERSION: "Vos réglages proviennent d'une version plus récente de Lambë, les valeurs par défaut sont donc utilisées. Mettez l'extension à jour ou réinitialisez les réglages."
   UNKNOWN: "Une erreur est survenue. Réessayez."
+
+bubble:
+  translate: "Traduire cette page avec Lambë"
+  original: "Afficher la page d'origine"
+  translating: "Traduction de la page en cours…"
+  retry: "Traduire à nouveau cette page"
+  dragHint: "Faites glisser pour déplacer. Double-cliquez pour traduire à nouveau."
+  errorTitle: "Lambë n'a pas pu traduire cette page."
+
+youtube:
+  button: "Sous-titres traduits (Lambë)"
+  buttonOn: "Masquer les sous-titres traduits (Lambë)"
+  translating: "Traduction des sous-titres en cours…"

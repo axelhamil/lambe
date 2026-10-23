@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import type { CaptionLine } from "@lambe/translation/domain/caption/caption-timeline";
 import { YOUTUBE_SELECTORS } from "@lambe/translation/infrastructure/youtube/youtube-selectors";
+import { fakeUiText } from "../i18n/testing/fake-ui-text";
 import { mountCaptionOverlay } from "./caption-overlay";
 
 const FIXTURE = readFileSync(
@@ -70,7 +71,7 @@ afterEach(() => {
 
 describe("caption overlay", () => {
   test("overlay_mounts_inside_the_player", async () => {
-    const overlay = mountCaptionOverlay(document);
+    const overlay = mountCaptionOverlay(document, fakeUiText);
 
     expect(host().parentNode).toBe(element(YOUTUBE_SELECTORS.player));
     expect(host().shadowRoot?.querySelector("style")?.textContent).toContain(":host");
@@ -86,7 +87,7 @@ describe("caption overlay", () => {
   });
 
   test("overlay_shows_active_lines_at_current_time", () => {
-    const overlay = mountCaptionOverlay(document);
+    const overlay = mountCaptionOverlay(document, fakeUiText);
 
     video().currentTime = 1;
     overlay.update(LINES);
@@ -102,7 +103,7 @@ describe("caption overlay", () => {
   });
 
   test("overlay_lifts_when_controls_show", async () => {
-    const overlay = mountCaptionOverlay(document);
+    const overlay = mountCaptionOverlay(document, fakeUiText);
 
     expect(host().getAttribute("data-controls")).toBe("hidden");
 
@@ -124,7 +125,7 @@ describe("caption overlay", () => {
     placeAt(element(".ytp-chrome-bottom"), 485, 59);
     placeAt(quickActions, 424, 40);
 
-    const overlay = mountCaptionOverlay(document);
+    const overlay = mountCaptionOverlay(document, fakeUiText);
 
     player.classList.remove(YOUTUBE_SELECTORS.autohideClass);
     await flushMutations();
@@ -138,7 +139,7 @@ describe("caption overlay", () => {
   });
 
   test("overlay_is_hidden_while_an_ad_shows", async () => {
-    const overlay = mountCaptionOverlay(document);
+    const overlay = mountCaptionOverlay(document, fakeUiText);
 
     expect(host().hasAttribute("data-ad")).toBe(false);
 
@@ -160,7 +161,7 @@ describe("caption overlay", () => {
 
   test("playback_runs_no_frame_loop_without_lines", () => {
     const frames = spyOn(window, "requestAnimationFrame");
-    const overlay = mountCaptionOverlay(document);
+    const overlay = mountCaptionOverlay(document, fakeUiText);
 
     video().dispatchEvent(new Event("play"));
     video().dispatchEvent(new Event("playing"));
@@ -176,7 +177,7 @@ describe("caption overlay", () => {
   });
 
   test("clear_empties_the_overlay", () => {
-    const overlay = mountCaptionOverlay(document);
+    const overlay = mountCaptionOverlay(document, fakeUiText);
 
     video().currentTime = 1;
     overlay.update(LINES);
@@ -187,6 +188,24 @@ describe("caption overlay", () => {
     video().dispatchEvent(new Event("seeked"));
 
     expect(shownText()).toEqual([]);
+
+    overlay.destroy();
+  });
+
+  test("pending_caption_state_text_comes_from_the_catalog", () => {
+    const overlay = mountCaptionOverlay(document, fakeUiText);
+    const status = (): string => host().shadowRoot?.querySelector(".status")?.textContent ?? "";
+
+    video().currentTime = 1;
+    overlay.update(LINES);
+
+    expect(status()).toBe("");
+
+    video().currentTime = 3;
+    video().dispatchEvent(new Event("seeked"));
+
+    expect(shownText()).toEqual(["Slowly."]);
+    expect(status()).toBe("<youtube.translating>");
 
     overlay.destroy();
   });

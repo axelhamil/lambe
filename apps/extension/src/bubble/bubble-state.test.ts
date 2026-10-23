@@ -1,56 +1,36 @@
 import { describe, expect, test } from "bun:test";
 import { providerError } from "@lambe/translation/domain/provider/provider-error";
-import { OllamaProvider } from "@lambe/translation/infrastructure/providers/ollama-provider";
+import { fakeUiText } from "../i18n/testing/fake-ui-text";
 import { bubbleStateOf } from "./bubble-state";
-
-const ORIGIN = "chrome-extension://abcdefghijklmnop";
-
-async function forbiddenOriginError() {
-  const provider = new OllamaProvider({
-    baseUrl: "http://localhost:11434",
-    model: "translategemma:12b",
-    fetch: async () => new Response("", { status: 403 }),
-    timeoutMs: 1000,
-    forbiddenHint: ORIGIN,
-  });
-  const result = await provider.chat([{ role: "user", content: "Hello" }], {
-    contextTokens: 2048,
-  });
-
-  return result.getError();
-}
 
 describe("bubble state", () => {
   test("translating_is_busy", () => {
-    const view = bubbleStateOf({ kind: "translating" });
+    const view = bubbleStateOf({ kind: "translating" }, fakeUiText);
 
     expect(view.classes).toEqual(["busy"]);
+    expect(view.label).toBe("<bubble.translating>");
     expect(view.tooltip.isNone()).toBe(true);
   });
 
-  test("translated_is_on", () => {
-    const view = bubbleStateOf({ kind: "translated" });
+  test("translated_is_on_and_offers_the_original", () => {
+    const view = bubbleStateOf({ kind: "translated" }, fakeUiText);
 
     expect(view.classes).toEqual(["on"]);
+    expect(view.label).toBe("<bubble.original>");
     expect(view.tooltip.isNone()).toBe(true);
   });
 
-  test("error_has_tooltip_with_code_message", () => {
-    const error = providerError("PROVIDER_UNREACHABLE", "Ollama is not running.");
+  test("error_tooltip_renders_the_code_and_params_never_the_english_message", () => {
+    const error = providerError("PROVIDER_UNREACHABLE", "Ollama is not running.", {
+      baseUrl: "http://localhost:11434",
+    });
 
-    const view = bubbleStateOf({ kind: "error", error });
+    const view = bubbleStateOf({ kind: "error", error }, fakeUiText);
 
     expect(view.classes).toEqual(["error"]);
-    expect(view.tooltip.unwrap()).toContain("PROVIDER_UNREACHABLE");
-    expect(view.tooltip.unwrap()).toContain("Ollama is not running.");
-  });
-
-  test("forbidden_tooltip_contains_OLLAMA_ORIGINS_and_systemctl_edit_ollama", async () => {
-    const error = await forbiddenOriginError();
-
-    const tooltip = bubbleStateOf({ kind: "error", error }).tooltip.unwrap();
-
-    expect(tooltip).toContain(`OLLAMA_ORIGINS=${ORIGIN}`);
-    expect(tooltip).toContain("systemctl edit ollama");
+    expect(view.label).toBe("<bubble.retry>");
+    expect(view.tooltip.unwrap()).toBe(
+      "<bubble.errorTitle>\nNo model server at http://localhost:11434.",
+    );
   });
 });

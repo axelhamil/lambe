@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { providerError } from "@lambe/translation/domain/provider/provider-error";
+import { fakeUiText } from "../i18n/testing/fake-ui-text";
 import { mountBubble } from "./bubble-view";
 
 function setup() {
@@ -9,7 +10,7 @@ function setup() {
 
   const root = host.attachShadow({ mode: "open" });
   const handlers = { onSingle: mock(() => {}), onDouble: mock(() => {}) };
-  const bubble = mountBubble(root, handlers);
+  const bubble = mountBubble(root, handlers, fakeUiText);
   const button = root.querySelector("button");
 
   if (button === null) throw new Error("The bubble did not mount a button.");
@@ -58,7 +59,7 @@ describe("bubble view", () => {
 
     expect(button.classList.contains("on")).toBe(false);
     expect(button.classList.contains("error")).toBe(true);
-    expect(button.title).toContain("Ollama is not running.");
+    expect(button.hasAttribute("title")).toBe(true);
 
     bubble.render({ kind: "original" });
 
@@ -184,6 +185,39 @@ describe("bubble view", () => {
 
     expect(button).toBeInstanceOf(HTMLButtonElement);
     expect(button.type).toBe("button");
-    expect(button.getAttribute("aria-label")).toBe("Translate this page with Lambë");
+    expect(button.getAttribute("aria-label")).toBe("<bubble.translate>");
+  });
+
+  test("labels_come_from_the_injected_catalog", () => {
+    const { bubble, button } = setup();
+
+    expect(button.getAttribute("aria-description")).toBe("<bubble.dragHint>");
+
+    bubble.render({ kind: "translating" });
+
+    expect(button.getAttribute("aria-label")).toBe("<bubble.translating>");
+
+    bubble.render({ kind: "translated" });
+
+    expect(button.getAttribute("aria-label")).toBe("<bubble.original>");
+
+    bubble.render({ kind: "original" });
+
+    expect(button.getAttribute("aria-label")).toBe("<bubble.translate>");
+  });
+
+  test("error_state_renders_the_code_through_render_error", () => {
+    const { bubble, button } = setup();
+
+    bubble.render({
+      kind: "error",
+      error: providerError("PROVIDER_UNREACHABLE", "Ollama is not running.", {
+        baseUrl: "http://localhost:11434",
+      }),
+    });
+
+    expect(button.getAttribute("aria-label")).toBe("<bubble.retry>");
+    expect(button.title).toBe("<bubble.errorTitle>\nNo model server at http://localhost:11434.");
+    expect(button.title).not.toContain("Ollama is not running.");
   });
 });

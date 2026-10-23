@@ -9,6 +9,7 @@ import bubbleCss from "../bubble/bubble.css?raw";
 import { type Bubble, mountBubble } from "../bubble/bubble-view";
 import type { ClickHandlers } from "../bubble/click-classifier";
 import { loadRuntimeConfig } from "../config/runtime-config";
+import { catalogUiText } from "../i18n/ui-text";
 import { connectWorker } from "../messaging/connect-worker";
 import { toggleMessageSchema } from "../messaging/toggle.contract";
 import { SettingsStore } from "../settings/settings-store";
@@ -70,7 +71,7 @@ async function showBubble(
     position: "inline",
     anchor: () => document.documentElement,
     onMount: (_container, shadow) => {
-      const bubble = mountBubble(shadow, handlers);
+      const bubble = mountBubble(shadow, handlers, catalogUiText);
       const unsubscribe = page.subscribe((state) => bubble.render(state));
 
       bubble.render(page.state());
