@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { t } from "../i18n/t";
+import { AppSidebar } from "./app-sidebar";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "./components/ui/sidebar";
+import { Toaster } from "./components/ui/sonner";
 import { LambeGlyph } from "./lambe-glyph";
 import { Onboarding } from "./onboarding";
 import { SECTION_NAME, SECTION_SUMMARY, type SectionId, sectionFromHash } from "./section-model";
-import { SectionNav } from "./section-nav";
 import { CacheSection } from "./sections/cache-section";
 import { PrivacySection } from "./sections/privacy-section";
 import { PromptSection } from "./sections/prompt-section";
@@ -13,6 +15,17 @@ import { SitesSection } from "./sections/sites-section";
 import { TranslationSection } from "./sections/translation-section";
 import { YoutubeSection } from "./sections/youtube-section";
 import { SettingsProblem } from "./settings-problem";
+
+const SECTION_VIEW = {
+  provider: ProviderSection,
+  translation: TranslationSection,
+  sites: SitesSection,
+  youtube: YoutubeSection,
+  shortcut: ShortcutSection,
+  prompt: PromptSection,
+  cache: CacheSection,
+  privacy: PrivacySection,
+} satisfies Record<SectionId, () => React.JSX.Element>;
 
 function useHashSection(): SectionId {
   const [section, setSection] = useState(() => sectionFromHash(window.location.hash));
@@ -30,34 +43,28 @@ function useHashSection(): SectionId {
 
 export function App() {
   const section = useHashSection();
+  const View = SECTION_VIEW[section];
 
   return (
-    <div className="shell min-h-dvh md:grid md:grid-cols-[16rem_minmax(0,1fr)]">
-      <aside className="shell-sidebar flex flex-col gap-4 px-4 py-5 md:sticky md:top-0 md:h-dvh md:gap-10 md:px-5 md:py-8">
-        <p className="brand flex items-center gap-2.5 md:px-3">
-          <LambeGlyph className="brand-glyph" />
+    <SidebarProvider>
+      <AppSidebar current={section} />
+      <SidebarInset>
+        <header className="flex items-center gap-inline p-inline md:hidden">
+          <SidebarTrigger aria-label={t("options.shell.openMenu")} />
+          <LambeGlyph className="size-6" />
           {t("ext.name")}
-        </p>
-        <SectionNav current={section} />
-      </aside>
-      <main className="shell-main flex flex-col gap-10 px-4 py-8 md:px-14 md:py-16">
-        <SettingsProblem />
-        <Onboarding />
-        <section className="flex flex-col gap-2" aria-labelledby="section-title">
-          <h1 id="section-title" className="section-title">
-            {t(SECTION_NAME[section])}
-          </h1>
-          <p className="section-summary">{t(SECTION_SUMMARY[section])}</p>
-        </section>
-        {section === "provider" && <ProviderSection />}
-        {section === "prompt" && <PromptSection />}
-        {section === "cache" && <CacheSection />}
-        {section === "shortcut" && <ShortcutSection />}
-        {section === "privacy" && <PrivacySection />}
-        {section === "translation" && <TranslationSection />}
-        {section === "sites" && <SitesSection />}
-        {section === "youtube" && <YoutubeSection />}
-      </main>
-    </div>
+        </header>
+        <div className="flex w-full max-w-content flex-col gap-block self-center px-gutter py-block md:px-page md:py-page">
+          <SettingsProblem />
+          <Onboarding />
+          <hgroup className="flex flex-col gap-tight">
+            <h1>{t(SECTION_NAME[section])}</h1>
+            <p>{t(SECTION_SUMMARY[section])}</p>
+          </hgroup>
+          <View />
+        </div>
+      </SidebarInset>
+      <Toaster />
+    </SidebarProvider>
   );
 }

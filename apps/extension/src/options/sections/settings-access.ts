@@ -1,6 +1,5 @@
 import type { Result } from "@lambe/kernel/result";
 import { renderError } from "../../i18n/render-error";
-import { type MessageKey, t } from "../../i18n/t";
 import type { Settings } from "../../settings/settings";
 import type { SettingsProblem } from "../../settings/settings-store";
 
@@ -13,8 +12,4 @@ export interface SettingsAccess {
 
 export function problemNotice(problem: SettingsProblem): string {
   return renderError({ code: problem.code });
-}
-
-export function noticeOf(saved: Saved, success: MessageKey): string {
-  return saved.match({ ok: () => t(success), fail: problemNotice });
 }
