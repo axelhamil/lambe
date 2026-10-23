@@ -12,6 +12,7 @@
     "./application/ports/provider-capacity": "./src/application/ports/provider-capacity.ts",
     "./application/ports/translation-cache": "./src/application/ports/translation-cache.ts",
     "./domain/block/value-objects/block-id.vo": "./src/domain/block/value-objects/block-id.vo.ts",
+    "./domain/caption/caption-timeline": "./src/domain/caption/caption-timeline.ts",
     "./domain/language/value-objects/language-code.vo": "./src/domain/language/value-objects/language-code.vo.ts",
     "./domain/prompt/instruction-prompt": "./src/domain/prompt/instruction-prompt.ts",
     "./domain/prompt/prompt-adapter": "./src/domain/prompt/prompt-adapter.ts",
@@ -20,7 +21,8 @@
     "./infrastructure/dom/dom-page-surface": "./src/infrastructure/dom/dom-page-surface.ts",
     "./infrastructure/hashing/sha256-hasher": "./src/infrastructure/hashing/sha256-hasher.ts",
     "./infrastructure/providers/adaptive-concurrency-provider": "./src/infrastructure/providers/adaptive-concurrency-provider.ts",
-    "./infrastructure/providers/ollama-provider": "./src/infrastructure/providers/ollama-provider.ts"
+    "./infrastructure/providers/ollama-provider": "./src/infrastructure/providers/ollama-provider.ts",
+    "./infrastructure/youtube/youtube-selectors": "./src/infrastructure/youtube/youtube-selectors.ts"
   },
   "scripts": {
     "type-check": "tsc --noEmit",
