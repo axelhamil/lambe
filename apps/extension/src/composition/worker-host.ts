@@ -18,7 +18,7 @@ import {
 } from "@lambe/translation/infrastructure/providers/ollama-provider";
 import { isConsented } from "../activation/consent-gate";
 import { type RuntimeConfig, toRuntimeConfig } from "../config/runtime-config";
-import type { SecretsStore } from "../settings/secrets-store";
+import { keyFor, type SecretsStore } from "../settings/secrets-store";
 import type { Settings } from "../settings/settings";
 import type { SettingsStore } from "../settings/settings-store";
 import { providerFor } from "./provider-factory";
@@ -96,10 +96,11 @@ export class WorkerHost implements ProviderCapacity {
   public constructor(private readonly deps: WorkerHostDeps) {}
 
   public async service(): Promise<Result<BatchTranslationService, ProviderError>> {
-    const [{ settings }, apiKey] = await Promise.all([
+    const [{ settings }, credential] = await Promise.all([
       this.deps.settings.load(),
-      this.deps.secrets.apiKey(),
+      this.deps.secrets.credential(),
     ]);
+    const apiKey = keyFor(credential, settings.provider.baseUrl);
 
     if (!isConsented(settings)) return Result.fail(consentRequired());
 

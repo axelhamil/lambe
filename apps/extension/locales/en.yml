@@ -178,6 +178,8 @@ options:
     permissionMissing: "Permission missing"
     regrant: "Grant again"
     denied: "Chrome did not grant the permission, so nothing changed."
+    keptNeeded: "Lambë keeps its access to these sites because another setting still uses it: the bubble on every site, a site in your list, YouTube or your model provider."
+    keptHttp: "Lambë keeps its access to http sites, because Chrome would remove its access to Ollama on this computer along with it."
   youtube:
     enableLabel: "Translated captions on YouTube"
     enableHint: "Adds a Lambë button to the YouTube player that shows the captions in your language. Chrome asks you to let Lambë read and change www.youtube.com."

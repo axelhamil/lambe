@@ -1,12 +1,23 @@
 import { describe, expect, test } from "bun:test";
+import { t } from "../../i18n/t";
 import { OPTIONAL_HOSTS } from "../../permissions";
-import { defaultSettings } from "../../settings/settings";
+import { defaultSettings, type ProviderSettings } from "../../settings/settings";
+import { changeNoticeOf } from "./permission-change";
 import { bubbleEverywhereState, pendingOriginOf, siteRows, sitesModel } from "./sites-model";
 import { fakePermissionDeps } from "./testing/fake-permission-deps";
 
 const ORIGIN = "https://example.org";
 
 const SITE = `${ORIGIN}/*`;
+
+const PROVIDER_ORIGIN = "https://api.example.com";
+
+const REMOTE_PROVIDER: ProviderSettings = {
+  ...defaultSettings("en").provider,
+  kind: "openai-compatible",
+  baseUrl: `${PROVIDER_ORIGIN}/v1`,
+  model: "gpt-mini",
+};
 
 describe("sites model", () => {
   test("bubble_everywhere_is_saved_only_after_the_grant", async () => {
@@ -40,14 +51,43 @@ describe("sites model", () => {
       bubbleEverywhere: true,
       sites: [{ origin: ORIGIN, autoTranslate: true, hideBubble: false }],
     });
-    const withoutRule = fakePermissionDeps({ bubbleEverywhere: true });
 
-    await sitesModel(withRule.deps).setBubbleEverywhere(false);
-    await sitesModel(withoutRule.deps).setBubbleEverywhere(false);
+    const changed = await sitesModel(withRule.deps).setBubbleEverywhere(false);
 
     expect((await withRule.current()).bubbleEverywhere).toBe(false);
     expect(withRule.access.remove).not.toHaveBeenCalled();
-    expect(withoutRule.access.remove).toHaveBeenCalledWith(["https://*/*"]);
+    expect(changeNoticeOf(changed).unwrap()).toContain(t("options.sites.keptNeeded"));
+  });
+
+  test("turning_it_off_removes_https_access_and_says_http_access_stays", async () => {
+    const fake = fakePermissionDeps({ bubbleEverywhere: true });
+
+    const changed = await sitesModel(fake.deps).setBubbleEverywhere(false);
+
+    expect(fake.access.remove).toHaveBeenCalledWith(["https://*/*"]);
+    expect(changeNoticeOf(changed).unwrap()).toBe(t("options.sites.keptHttp"));
+  });
+
+  test("turning_it_off_keeps_the_access_a_remote_provider_needs", async () => {
+    const fake = fakePermissionDeps({ bubbleEverywhere: true, provider: REMOTE_PROVIDER });
+
+    const changed = await sitesModel(fake.deps).setBubbleEverywhere(false);
+
+    expect(fake.access.remove).not.toHaveBeenCalled();
+    expect(changeNoticeOf(changed).unwrap()).toContain(t("options.sites.keptNeeded"));
+  });
+
+  test("removing_a_site_rule_on_the_provider_host_keeps_its_access", async () => {
+    const fake = fakePermissionDeps({
+      provider: REMOTE_PROVIDER,
+      sites: [{ origin: PROVIDER_ORIGIN, autoTranslate: true, hideBubble: false }],
+    });
+
+    const changed = await sitesModel(fake.deps).removeRule(PROVIDER_ORIGIN);
+
+    expect((await fake.current()).sites).toEqual([]);
+    expect(fake.access.remove).not.toHaveBeenCalled();
+    expect(changeNoticeOf(changed).unwrap()).toBe(t("options.sites.keptNeeded"));
   });
 
   test("pending_origin_from_the_menu_is_prefilled", async () => {

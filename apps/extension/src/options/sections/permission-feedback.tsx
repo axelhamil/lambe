@@ -4,27 +4,24 @@ import { t } from "../../i18n/t";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import type { Change, ChangeError } from "./permission-change";
-import { problemNotice } from "./settings-access";
+import { type Change, changeNoticeOf } from "./permission-change";
 
 interface PermissionMissingProps {
   onRegrant(): void;
 }
 
 interface ChangeNoticeProps {
-  error: Option<ChangeError>;
+  notice: Option<string>;
 }
 
 export function useChangeFeedback() {
-  const [error, setError] = useState(Option.none<ChangeError>());
+  const [notice, setNotice] = useState(Option.none<string>());
 
   const follow = (change: Promise<Change>): void => {
-    void change.then((result) =>
-      setError(result.isFailure ? Option.some(result.getError()) : Option.none()),
-    );
+    void change.then((result) => setNotice(changeNoticeOf(result)));
   };
 
-  return { error, follow };
+  return { notice, follow };
 }
 
 export function PermissionMissing({ onRegrant }: PermissionMissingProps) {
@@ -38,16 +35,12 @@ export function PermissionMissing({ onRegrant }: PermissionMissingProps) {
   );
 }
 
-export function ChangeNotice({ error }: ChangeNoticeProps) {
-  if (error.isNone()) return null;
-
-  const failure = error.unwrap();
-  const message =
-    failure.code === "PERMISSION_DENIED" ? t("options.sites.denied") : problemNotice(failure);
+export function ChangeNotice({ notice }: ChangeNoticeProps) {
+  if (notice.isNone()) return null;
 
   return (
     <Alert className="change-notice" role="status">
-      <AlertDescription>{message}</AlertDescription>
+      <AlertDescription>{notice.unwrap()}</AlertDescription>
     </Alert>
   );
 }

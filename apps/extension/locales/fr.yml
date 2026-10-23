@@ -178,6 +178,8 @@ options:
     permissionMissing: "Autorisation manquante"
     regrant: "Accorder de nouveau"
     denied: "Chrome n'a pas accordé l'autorisation, rien n'a changé."
+    keptNeeded: "Lambë garde son accès à ces sites, car un autre réglage s'en sert encore : la bulle sur tous les sites, un site de votre liste, YouTube ou votre fournisseur de modèle."
+    keptHttp: "Lambë garde son accès aux sites http, car Chrome lui retirerait en même temps l'accès à Ollama sur cet ordinateur."
   youtube:
     enableLabel: "Sous-titres traduits sur YouTube"
     enableHint: "Ajoute au lecteur YouTube un bouton Lambë qui affiche les sous-titres dans votre langue. Chrome vous demande d'autoriser Lambë à lire et modifier www.youtube.com."

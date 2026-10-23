@@ -3,12 +3,14 @@ import { Option } from "@lambe/kernel/option";
 import type { BatchRequest } from "@lambe/translation/application/batch-translation.service";
 import { LanguageCode } from "@lambe/translation/domain/language/value-objects/language-code.vo";
 import { SecretsStore } from "../settings/secrets-store";
-import { defaultSettings, type Settings } from "../settings/settings";
+import { defaultSettings, type ProviderSettings, type Settings } from "../settings/settings";
 import { SETTINGS_KEY, SettingsStore } from "../settings/settings-store";
 import { fakeStorageArea } from "../settings/testing/fake-storage-area";
 import { WorkerHost, workerBuilder } from "./worker-host";
 
 const SECRETS_KEY = "lambe:secrets";
+
+const LOCAL_ORIGIN = new URL(defaultSettings("en").provider.baseUrl).origin;
 
 interface SentRequest {
   url: string;
@@ -120,7 +122,7 @@ describe("WorkerHost", () => {
           model: "gpt-test",
         },
       },
-      [SECRETS_KEY]: { apiKey: "sk-stored" },
+      [SECRETS_KEY]: { apiKey: "sk-stored", origin: "https://api.example.test" },
     });
 
     const sent = await given.translateOnce();
@@ -137,14 +139,44 @@ describe("WorkerHost", () => {
         ...settings,
         provider: { ...settings.provider, kind: "openai-compatible", model: "gpt-test" },
       },
-      [SECRETS_KEY]: { apiKey: "sk-old" },
+      [SECRETS_KEY]: { apiKey: "sk-old", origin: LOCAL_ORIGIN },
     });
 
     const first = await given.translateOnce();
-    given.storage.changeFromElsewhere({ [SECRETS_KEY]: { newValue: { apiKey: "sk-new" } } });
+    given.storage.changeFromElsewhere({
+      [SECRETS_KEY]: { newValue: { apiKey: "sk-new", origin: LOCAL_ORIGIN } },
+    });
     const second = await given.translateOnce();
 
     expect(first?.authorization).toBe("Bearer sk-old");
     expect(second?.authorization).toBe("Bearer sk-new");
+  });
+
+  test("key_saved_for_one_origin_is_never_sent_to_another", async () => {
+    const settings = consented();
+    const remote: ProviderSettings = {
+      ...settings.provider,
+      kind: "openai-compatible",
+      model: "gpt-test",
+    };
+    const given = hostOver({
+      [SETTINGS_KEY]: {
+        ...settings,
+        provider: { ...remote, baseUrl: "https://a.example.test/v1" },
+      },
+      [SECRETS_KEY]: { apiKey: "sk-a", origin: "https://a.example.test" },
+    });
+
+    const first = await given.translateOnce();
+    given.storage.changeFromElsewhere({
+      [SETTINGS_KEY]: {
+        newValue: { ...settings, provider: { ...remote, baseUrl: "https://b.example.test/v1" } },
+      },
+    });
+    const second = await given.translateOnce();
+
+    expect(first?.authorization).toBe("Bearer sk-a");
+    expect(second?.url).toBe("https://b.example.test/v1/chat/completions");
+    expect(second?.authorization).toBeNull();
   });
 });

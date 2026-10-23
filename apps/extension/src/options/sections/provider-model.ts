@@ -4,7 +4,7 @@ import { ProviderCheckService } from "@lambe/translation/application/provider-ch
 import type { ProviderError } from "@lambe/translation/domain/provider/provider-error";
 import type { OllamaConfig } from "@lambe/translation/infrastructure/providers/ollama-provider";
 import type { HostAccess } from "../../access/host-access";
-import { extensionOriginOf, remotePatternOf, webUrlOf } from "../../access/web-origin";
+import { extensionOriginOf, remotePatternOf, webOriginOf, webUrlOf } from "../../access/web-origin";
 import { providerFor } from "../../composition/provider-factory";
 import type { SecretsStore } from "../../settings/secrets-store";
 import { defaultSettings, type ProviderSettings, type Settings } from "../../settings/settings";
@@ -77,6 +77,19 @@ export function switchKind(draft: ProviderDraft, kind: ProviderKind): ProviderDr
   return { kind, baseUrl: DEFAULT_BASE_URL[kind], model: DEFAULT_MODEL[kind], apiKey: "" };
 }
 
+export function editBaseUrl(
+  draft: ProviderDraft,
+  baseUrl: string,
+  saved: ProviderSettings,
+): ProviderDraft {
+  const savedOrigin = webOriginOf(saved.baseUrl).toUndefined();
+  const sameOrigin = webOriginOf(baseUrl)
+    .filter((origin) => origin === savedOrigin)
+    .isSome();
+
+  return { ...draft, baseUrl, apiKey: sameOrigin ? draft.apiKey : "" };
+}
+
 const withTag = (model: string): string =>
   model.includes(":") ? model : `${model}${IMPLICIT_TAG}`;
 
@@ -139,8 +152,9 @@ export function providerModel(deps: ProviderModelDeps) {
 
   const save = async (draft: ProviderDraft): Promise<SaveResult> => {
     const model = draft.model.trim();
+    const url = webUrlOf(draft.baseUrl);
 
-    if (webUrlOf(draft.baseUrl).isNone()) return Result.fail({ code: "BASE_URL_INVALID" });
+    if (url.isNone()) return Result.fail({ code: "BASE_URL_INVALID" });
 
     if (model === "") return Result.fail({ code: "MODEL_REQUIRED" });
 
@@ -158,7 +172,7 @@ export function providerModel(deps: ProviderModelDeps) {
     const apiKey = draft.apiKey.trim();
 
     if (draft.kind === "openai-compatible" && apiKey !== "") {
-      await deps.secrets.setApiKey(apiKey);
+      await deps.secrets.setApiKey(apiKey, url.unwrap().origin);
 
       return Result.ok();
     }

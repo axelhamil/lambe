@@ -12,7 +12,7 @@ const ID = "youtube-captions";
 export function YoutubeSection() {
   const { loaded, update } = useSettings();
   const granted = useGrantedOrigins();
-  const { error, follow } = useChangeFeedback();
+  const { notice, follow } = useChangeFeedback();
   const model = youtubeModel({ access: chromeHostAccess, update });
   const state = youtubeState(loaded.settings, granted.unwrapOr([]));
   const missing = granted.isSome() && state.permissionMissing;
@@ -36,7 +36,7 @@ export function YoutubeSection() {
           {missing && <PermissionMissing onRegrant={() => follow(model.setEnabled(true))} />}
         </SettingRow>
       </div>
-      <ChangeNotice error={error} />
+      <ChangeNotice notice={notice} />
     </>
   );
 }

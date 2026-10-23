@@ -21,6 +21,7 @@ import { localModelGuideUrl } from "../project-links";
 import { useSettings } from "../use-settings";
 import {
   type ConnectionView,
+  editBaseUrl,
   listedModel,
   type ProviderDraft,
   type ProviderKind,
@@ -214,12 +215,13 @@ export function ProviderSection() {
   const [view, setView] = useState<ConnectionView>();
   const [testing, setTesting] = useState(false);
   const [saved, setSaved] = useState<SaveResult>();
+  const savedBaseUrl = loaded.settings.provider.baseUrl;
 
   useEffect(() => {
-    void secrets.apiKey().then((apiKey) => {
+    void secrets.apiKeyFor(savedBaseUrl).then((apiKey) => {
       setDraft((current) => ({ ...current, apiKey: apiKey.unwrapOr(current.apiKey) }));
     });
-  }, [secrets]);
+  }, [secrets, savedBaseUrl]);
 
   const model = () =>
     providerModel({
@@ -296,7 +298,9 @@ export function ProviderSection() {
           type="url"
           inputMode="url"
           value={draft.baseUrl}
-          onChange={(event) => edit({ baseUrl: event.target.value })}
+          onChange={(event) =>
+            edit(editBaseUrl(draft, event.target.value, loaded.settings.provider))
+          }
           autoComplete="off"
           spellCheck={false}
         />

@@ -6,7 +6,13 @@ import { SecretsStore } from "../../settings/secrets-store";
 import { defaultSettings } from "../../settings/settings";
 import { SETTINGS_KEY, SettingsStore } from "../../settings/settings-store";
 import { fakeStorageArea } from "../../settings/testing/fake-storage-area";
-import { type ProviderDraft, providerDraft, providerModel, switchKind } from "./provider-model";
+import {
+  editBaseUrl,
+  type ProviderDraft,
+  providerDraft,
+  providerModel,
+  switchKind,
+} from "./provider-model";
 
 const EXTENSION_ID = "lambeextensionid";
 
@@ -153,7 +159,9 @@ describe("provider model", () => {
 
     await model.save(cloudDraft);
 
-    expect(await new SecretsStore(storage.area).apiKey()).toEqual(Option.some("sk-secret"));
+    expect(await new SecretsStore(storage.area).apiKeyFor(cloudDraft.baseUrl)).toEqual(
+      Option.some("sk-secret"),
+    );
     expect(JSON.stringify(storage.stored(SETTINGS_KEY))).not.toContain("sk-secret");
   });
 
@@ -170,5 +178,23 @@ describe("provider model", () => {
       apiKey: "",
     });
     expect(back).toEqual(ollama);
+  });
+
+  test("editing_the_base_url_to_another_origin_never_sends_the_stored_key", async () => {
+    const sent: string[] = [];
+    const { model } = setup((url, init) => {
+      sent.push(`${url} ${new Headers(init?.headers).get("authorization")}`);
+
+      return json({ data: [] });
+    });
+    const saved = { ...defaultSettings("en").provider, ...cloudDraft };
+
+    const sameOrigin = editBaseUrl(cloudDraft, "https://api.example.com/v2", saved);
+    const elsewhere = editBaseUrl(cloudDraft, "https://other.example.net/v1", saved);
+    await model.testConnection(elsewhere);
+
+    expect(sameOrigin.apiKey).toBe("sk-secret");
+    expect(elsewhere.apiKey).toBe("");
+    expect(sent.join("\n")).not.toContain("sk-secret");
   });
 });
