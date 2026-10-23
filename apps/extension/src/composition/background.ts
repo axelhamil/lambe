@@ -25,6 +25,7 @@ import {
   serveTranslatePort,
   unexpectedFailure,
 } from "../messaging/translate-batch.handler";
+import { SettingsStore } from "../settings/settings-store";
 
 const TOGGLE_COMMAND = "toggle-translation";
 
@@ -36,7 +37,9 @@ interface Worker {
 }
 
 async function buildWorker(): Promise<Worker> {
-  const config = await loadRuntimeConfig(chrome.storage.local, chrome.i18n.getUILanguage());
+  const config = await loadRuntimeConfig(
+    new SettingsStore(chrome.storage.local, chrome.i18n.getUILanguage()),
+  );
   const { provider } = config;
   const ollama = new OllamaProvider({
     baseUrl: provider.baseUrl,

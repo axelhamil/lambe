@@ -11,6 +11,7 @@ import type { ClickHandlers } from "../bubble/click-classifier";
 import { loadRuntimeConfig } from "../config/runtime-config";
 import { connectWorker } from "../messaging/connect-worker";
 import { toggleMessageSchema } from "../messaging/toggle.contract";
+import { SettingsStore } from "../settings/settings-store";
 import { hostsBubble } from "./bubble-frames";
 
 function blockIds(): () => BlockId {
@@ -29,7 +30,9 @@ interface ContentApp {
 }
 
 async function buildApp(): Promise<ContentApp> {
-  const config = await loadRuntimeConfig(chrome.storage.local, chrome.i18n.getUILanguage());
+  const config = await loadRuntimeConfig(
+    new SettingsStore(chrome.storage.local, chrome.i18n.getUILanguage()),
+  );
   const translator = new PortBatchTranslator(connectWorker);
   const service = new PageTranslationService({
     surface: new DomPageSurface({ doc: document, window, ids: blockIds() }),
