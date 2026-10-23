@@ -1,0 +1,11 @@
+language js(typescript)
+
+JsMethodClassMember(name=$name, parameters=$parameters, body=$body) as $method where {
+  $name <: `validate`,
+  $body <: JsFunctionBody(statements=[`return Result.ok($value)`]),
+  $parameters <: contains $value,
+  $method <: within JsClassDeclaration(extends_clause=$heritage) where {
+    $heritage <: JsExtendsClause(super_class=`ValueObject`)
+  },
+  register_diagnostic(span=$name, message="This `validate` accepts every value. Check the value with the module's Zod schema (`safeParse`, one `error` sentence per field) and return its result.")
+}

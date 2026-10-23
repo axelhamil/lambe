@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bump-minor-pre-major": true,
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "lambe",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "apps/extension/package.json",
+          "jsonpath": "$.version"
+        }
+      ]
+    }
+  }
+}

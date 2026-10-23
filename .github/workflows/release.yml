@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.BOT_CLIENT_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+      - id: release
+        uses: googleapis/release-please-action@v5
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    env:
+      CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+      TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify
+      - name: Build the unpacked zip
+        run: |
+          pnpm --filter @lambe/extension exec wxt zip -b chrome
+          pnpm --filter @lambe/extension check:manifest
+      - name: Build the store zip
+        env:
+          LAMBE_STORE: "1"
+        run: pnpm --filter @lambe/extension exec wxt zip -b chrome
+      - id: zip
+        name: Locate the zips
+        run: |
+          shopt -s nullglob
+          unpacked=(apps/extension/.output/*-chrome.zip)
+          store=(apps/extension/.output/*-chrome-store.zip)
+          if [ "${#unpacked[@]}" -ne 1 ] || [ "${#store[@]}" -ne 1 ]; then
+            echo "::error::Expected 1 unpacked and 1 store zip, found ${#unpacked[@]} and ${#store[@]}"
+            exit 1
+          fi
+          echo "unpacked=$(realpath "${unpacked[0]}")" >> "$GITHUB_OUTPUT"
+          echo "store=$(realpath "${store[0]}")" >> "$GITHUB_OUTPUT"
+      - id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.BOT_CLIENT_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+          permission-contents: write
+      - name: Attach the zips to the release
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          UNPACKED_ZIP: ${{ steps.zip.outputs.unpacked }}
+          STORE_ZIP: ${{ steps.zip.outputs.store }}
+        run: gh release upload "$TAG_NAME" "$UNPACKED_ZIP" "$STORE_ZIP" --clobber
+      - name: Check the store manifest
+        if: env.CHROME_EXTENSION_ID != ''
+        env:
+          LAMBE_STORE: "1"
+        run: pnpm --filter @lambe/extension check:manifest
+      - name: Publish to the Chrome Web Store
+        if: env.CHROME_EXTENSION_ID != ''
+        env:
+          CHROME_API_VERSION: v2
+          CHROME_PUBLISH_TYPE: STAGED_PUBLISH
+          CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
+          CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
+          CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
+          ZIP: ${{ steps.zip.outputs.store }}
+        run: pnpm --filter @lambe/extension exec wxt submit --chrome-zip "$ZIP"

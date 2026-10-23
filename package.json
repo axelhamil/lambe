@@ -1,0 +1,31 @@
+{
+  "name": "lambe",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "check": "biome check .",
+    "fix": "biome check --write .",
+    "type-check": "pnpm -r --if-present run type-check",
+    "test": "pnpm -r --workspace-concurrency=1 --if-present run test",
+    "check:unused": "knip",
+    "check:duplication": "jscpd ./packages ./apps",
+    "check:boundaries": "depcruise apps packages --config .dependency-cruiser.cjs",
+    "verify": "pnpm check && pnpm type-check && pnpm test && pnpm check:unused && pnpm check:duplication && pnpm check:boundaries",
+    "prepare": "husky"
+  },
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "node": ">=24.20.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@commitlint/cli": "21.2.3",
+    "@commitlint/config-conventional": "21.2.3",
+    "dependency-cruiser": "18.6.0",
+    "husky": "9.1.7",
+    "jscpd": "5.4.1",
+    "knip": "6.41.0",
+    "typescript": "7.0.2"
+  }
+}

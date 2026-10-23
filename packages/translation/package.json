@@ -1,0 +1,38 @@
+{
+  "name": "@lambe/translation",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./application/batch-translation.service": "./src/application/batch-translation.service.ts",
+    "./application/page-translation.service": "./src/application/page-translation.service.ts",
+    "./application/ports/batch-translator": "./src/application/ports/batch-translator.ts",
+    "./application/ports/language-detector": "./src/application/ports/language-detector.ts",
+    "./application/ports/provider-capacity": "./src/application/ports/provider-capacity.ts",
+    "./application/ports/translation-cache": "./src/application/ports/translation-cache.ts",
+    "./domain/block/value-objects/block-id.vo": "./src/domain/block/value-objects/block-id.vo.ts",
+    "./domain/language/value-objects/language-code.vo": "./src/domain/language/value-objects/language-code.vo.ts",
+    "./domain/prompt/instruction-prompt": "./src/domain/prompt/instruction-prompt.ts",
+    "./domain/prompt/prompt-adapter": "./src/domain/prompt/prompt-adapter.ts",
+    "./domain/prompt/translategemma-prompt": "./src/domain/prompt/translategemma-prompt.ts",
+    "./domain/provider/provider-error": "./src/domain/provider/provider-error.ts",
+    "./infrastructure/dom/dom-page-surface": "./src/infrastructure/dom/dom-page-surface.ts",
+    "./infrastructure/hashing/sha256-hasher": "./src/infrastructure/hashing/sha256-hasher.ts",
+    "./infrastructure/providers/adaptive-concurrency-provider": "./src/infrastructure/providers/adaptive-concurrency-provider.ts",
+    "./infrastructure/providers/ollama-provider": "./src/infrastructure/providers/ollama-provider.ts"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@lambe/kernel": "workspace:*",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@happy-dom/global-registrator": "21.0.3",
+    "@lambe/typescript-config": "workspace:*",
+    "@types/bun": "1.4.3",
+    "typescript": "7.0.2"
+  }
+}

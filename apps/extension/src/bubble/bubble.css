@@ -1,0 +1,156 @@
+:root {
+  --lambe-size: 38px;
+  --lambe-icon-size: 38px;
+  --lambe-z-index: 2147483646;
+  --lambe-ink: #c9d1d9;
+  --lambe-fill: rgba(22, 27, 34, 0.6);
+  --lambe-accent: #7ee0c3;
+  --lambe-error: #ff7b72;
+  --lambe-focus: #7ee0c3;
+  --lambe-rest-opacity: 0.55;
+  --lambe-stroke-width: 1.8;
+  --lambe-label-font: 600 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+  --lambe-glow: 2px;
+  --lambe-dash: 6 4;
+  --lambe-dash-travel: -20;
+  --lambe-focus-width: 2px;
+  --lambe-focus-offset: 2px;
+  --lambe-focus-radius: 10px;
+  --lambe-glide: 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  --lambe-fade: 0.2s;
+}
+
+.bubble {
+  all: unset;
+  position: fixed;
+  left: var(--lambe-left, 0px);
+  top: var(--lambe-top, 0px);
+  z-index: var(--lambe-z-index);
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  width: var(--lambe-size);
+  height: var(--lambe-size);
+  color: var(--lambe-ink);
+  opacity: var(--lambe-rest-opacity);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    left var(--lambe-glide),
+    top var(--lambe-glide),
+    opacity var(--lambe-fade);
+}
+
+.bubble:hover,
+.bubble:focus-visible,
+.bubble.on,
+.bubble.error {
+  opacity: 1;
+}
+
+.bubble:focus-visible {
+  outline: var(--lambe-focus-width) solid var(--lambe-focus);
+  outline-offset: var(--lambe-focus-offset);
+  border-radius: var(--lambe-focus-radius);
+}
+
+.bubble.dragging {
+  cursor: grabbing;
+  transition: none;
+}
+
+.bubble svg {
+  width: var(--lambe-icon-size);
+  height: var(--lambe-icon-size);
+  overflow: visible;
+  pointer-events: none;
+}
+
+.outline {
+  fill: var(--lambe-fill);
+  stroke: currentColor;
+  stroke-width: var(--lambe-stroke-width);
+  stroke-linejoin: round;
+  transform-origin: 20px 20px;
+  transition: transform var(--lambe-fade);
+}
+
+.bubble.left .outline {
+  transform: scaleX(-1);
+}
+
+.label {
+  font: var(--lambe-label-font);
+  fill: currentColor;
+  transition: opacity var(--lambe-fade);
+}
+
+.glyph {
+  fill: var(--lambe-accent);
+  opacity: 0;
+  filter: drop-shadow(0 0 var(--lambe-glow) var(--lambe-accent));
+  transition: opacity var(--lambe-fade);
+}
+
+.bubble.on .label,
+.bubble.busy .label {
+  opacity: 0;
+}
+
+.bubble.on .glyph {
+  opacity: 1;
+}
+
+.bubble.on .outline,
+.bubble.busy .outline {
+  stroke: var(--lambe-accent);
+}
+
+.bubble.busy .glyph {
+  animation: lambe-pulse 0.5s ease-in-out infinite alternate;
+}
+
+.bubble.busy .outline {
+  stroke-dasharray: var(--lambe-dash);
+  animation: lambe-dash 0.8s linear infinite;
+}
+
+.bubble.error .outline {
+  stroke: var(--lambe-error);
+}
+
+.bubble.error .label {
+  fill: var(--lambe-error);
+}
+
+@keyframes lambe-pulse {
+  from {
+    opacity: 0.2;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes lambe-dash {
+  to {
+    stroke-dashoffset: var(--lambe-dash-travel);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble,
+  .outline,
+  .label,
+  .glyph {
+    transition: none;
+  }
+
+  .bubble.busy .glyph,
+  .bubble.busy .outline {
+    animation: none;
+  }
+}

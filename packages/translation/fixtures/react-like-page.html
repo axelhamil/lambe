@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Keyed reconciliation</title>
+  </head>
+  <body>
+    <div id="app">
+      <h1>Sync a fork</h1>
+      <p>Press <kbd>Ctrl</kbd> and <kbd>C</kbd> to copy the <code>git fetch upstream</code> command.</p>
+      <ul>
+        <li>Fetch the branches from the upstream repository.</li>
+        <li>Merge the changes into your local branch.</li>
+      </ul>
+      <pre><code><span class="pl-c"><span class="pl-c">#</span> fetch the upstream branches</span>
+git fetch upstream
+<span class="pl-c">/* merge the default branch
+ * into your local copy */</span>
+git merge upstream/main</code></pre>
+      <pre><code>git push origin main</code></pre>
+    </div>
+    <script>
+      (() => {
+        const app = document.getElementById("app");
+        const walker = document.createTreeWalker(app, NodeFilter.SHOW_TEXT);
+        const entries = [];
+
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          entries.push({ parent: node.parentNode, node });
+        }
+
+        window.__frame = {
+          entries,
+          rerender() {
+            for (const entry of entries) {
+              const next = document.createTextNode(entry.node.nodeValue);
+              entry.parent.removeChild(entry.node);
+              entry.parent.appendChild(next);
+              entry.node = next;
+            }
+          },
+        };
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    "packages/*": {
+      "project": ["src/**/*.ts"]
+    },
+    "apps/extension": {
+      "entry": ["entrypoints/*.ts", "scripts/*.ts"],
+      "project": ["src/**/*.ts", "entrypoints/**/*.ts", "scripts/**/*.ts"]
+    }
+  },
+  "ignoreWorkspaces": ["packages/typescript-config"],
+  "ignoreExportsUsedInFile": true
+}
