@@ -333,15 +333,26 @@ describe("BatchTranslationService", () => {
   test("broken_group_tags_retry_success_is_accepted", async () => {
     const { provider, service, written } = setup();
     const docs = "Read <g1>the docs</g1> now.";
-    provider.chat.mockResolvedValueOnce(Result.ok(seg("Lisez la doc maintenant.")));
+    provider.chat.mockResolvedValueOnce(Result.ok("[1] Lisez la doc maintenant.\n[2] Bonjour."));
 
-    const result = await service.translate(request([{ id: "a", markup: docs }]));
+    const result = await service.translate(
+      request([
+        { id: "a", markup: docs },
+        { id: "b", markup: "Hello." },
+      ]),
+    );
 
     expect(result.getValue()).toEqual([
       { id: "a", status: "translated", markup: `fr: ${docs}`, fromCache: false },
+      { id: "b", status: "translated", markup: "Bonjour.", fromCache: false },
     ]);
     expect(provider.chat).toHaveBeenCalledTimes(2);
-    expect(written()).toEqual(new Map([[keyOf(docs), `fr: ${docs}`]]));
+    expect(written()).toEqual(
+      new Map([
+        [keyOf(docs), `fr: ${docs}`],
+        [keyOf("Hello."), "Bonjour."],
+      ]),
+    );
   });
 
   test("duplicated_placeholder_is_rejected", async () => {
@@ -822,7 +833,7 @@ describe("BatchTranslationService", () => {
     );
 
     expect(result.getValue()).toEqual([{ id: "a", status: "failed", code: "PLACEHOLDER_LOST" }]);
-    expect(provider.chat).toHaveBeenCalledTimes(2);
+    expect(provider.chat).toHaveBeenCalledTimes(1);
     expect(written().size).toBe(0);
   });
 });

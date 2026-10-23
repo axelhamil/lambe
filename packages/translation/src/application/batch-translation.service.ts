@@ -458,7 +458,7 @@ export class BatchTranslationService {
         const code = result.getError();
 
         if (worthRetrying(piece, code)) together.push(piece);
-        else if (code === "PLACEHOLDER_LOST") alone.push(piece);
+        else if (code === "PLACEHOLDER_LOST" && members.length > 1) alone.push(piece);
         else run.record(piece, result);
       }
 
