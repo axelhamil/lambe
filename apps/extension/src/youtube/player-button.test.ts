@@ -90,31 +90,33 @@ describe("player button", () => {
     });
 
     expect(lambe.getAttribute("data-state")).toBe("error");
-    expect(lambe.hasAttribute("title")).toBe(true);
+    expect(lambe.hasAttribute("aria-description")).toBe(true);
     expect(lambe.getAttribute("aria-pressed")).toBe("false");
 
     button.render({ kind: "original" });
 
     expect(lambe.getAttribute("aria-pressed")).toBe("false");
     expect(lambe.hasAttribute("data-state")).toBe(false);
-    expect(lambe.hasAttribute("title")).toBe(false);
+    expect(lambe.hasAttribute("aria-description")).toBe(false);
 
     button.destroy();
   });
 
-  test("button_label_and_title_follow_the_catalog", () => {
+  test("hover_shows_a_player_tooltip_that_follows_the_state", () => {
     const button = mountPlayerButton(document, () => {}, fakeUiText);
     const lambe = lambeButton();
+
+    lambe.dispatchEvent(new MouseEvent("mouseenter"));
+
+    expect(element(`${YOUTUBE_SELECTORS.player} > .lambe-ytp-tooltip`).textContent).toBe(
+      "<youtube.button>",
+    );
+    expect(lambe.hasAttribute("title")).toBe(false);
 
     button.render({ kind: "translating" });
 
     expect(lambe.getAttribute("aria-label")).toBe("<youtube.buttonOn>");
-    expect(lambe.getAttribute("title")).toBe("<youtube.translating>");
-
-    button.render({ kind: "translated" });
-
-    expect(lambe.getAttribute("aria-label")).toBe("<youtube.buttonOn>");
-    expect(lambe.hasAttribute("title")).toBe(false);
+    expect(element(".lambe-ytp-tooltip").textContent).toBe("<youtube.translating>");
 
     button.render({
       kind: "error",
@@ -124,12 +126,16 @@ describe("player button", () => {
     });
 
     expect(lambe.getAttribute("aria-label")).toBe("<youtube.button>");
-    expect(lambe.getAttribute("title")).toBe("No model server at http://localhost:11434.");
+    expect(element(".lambe-ytp-tooltip").textContent).toBe(
+      "No model server at http://localhost:11434.",
+    );
 
-    button.render({ kind: "original" });
+    lambe.dispatchEvent(new MouseEvent("mouseleave"));
 
-    expect(lambe.getAttribute("aria-label")).toBe("<youtube.button>");
+    expect(element(".lambe-ytp-tooltip").hasAttribute("hidden")).toBe(true);
 
     button.destroy();
+
+    expect(document.querySelector(".lambe-ytp-tooltip")).toBeNull();
   });
 });

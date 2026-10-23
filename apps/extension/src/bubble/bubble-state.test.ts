@@ -27,10 +27,20 @@ describe("bubble state", () => {
 
     const view = bubbleStateOf({ kind: "error", error }, fakeUiText);
 
-    expect(view.classes).toEqual(["error"]);
+    expect(view.classes).toEqual(["unavailable"]);
     expect(view.label).toBe("<bubble.retry>");
     expect(view.tooltip.unwrap()).toBe(
       "<bubble.errorTitle>\nNo model server at http://localhost:11434.",
     );
+  });
+
+  test("a_failed_request_is_an_error_while_a_missing_server_or_model_is_unavailable", () => {
+    const failed = providerError("PROVIDER_BAD_RESPONSE", "Bad response.");
+    const missing = providerError("PROVIDER_MODEL_MISSING", "No model.", { model: "m" });
+
+    expect(bubbleStateOf({ kind: "error", error: failed }, fakeUiText).classes).toEqual(["error"]);
+    expect(bubbleStateOf({ kind: "error", error: missing }, fakeUiText).classes).toEqual([
+      "unavailable",
+    ]);
   });
 });

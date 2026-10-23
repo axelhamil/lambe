@@ -27,13 +27,13 @@ function pointer(target: HTMLElement, type: string, clientX: number, clientY: nu
 }
 
 function drag(target: HTMLElement, from: number, to: number): void {
-  pointer(target, "pointerdown", from, 200);
-  pointer(target, "pointermove", to, 200);
-  pointer(target, "pointerup", to, 200);
+  pointer(target, "pointerdown", 500, from);
+  pointer(target, "pointermove", 500, to);
+  pointer(target, "pointerup", 500, to);
 }
 
-function leftOf(button: HTMLElement): string {
-  return button.style.getPropertyValue("--lambe-left");
+function topOf(button: HTMLElement): string {
+  return button.style.getPropertyValue("--lambe-top");
 }
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -58,7 +58,7 @@ describe("bubble view", () => {
 
     bubble.render({
       kind: "error",
-      error: providerError("PROVIDER_UNREACHABLE", "Ollama is not running."),
+      error: providerError("PROVIDER_TIMEOUT", "The model took too long."),
     });
 
     expect(button.classList.contains("on")).toBe(false);
@@ -71,59 +71,65 @@ describe("bubble view", () => {
     expect(button.hasAttribute("title")).toBe(false);
   });
 
-  test("tail_class_flips_with_side", async () => {
+  test("dragging_moves_the_tab_along_the_right_edge_and_keeps_it_on_screen", async () => {
     const { button, handlers } = setup();
-    const right = window.innerWidth - 20;
 
-    drag(button, right, 30);
+    expect(topOf(button)).toBe("150px");
 
-    expect(button.classList.contains("left")).toBe(true);
+    drag(button, 200, 320);
 
-    drag(button, 30, right);
+    expect(topOf(button)).toBe("270px");
+    expect(button.style.getPropertyValue("--lambe-left")).toBe("");
+
+    drag(button, 300, -400);
+
+    expect(topOf(button)).toBe("8px");
+
+    drag(button, 100, 5000);
     await wait(300);
 
-    expect(button.classList.contains("left")).toBe(false);
+    expect(topOf(button)).toBe(`${window.innerHeight - 8}px`);
     expect(handlers.onSingle).not.toHaveBeenCalled();
     expect(handlers.onDouble).not.toHaveBeenCalled();
   });
 
   test("a_move_under_4px_is_a_click_and_4px_is_a_drag", async () => {
     const { button, handlers } = setup();
-    const rest = leftOf(button);
+    const rest = topOf(button);
 
-    drag(button, 500, 503);
+    drag(button, 200, 203);
     await wait(300);
 
     expect(handlers.onSingle).toHaveBeenCalledTimes(1);
-    expect(leftOf(button)).toBe(rest);
+    expect(topOf(button)).toBe(rest);
 
     pointer(button, "pointerdown", 500, 200);
-    pointer(button, "pointermove", 504, 200);
+    pointer(button, "pointermove", 500, 204);
 
-    expect(leftOf(button)).not.toBe(rest);
+    expect(topOf(button)).not.toBe(rest);
 
-    pointer(button, "pointerup", 504, 200);
+    pointer(button, "pointerup", 500, 204);
     await wait(300);
 
     expect(handlers.onSingle).toHaveBeenCalledTimes(1);
   });
 
-  test("pointercancel_ends_the_drag_and_returns_to_the_edge", async () => {
+  test("pointercancel_ends_the_drag_and_puts_the_tab_back", async () => {
     const { button, handlers } = setup();
-    const rest = leftOf(button);
+    const rest = topOf(button);
 
     pointer(button, "pointerdown", 500, 200);
-    pointer(button, "pointermove", 100, 200);
-    pointer(button, "pointercancel", 100, 200);
+    pointer(button, "pointermove", 500, 400);
+    pointer(button, "pointercancel", 500, 400);
 
     expect(button.classList.contains("dragging")).toBe(false);
-    expect(leftOf(button)).toBe(rest);
+    expect(topOf(button)).toBe(rest);
 
-    pointer(button, "pointermove", 50, 200);
-    pointer(button, "pointerup", 50, 200);
+    pointer(button, "pointermove", 500, 450);
+    pointer(button, "pointerup", 500, 450);
     await wait(300);
 
-    expect(leftOf(button)).toBe(rest);
+    expect(topOf(button)).toBe(rest);
     expect(handlers.onSingle).not.toHaveBeenCalled();
   });
 
@@ -157,13 +163,13 @@ describe("bubble view", () => {
   test("click_without_moving_reaches_the_single_handler_and_two_reach_the_double", async () => {
     const { button, handlers } = setup();
 
-    drag(button, 500, 502);
+    drag(button, 200, 202);
     await wait(300);
 
     expect(handlers.onSingle).toHaveBeenCalledTimes(1);
 
-    drag(button, 500, 500);
-    drag(button, 500, 500);
+    drag(button, 200, 200);
+    drag(button, 200, 200);
     await wait(300);
 
     expect(handlers.onSingle).toHaveBeenCalledTimes(2);
@@ -173,10 +179,10 @@ describe("bubble view", () => {
   test("destroy_removes_listeners_and_nodes", async () => {
     const { root, bubble, button, handlers } = setup();
 
-    drag(button, 500, 500);
+    drag(button, 200, 200);
     bubble.destroy();
-    drag(button, 500, 500);
-    drag(button, 500, 500);
+    drag(button, 200, 200);
+    drag(button, 200, 200);
     await wait(300);
 
     expect(root.childNodes.length).toBe(0);

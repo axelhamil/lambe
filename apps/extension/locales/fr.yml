@@ -34,7 +34,7 @@ bubble:
   original: "Afficher la page d'origine"
   translating: "Traduction de la page en cours…"
   retry: "Traduire à nouveau cette page"
-  dragHint: "Faites glisser pour déplacer. Double-cliquez pour traduire à nouveau."
+  dragHint: "Faites glisser vers le haut ou le bas pour déplacer. Double-cliquez pour traduire à nouveau."
   errorTitle: "Lambë n'a pas pu traduire cette page."
 
 youtube:
@@ -47,7 +47,7 @@ menu:
   translateTo: "Traduire cette page en"
   moreLanguages: "Plus de langues…"
   autoTranslateSite: "Toujours traduire ce site"
-  hideOnSite: "Masquer la bulle sur ce site"
+  hideOnSite: "Masquer la languette sur ce site"
   settings: "Réglages de Lambë"
 
 options:
@@ -69,7 +69,7 @@ options:
     summary:
       provider: "Le serveur de modèles qui traduit, et la façon dont Lambë s'y connecte."
       translation: "La langue dans laquelle vous lisez et la façon dont les pages sont traduites."
-      sites: "Où la bulle apparaît et quels sites se traduisent d'eux-mêmes."
+      sites: "Où la languette apparaît et quels sites se traduisent d'eux-mêmes."
       youtube: "Les sous-titres traduits des vidéos YouTube."
       prompt: "Les consignes que le modèle suit quand il traduit."
       cache: "Les traductions gardées sur cet appareil, pour que les pages déjà lues s'ouvrent aussitôt."
@@ -153,24 +153,24 @@ options:
     policy: "Lire la politique de confidentialité"
   translation:
     targetLabel: "Traduire les pages en"
-    targetHint: "Les pages et les sous-titres YouTube sont traduits dans cette langue. Le menu de la bulle permet toujours de passer une seule page dans une autre."
+    targetHint: "Les pages et les sous-titres YouTube sont traduits dans cette langue. Le menu de la languette permet toujours de passer une seule page dans une autre."
     pick: "Choisir une langue"
     search: "Rechercher une langue"
     empty: "Aucune langue ne correspond à cette recherche."
     browserGroup: "Langue de votre navigateur"
     allGroup: "Toutes les langues"
   sites:
-    everywhereLabel: "Afficher la bulle sur tous les sites"
+    everywhereLabel: "Afficher la languette sur tous les sites"
     everywhereHint: "Chrome vous demande d'autoriser Lambë à lire et modifier les sites que vous consultez. Sans cela, le bouton de la barre d'outils et le raccourci traduisent toujours l'onglet en cours."
     listTitle: "Vos sites"
-    listHint: "Les sites traduits dès leur ouverture, ou ceux où la bulle reste masquée."
-    listEmpty: "Aucun site pour l'instant. Ajoutez-en un ci-dessous, ou passez par le menu de la bulle sur le site lui-même."
+    listHint: "Les sites traduits dès leur ouverture, ou ceux où la languette reste masquée."
+    listEmpty: "Aucun site pour l'instant. Ajoutez-en un ci-dessous, ou passez par le menu de la languette sur le site lui-même."
     addLabel: "Adresse du site"
     addPlaceholder: "exemple.fr"
     addButton: "Ajouter le site"
     addInvalid: "Saisissez une adresse de site comme exemple.fr ou https://exemple.fr."
     autoTranslate: "Traduire automatiquement"
-    hideBubble: "Masquer la bulle"
+    hideBubble: "Masquer la languette"
     remove: "Retirer $1"
     pendingTitle: "Traduire $1 automatiquement ?"
     pendingBody: "Chrome va vous demander d'autoriser Lambë à lire et modifier ce site. Ses pages seront ensuite traduites dès leur ouverture."

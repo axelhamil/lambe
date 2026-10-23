@@ -50,7 +50,7 @@
 </div>
 
 <p align="center">
-  <img src="docs/store/assets/screenshot-1-1280x800.png" alt="A Wikipedia article translated in place by Lambë, its bubble at the right edge" width="100%">
+  <img src="docs/store/assets/screenshot-1-1280x800.png" alt="A Wikipedia article translated in place by Lambë, its side tab on the right edge" width="100%">
 </p>
 
 **Lambë** translates the page you are reading without leaving it, with the model you choose: [Ollama](https://ollama.com) on your computer by default, or any OpenAI-compatible server. It keeps code untouched and domain jargon as professionals write it, and toggles back to the original instantly.
@@ -78,7 +78,7 @@ Why it is different:
 | | |
 |---|---|
 | <img src="docs/store/assets/screenshot-2-1280x800.png" alt="The Provider settings: Ollama on localhost, the translategemma model and a successful connection test"> | <img src="docs/store/assets/screenshot-3-1280x800.png" alt="The Sites settings: the bubble on every site, and sites that translate automatically or hide the bubble"> |
-| **Provider**: pick the server and the model, test the connection. | **Sites**: translate some sites on their own, hide the bubble on others. |
+| **Provider**: pick the server and the model, test the connection. | **Sites**: translate some sites on their own, hide the side tab on others. |
 | <img src="docs/store/assets/screenshot-4-1280x800.png" alt="The Prompt settings: the guidelines the model follows, with save and reset"> | <img src="docs/store/assets/screenshot-5-1280x800.png" alt="The welcome screen that asks for consent before Lambë translates anything"> |
 | **Prompt**: the guidelines the model follows, editable. | **Consent**: nothing is sent until you agree. |
 
@@ -105,11 +105,11 @@ You need Chrome 130 or newer (or a Chromium browser on the same base, such as Br
 ## Use
 
 - Toolbar icon or `Alt+L`: translate the current page, then toggle between the translation and the original.
-- Click the bubble: translate the visible part of the page, then what you scroll to.
+- Click the side tab: translate the visible part of the page, then what you scroll to.
 - Click again: back to the original, from memory, no request. Once more: translated again, no request.
 - Double click: translate again, bypassing the cache and overwriting it.
-- Drag the bubble: it snaps to the nearest edge and its tail flips.
-- Right click the bubble: translate into another language for this page, translate this site automatically, hide the bubble on this site, or open the settings.
+- Drag the side tab up or down: it stays docked on the right edge, inside the window, where you left it.
+- Right click the side tab, or press the context menu key on it: translate into another language for this page, translate this site automatically, hide the side tab on this site, or open the settings.
 
 ## Settings
 
@@ -117,7 +117,7 @@ You need Chrome 130 or newer (or a Chromium browser on the same base, such as Br
 | --- | --- |
 | Provider | Ollama or OpenAI-compatible, base URL, model (picked from the server's list), API key for OpenAI-compatible, and a connection test that explains each failure |
 | Translation | The target language, by default the browser language |
-| Sites | Show the bubble on every site, and per site rules: translate automatically, hide the bubble |
+| Sites | Show the side tab on every site, and per site rules: translate automatically, hide the side tab |
 | YouTube | Translated captions in the player |
 | Prompt | The guidelines the model follows; editing them starts a fresh cache for that text, reset restores the default |
 | Cache | Size of the translations kept on the device, and a clear button |
@@ -135,7 +135,7 @@ Provider requests leave from the background worker or the settings page, never f
 
 ## Allow the extension in Ollama
 
-Ollama answers 403 to origins it does not know. The bubble then turns red, and the connection test in the settings shows the fix for Linux, macOS and Windows with the id of the running extension. On Linux, run `sudo systemctl edit ollama`, then add:
+Ollama answers 403 to origins it does not know. The side tab then turns grey, and the connection test in the settings shows the fix for Linux, macOS and Windows with the id of the running extension. On Linux, run `sudo systemctl edit ollama`, then add:
 
 ```ini
 [Service]
@@ -161,9 +161,9 @@ Lambë asks for the least it needs and requests the rest when you turn on a feat
 | `storage`, `unlimitedStorage` | Settings, the optional API key and the translation cache, on the device only |
 | `activeTab`, `scripting` | Inject the page script into the current tab when you click the toolbar icon or press `Alt+L` |
 | `http://localhost/*`, `http://127.0.0.1/*` | Reach Ollama on your computer, on any port |
-| `https://*/*`, `http://*/*` (optional) | Requested at click time for what you choose: the bubble on every site, a site translated automatically, YouTube captions, a remote provider |
+| `https://*/*`, `http://*/*` (optional) | Requested at click time for what you choose: the side tab on every site, a site translated automatically, YouTube captions, a remote provider |
 
-The manifest declares no content script. The bubble on every site, automatic translation of a site and YouTube captions register their scripts at runtime once you grant the origin. Revoking an origin in `chrome://extensions` removes its scripts and turns the setting off.
+The manifest declares no content script. The side tab on every site, automatic translation of a site and YouTube captions register their scripts at runtime once you grant the origin. Revoking an origin in `chrome://extensions` removes its scripts and turns the setting off.
 
 ## Languages
 
@@ -196,7 +196,7 @@ You need Node 24.20 or newer (`.nvmrc`), pnpm 11 (`packageManager`) and Bun 1.4.
 
 ```text
 apps/extension/         the WXT extension: background worker, page and YouTube scripts,
-                        options page (React), bubble, locales (en, fr), proof pages
+                        options page (React), side tab, locales (en, fr), proof pages
 packages/translation/   the framework free engine: segmentation, prompts, batching, queue,
                         cache policy, providers, DOM and YouTube adapters, fixtures
 packages/kernel/        Result, Option and value objects, shared by the other packages
@@ -238,4 +238,4 @@ Issues and pull requests are welcome, in English or French. Read [CONTRIBUTING.m
 
 [MIT](LICENSE). Lambë is free and open source: use it, fork it, ship it.
 
-<sub>Why the name: Lambë is Quenya for "tongue, language"; the bubble glyph is the tengwa of the same name.</sub>
+<sub>Why the name: Lambë is Quenya for "tongue, language"; the glyph on the side tab is the tengwa of the same name.</sub>

@@ -30,4 +30,4 @@ New here? Read [the README](../README.md) first ([en français](../README.fr.md)
 - [Design spec](superpowers/specs/2026-10-18-lambe-design.md): what Lambë is meant to be, section by section.
 - [Roadmap](superpowers/plans/2026-10-18-roadmap.md): the plans in the order they ship, and their status.
 - Plans: [1, page translation](superpowers/plans/2026-10-18-plan-1-page-translation.md), [2, settings and store](superpowers/plans/2026-10-23-plan-2-settings-and-store.md), [3, YouTube captions](superpowers/plans/2026-10-23-plan-3-youtube-captions.md).
-- [Bubble mockup](mockups/bubble-lambe.fragment.html): the reference for the bubble's behavior.
+- [Bubble mockup](mockups/bubble-lambe.fragment.html): the plan 1 bubble, since replaced by the side tab.

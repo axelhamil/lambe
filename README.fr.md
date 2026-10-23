@@ -50,7 +50,7 @@
 </div>
 
 <p align="center">
-  <img src="docs/store/assets/screenshot-1-1280x800.png" alt="Un article Wikipédia traduit sur place par Lambë, sa bulle au bord droit" width="100%">
+  <img src="docs/store/assets/screenshot-1-1280x800.png" alt="Un article Wikipédia traduit sur place par Lambë, sa languette au bord droit" width="100%">
 </p>
 
 **Lambë** traduit la page que vous lisez sans la quitter, avec le modèle de votre choix : [Ollama](https://ollama.com) sur votre ordinateur par défaut, ou n'importe quel serveur compatible OpenAI. Elle laisse le code intact, garde le jargon métier tel que les professionnels l'écrivent et rétablit l'original instantanément.
@@ -78,7 +78,7 @@ Ce qui la distingue :
 | | |
 |---|---|
 | <img src="docs/store/assets/screenshot-2-1280x800.png" alt="Les réglages du fournisseur : Ollama sur localhost, le modèle translategemma et un test de connexion réussi"> | <img src="docs/store/assets/screenshot-3-1280x800.png" alt="Les réglages des sites : la bulle partout, et des sites traduits automatiquement ou sans bulle"> |
-| **Fournisseur** : choisir le serveur et le modèle, tester la connexion. | **Sites** : traduire certains sites d'eux-mêmes, masquer la bulle sur d'autres. |
+| **Fournisseur** : choisir le serveur et le modèle, tester la connexion. | **Sites** : traduire certains sites d'eux-mêmes, masquer la languette sur d'autres. |
 | <img src="docs/store/assets/screenshot-4-1280x800.png" alt="Les réglages du prompt : les consignes que suit le modèle, à enregistrer ou réinitialiser"> | <img src="docs/store/assets/screenshot-5-1280x800.png" alt="L'écran d'accueil qui demande le consentement avant que Lambë traduise quoi que ce soit"> |
 | **Prompt** : les consignes que suit le modèle, modifiables. | **Consentement** : rien n'est envoyé avant votre accord. |
 
@@ -105,11 +105,11 @@ Il vous faut Chrome 130 ou plus récent (ou un navigateur Chromium de même base
 ## Utilisation
 
 - Icône de la barre d'outils ou `Alt+L` : traduit la page courante, puis bascule entre la traduction et l'original.
-- Clic sur la bulle : traduit la partie visible de la page, puis ce que vous faites défiler.
+- Clic sur la languette : traduit la partie visible de la page, puis ce que vous faites défiler.
 - Nouveau clic : retour à l'original, depuis la mémoire, sans requête. Encore un : la traduction revient, sans requête.
 - Double clic : traduit de nouveau en ignorant le cache, qui est réécrit.
-- Glisser la bulle : elle se colle au bord le plus proche et sa pointe se retourne.
-- Clic droit sur la bulle : traduire cette page dans une autre langue, traduire ce site automatiquement, masquer la bulle sur ce site ou ouvrir les réglages.
+- Glisser la languette vers le haut ou le bas : elle reste accrochée au bord droit, dans la fenêtre, là où vous la laissez.
+- Clic droit sur la languette, ou touche menu quand elle a le focus : traduire cette page dans une autre langue, traduire ce site automatiquement, masquer la languette sur ce site ou ouvrir les réglages.
 
 ## Réglages
 
@@ -117,7 +117,7 @@ Il vous faut Chrome 130 ou plus récent (ou un navigateur Chromium de même base
 | --- | --- |
 | Fournisseur | Ollama ou compatible OpenAI, URL de base, modèle (choisi dans la liste du serveur), clé d'API pour le compatible OpenAI, et un test de connexion qui explique chaque échec |
 | Traduction | La langue cible, par défaut celle du navigateur |
-| Sites | La bulle sur tous les sites, et des règles par site : traduction automatique, bulle masquée |
+| Sites | La languette sur tous les sites, et des règles par site : traduction automatique, languette masquée |
 | YouTube | Les sous-titres traduits dans le lecteur |
 | Prompt | Les consignes que suit le modèle ; les modifier repart d'un cache neuf pour ce texte, la réinitialisation rétablit celles par défaut |
 | Cache | La taille des traductions gardées sur l'appareil, et un bouton pour le vider |
@@ -135,7 +135,7 @@ Les requêtes vers le fournisseur partent du service worker ou de la page des r�
 
 ## Autoriser l'extension dans Ollama
 
-Ollama répond 403 aux origines qu'il ne connaît pas. La bulle passe alors au rouge, et le test de connexion des réglages affiche la correction pour Linux, macOS et Windows avec l'identifiant de l'extension en cours. Sous Linux, lancez `sudo systemctl edit ollama`, puis ajoutez :
+Ollama répond 403 aux origines qu'il ne connaît pas. La languette passe alors au gris, et le test de connexion des réglages affiche la correction pour Linux, macOS et Windows avec l'identifiant de l'extension en cours. Sous Linux, lancez `sudo systemctl edit ollama`, puis ajoutez :
 
 ```ini
 [Service]
@@ -161,9 +161,9 @@ Lambë demande le strict nécessaire et réclame le reste au moment où vous act
 | `storage`, `unlimitedStorage` | Les réglages, la clé d'API facultative et le cache des traductions, sur l'appareil uniquement |
 | `activeTab`, `scripting` | Injecter le script de page dans l'onglet courant quand vous cliquez sur l'icône ou appuyez sur `Alt+L` |
 | `http://localhost/*`, `http://127.0.0.1/*` | Joindre Ollama sur votre ordinateur, sur n'importe quel port |
-| `https://*/*`, `http://*/*` (facultatives) | Demandées au moment du clic pour ce que vous choisissez : la bulle partout, un site traduit automatiquement, les sous-titres YouTube, un fournisseur distant |
+| `https://*/*`, `http://*/*` (facultatives) | Demandées au moment du clic pour ce que vous choisissez : la languette partout, un site traduit automatiquement, les sous-titres YouTube, un fournisseur distant |
 
-Le manifeste ne déclare aucun script de contenu. La bulle partout, la traduction automatique d'un site et les sous-titres YouTube enregistrent leurs scripts à l'exécution, une fois l'origine accordée. Retirer une origine dans `chrome://extensions` supprime ses scripts et désactive le réglage.
+Le manifeste ne déclare aucun script de contenu. La languette partout, la traduction automatique d'un site et les sous-titres YouTube enregistrent leurs scripts à l'exécution, une fois l'origine accordée. Retirer une origine dans `chrome://extensions` supprime ses scripts et désactive le réglage.
 
 ## Langues
 
@@ -196,7 +196,7 @@ Il vous faut Node 24.20 ou plus récent (`.nvmrc`), pnpm 11 (`packageManager`) e
 
 ```text
 apps/extension/         l'extension WXT : service worker, scripts de page et de YouTube,
-                        page des réglages (React), bulle, langues (en, fr), pages de preuve
+                        page des réglages (React), languette, langues (en, fr), pages de preuve
 packages/translation/   le moteur sans framework : segmentation, prompts, lots, file,
                         politique de cache, fournisseurs, adaptateurs DOM et YouTube, fixtures
 packages/kernel/        Result, Option et value objects, partagés par les autres paquets
@@ -238,4 +238,4 @@ Issues et pull requests sont les bienvenues, en français ou en anglais. Lisez d
 
 [MIT](LICENSE). Lambë est libre et gratuite : utilisez-la, forkez-la, publiez-la.
 
-<sub>D'où vient le nom : Lambë signifie « langue » en quenya ; le glyphe de la bulle est le tengwa du même nom.</sub>
+<sub>D'où vient le nom : Lambë signifie « langue » en quenya ; le glyphe de la languette est le tengwa du même nom.</sub>

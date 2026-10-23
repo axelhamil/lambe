@@ -34,7 +34,7 @@ bubble:
   original: "Show the original page"
   translating: "Translating the page…"
   retry: "Translate this page again"
-  dragHint: "Drag to move. Double click to translate again."
+  dragHint: "Drag up or down to move. Double click to translate again."
   errorTitle: "Lambë could not translate this page."
 
 youtube:
@@ -47,7 +47,7 @@ menu:
   translateTo: "Translate this page to"
   moreLanguages: "More languages…"
   autoTranslateSite: "Always translate this site"
-  hideOnSite: "Hide the bubble on this site"
+  hideOnSite: "Hide the side tab on this site"
   settings: "Lambë settings"
 
 options:
@@ -69,7 +69,7 @@ options:
     summary:
       provider: "The model server that translates, and how Lambë reaches it."
       translation: "The language you read in and how pages are translated."
-      sites: "Where the bubble appears and which sites translate on their own."
+      sites: "Where the side tab appears and which sites translate on their own."
       youtube: "Translated captions on YouTube videos."
       prompt: "The guidelines the model follows when it translates."
       cache: "Translations kept on this device so pages you revisit open at once."
@@ -153,24 +153,24 @@ options:
     policy: "Read the privacy policy"
   translation:
     targetLabel: "Translate pages into"
-    targetHint: "Pages and YouTube captions are translated into this language. The bubble menu can still switch a single page to another one."
+    targetHint: "Pages and YouTube captions are translated into this language. The side tab menu can still switch a single page to another one."
     pick: "Choose a language"
     search: "Search languages"
     empty: "No language matches this search."
     browserGroup: "Your browser language"
     allGroup: "All languages"
   sites:
-    everywhereLabel: "Show the bubble on every site"
+    everywhereLabel: "Show the side tab on every site"
     everywhereHint: "Chrome asks you to let Lambë read and change the sites you visit. Without it, the toolbar button and the shortcut still translate the current tab."
     listTitle: "Your sites"
-    listHint: "Sites that translate as soon as they open, or where the bubble stays hidden."
-    listEmpty: "No site yet. Add one below, or use the bubble menu on the site itself."
+    listHint: "Sites that translate as soon as they open, or where the side tab stays hidden."
+    listEmpty: "No site yet. Add one below, or use the side tab menu on the site itself."
     addLabel: "Site address"
     addPlaceholder: "example.org"
     addButton: "Add site"
     addInvalid: "Type a site address such as example.org or https://example.org."
     autoTranslate: "Translate automatically"
-    hideBubble: "Hide the bubble"
+    hideBubble: "Hide the side tab"
     remove: "Remove $1"
     pendingTitle: "Translate $1 automatically?"
     pendingBody: "Chrome will ask you to let Lambë read and change this site. Its pages are then translated as soon as they open."

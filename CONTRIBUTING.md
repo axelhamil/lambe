@@ -24,7 +24,7 @@ You need Node 24.20 or newer, pnpm 11 and Bun 1.4.0 (`.bun-version`) for the tes
 |---|---|
 | `pnpm verify` | always: Biome, type check, Bun tests, knip, jscpd, dependency-cruiser; CI runs the same |
 | `pnpm --filter @lambe/extension build` and `check:manifest` | always: CI runs both |
-| A real browser run (Chrome or Brave), console clean | after touching the UI, the bubble, the page translation or YouTube: say in the PR what you checked, with screenshots |
+| A real browser run (Chrome or Brave), console clean | after touching the UI, the side tab, the page translation or YouTube: say in the PR what you checked, with screenshots |
 | `LAMBE_STORE=1 pnpm --filter @lambe/extension check:manifest` after `pnpm zip` | after touching the manifest or the permissions |
 | `nix run nixpkgs#actionlint` and `nix run nixpkgs#zizmor -- .github/` | after touching `.github/` |
 

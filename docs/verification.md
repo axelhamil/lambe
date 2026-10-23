@@ -14,14 +14,15 @@ Measured on 2026-10-18 in headless Brave over CDP, `translategemma:12b` on local
 | Requests after 3 screens of scroll | 15 | 16 | 21 |
 | Blocks translated after 3 screens | 40 of 253 | 55 of 253 | 91 of 253 |
 
-- Error path: against a server answering 403, the bubble shows the error state, the tooltip holds `OLLAMA_ORIGINS=chrome-extension://dccgcoohbalgmgkflpndagoallbcgnch`, the page is untouched and exactly 1 request is sent; the count is still 1 after 18 s.
+- Error path: against a server answering 403, the bubble (now the side tab) showed the error state, the tooltip holds `OLLAMA_ORIGINS=chrome-extension://dccgcoohbalgmgkflpndagoallbcgnch`, the page is untouched and exactly 1 request is sent; the count is still 1 after 18 s.
 - Code: the 36 `pre`, `code` and `kbd` elements are byte for byte identical after translation in every frame.
 - Jargon: `fourchette` appears 0 times. `fork` survives in 16 of 17, 16 of 21 and 24 of 26 translated blocks that contain it; the other blocks say "copie". `pull request` survives in 1 of 6 blocks; the others say "demande de fusion" or "demande de tirage". A glossary is planned for Plan 2.
 - Toggle (1440 px frame): the original comes back with `documentElement.outerHTML` identical to the capture taken before translating, with 0 requests, in 1 DOM batch of under 1 ms. The first DOM change lands 0.4 ms after the pointer up: a single click acts at once, and a second click within 250 ms turns it into a double click. Toggling again restores the translated page identically, also with 0 requests.
 - Revisit (1440 px frame): with headings that end in an empty anchor now cached, the first screen takes 10 requests instead of 14. The next visit sends 1 request, for a navigation item the first visit never reached, and the one after sends 0.
 - Double click (1440 px frame): 10 new requests; 54 cache entries are overwritten and the page never shows the stale values planted in them.
-- Bubble: at every width, dragged to the opposite edge it snaps to `left: 4px`, clamps to the bottom edge (`top = height - 38 - 6`), flips its tail (`scaleX(-1)`), stays inside the frame and still answers clicks; dragged back, it snaps to `width - 38 - 4`.
-- Strict CSP (`style-src 'self'`, no inline): the bubble is styled exactly as on a normal page (38 px, fixed, same fill and stroke), with 0 CSP violations, and the page translates.
+- Bubble (plan 1, since replaced by the side tab): at every width it snapped to the nearest edge, clamped to the bottom edge and flipped its tail.
+- Side tab (re-measured on 2026-10-23 on a local fixture): 24 x 36 px at rest and 32 x 36 px on hover, its right edge equal to `clientWidth` with or without a visible scrollbar; a drag moves it only vertically and clamps it to `height - 36 - 8`.
+- Strict CSP (`default-src 'self'; style-src 'self'; script-src 'self'`, re-measured on 2026-10-23 with the side tab on a local fixture): an inline style is blocked, yet the tab renders as on the same page without CSP (24 x 36 px, fixed, same fill, radius and shadow, 32 px on hover), with 0 CSP violations from the extension, and the page translates in 3.2 s.
 - Console: no error from the content script or the service worker. The host page logs 31 404s for fixture images and 8 CORS errors for docs.github.com fonts, which come from the saved fixture.
 
 ## Plan 3 verification
