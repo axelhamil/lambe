@@ -79,6 +79,10 @@ export function serveTranslatePort(
     }
   };
 
+  const learned = capacity.concurrency();
+
+  if (learned.isSome()) post({ type: "capacity", concurrency: learned.unwrap() });
+
   port.onDisconnect.addListener(() => {
     connected = false;
 
@@ -115,7 +119,7 @@ export function serveTranslatePort(
           type: "done",
           requestId,
           response,
-          concurrency: capacity.concurrency().unwrapOr(1),
+          concurrency: capacity.concurrency().toUndefined(),
         });
       });
   });

@@ -86,6 +86,8 @@ export const translateBatchResponseSchema = z.discriminatedUnion("ok", [
 
 export type TranslateBatchResponse = z.infer<typeof translateBatchResponseSchema>;
 
+const concurrencySchema = z.int().positive();
+
 export const workerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("outcome"),
@@ -96,8 +98,9 @@ export const workerMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("done"),
     requestId: requestIdSchema,
     response: translateBatchResponseSchema,
-    concurrency: z.int().positive(),
+    concurrency: concurrencySchema.optional(),
   }),
+  z.object({ type: z.literal("capacity"), concurrency: concurrencySchema }),
 ]);
 
 export type WorkerMessage = z.infer<typeof workerMessageSchema>;

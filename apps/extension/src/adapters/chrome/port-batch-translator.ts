@@ -93,6 +93,10 @@ export class PortBatchTranslator implements BatchTranslator, ProviderCapacity {
     return this.reportedConcurrency;
   }
 
+  public warmUp(): void {
+    this.connected();
+  }
+
   private connected(): Result<RuntimePort, ProviderError> {
     if (this.port !== undefined) return Result.ok(this.port);
 
@@ -145,6 +149,12 @@ export class PortBatchTranslator implements BatchTranslator, ProviderCapacity {
       return;
     }
 
+    if (parsed.data.type === "capacity") {
+      this.reportedConcurrency = Option.some(parsed.data.concurrency);
+
+      return;
+    }
+
     const { requestId } = parsed.data;
 
     if (parsed.data.type === "outcome") {
@@ -155,7 +165,7 @@ export class PortBatchTranslator implements BatchTranslator, ProviderCapacity {
 
     const { response, concurrency } = parsed.data;
 
-    this.reportedConcurrency = Option.some(concurrency);
+    this.reportedConcurrency = Option.fromNullable(concurrency);
     this.settle(
       requestId,
       response.ok ? Result.ok(response.outcomes) : Result.fail(response.error),

@@ -34,7 +34,12 @@ function connectWorker(): RuntimePort {
   return port;
 }
 
-async function buildPageService(): Promise<PageTranslationService> {
+interface ContentApp {
+  page: PageTranslationService;
+  translator: PortBatchTranslator;
+}
+
+async function buildApp(): Promise<ContentApp> {
   const config = await loadRuntimeConfig(chrome.storage.local, chrome.i18n.getUILanguage());
   const translator = new PortBatchTranslator(connectWorker);
   const service = new PageTranslationService({
@@ -52,7 +57,7 @@ async function buildPageService(): Promise<PageTranslationService> {
     if (state.kind === "error") console.warn(`Lambë: ${state.error.message}`);
   });
 
-  return service;
+  return { page: service, translator };
 }
 
 interface MountedBubble {
@@ -60,7 +65,7 @@ interface MountedBubble {
   unsubscribe(): void;
 }
 
-type PageAction = (page: PageTranslationService) => Promise<void>;
+type AppAction = (app: ContentApp) => Promise<void>;
 
 const ALL_FRAMES = import.meta.env.LAMBE_ALL_FRAMES === "1";
 
@@ -92,13 +97,27 @@ async function showBubble(
 }
 
 export function startContent(ctx: ContentScriptContext): void {
-  const service = buildPageService();
-  const run = (action: PageAction, failure: string): void => {
-    void service.then(action).catch((cause: unknown) => console.error(failure, cause));
+  const app = buildApp();
+  const run = (action: AppAction, failure: string): void => {
+    void app.then(action).catch((cause: unknown) => console.error(failure, cause));
   };
-  const toggle = () => run((page) => page.toggle(), "Lambë could not toggle the page.");
+  const translating =
+    (action: (page: PageTranslationService) => Promise<void>): AppAction =>
+    ({ page, translator }) => {
+      translator.warmUp();
+
+      return action(page);
+    };
+  const toggle = () =>
+    run(
+      translating((page) => page.toggle()),
+      "Lambë could not toggle the page.",
+    );
   const retranslate = () =>
-    run((page) => page.retranslate(), "Lambë could not translate the page again.");
+    run(
+      translating((page) => page.retranslate()),
+      "Lambë could not translate the page again.",
+    );
 
   chrome.runtime.onMessage.addListener((message) => {
     if (!toggleMessageSchema.safeParse(message).success) return false;
@@ -111,7 +130,7 @@ export function startContent(ctx: ContentScriptContext): void {
   if (!hostsBubble({ isTop: window.top === window.self, allFrames: ALL_FRAMES })) return;
 
   run(
-    (page) => showBubble(ctx, page, { onSingle: toggle, onDouble: retranslate }),
+    ({ page }) => showBubble(ctx, page, { onSingle: toggle, onDouble: retranslate }),
     "Lambë could not show its bubble.",
   );
 }

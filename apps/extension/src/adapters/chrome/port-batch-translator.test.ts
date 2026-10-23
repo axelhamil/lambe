@@ -101,6 +101,31 @@ describe("PortBatchTranslator", () => {
     expect(translator.concurrency().unwrap()).toBe(3);
   });
 
+  test("concurrency_learned_by_the_worker_is_known_as_soon_as_the_port_opens", () => {
+    const { ports, connect, translator } = setup();
+    const [first] = ports;
+
+    translator.warmUp();
+    first?.deliver({ type: "capacity", concurrency: 1 });
+    const known = translator.concurrency();
+    translator.warmUp();
+
+    expect(known.unwrap()).toBe(1);
+    expect(connect).toHaveBeenCalledTimes(1);
+  });
+
+  test("done_message_without_concurrency_is_accepted_and_leaves_it_unknown", async () => {
+    const { ports, translator } = setup();
+    const [first] = ports;
+
+    const pending = translator.translate(request);
+    first?.deliver({ type: "done", requestId: "1", response: { ok: true, outcomes: [] } });
+    const result = await pending;
+
+    expect(result.getValue()).toEqual([]);
+    expect(translator.concurrency().isNone()).toBe(true);
+  });
+
   test("error_and_malformed_done_messages_map_to_failures", async () => {
     const { ports, translator } = setup();
     const [first] = ports;

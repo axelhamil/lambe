@@ -84,6 +84,7 @@ describe("respondToTranslateBatch", () => {
     expect(abortedByCancel).toEqual([true, false]);
     expect(signals.map((signal) => signal.aborted)).toEqual([true, true]);
     expect(posted()).toEqual([
+      { type: "capacity", concurrency: 2 },
       { type: "outcome", requestId: "1", outcome: expect.objectContaining({ markup: "Bon" }) },
       { type: "outcome", requestId: "2", outcome: expect.objectContaining({ markup: "Bon" }) },
       {
@@ -92,6 +93,26 @@ describe("respondToTranslateBatch", () => {
         response: { ok: false, error: expect.objectContaining({ code: "REQUEST_CANCELLED" }) },
         concurrency: 2,
       },
+    ]);
+  });
+
+  test("worker_tells_a_new_page_the_concurrency_it_learned_and_nothing_before_learning", async () => {
+    const translate = mock(
+      async (): Promise<Result<SegmentOutcome[], ProviderError>> => Result.ok([]),
+    );
+    const respond = (body: unknown, options: BatchTranslateOptions) =>
+      respondToTranslateBatch(body, { translate }, options);
+    const learned = fakeRuntimePort();
+    const fresh = fakeRuntimePort();
+
+    serveTranslatePort(learned.port, respond, { concurrency: () => Option.some(1) });
+    serveTranslatePort(fresh.port, respond, { concurrency: () => Option.none() });
+    fresh.deliver({ type: "translate", requestId: "1", payload });
+    await tick();
+
+    expect(learned.posted()).toEqual([{ type: "capacity", concurrency: 1 }]);
+    expect(fresh.posted()).toEqual([
+      { type: "done", requestId: "1", response: { ok: true, outcomes: [] } },
     ]);
   });
 });
