@@ -9,6 +9,7 @@
   --lambe-caption-width: 80%;
   --lambe-caption-bottom: 2%;
   --lambe-caption-bottom-controls: 64px;
+  --lambe-caption-controls-gap: 8px;
   --lambe-caption-layer: 40;
   --lambe-caption-glide: 0.2s ease;
 
@@ -41,7 +42,10 @@
 }
 
 :host([data-controls="shown"]) .captions {
-  bottom: var(--lambe-caption-bottom-controls);
+  bottom: max(
+    var(--lambe-caption-bottom-controls),
+    calc(var(--lambe-controls-lift, 0px) + var(--lambe-caption-controls-gap))
+  );
 }
 
 .line {

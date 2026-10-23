@@ -15,6 +15,21 @@ interface Binding {
 const HOST_TAG = "lambe-captions";
 const PLAY_EVENTS = ["play", "playing"];
 const STILL_EVENTS = ["pause", "seeked"];
+const CONTROL_BARS = [
+  YOUTUBE_SELECTORS.chromeBottom,
+  YOUTUBE_SELECTORS.fullscreenQuickActions,
+].join(", ");
+const LIFT_PROPERTY = "--lambe-controls-lift";
+
+function controlsLift(player: Element): number {
+  const bottom = player.getBoundingClientRect().bottom;
+  const tops = [...player.querySelectorAll(CONTROL_BARS)]
+    .map((bar) => bar.getBoundingClientRect())
+    .filter((rect) => rect.height > 0)
+    .map((rect) => rect.top);
+
+  return tops.length === 0 ? 0 : Math.max(0, Math.round(bottom - Math.min(...tops)));
+}
 
 export function mountCaptionOverlay(doc: Document): CaptionOverlay {
   const host = doc.createElement(HOST_TAG);
@@ -46,6 +61,7 @@ export function mountCaptionOverlay(doc: Document): CaptionOverlay {
     const autohide = player.classList.contains(YOUTUBE_SELECTORS.autohideClass);
 
     host.setAttribute("data-controls", autohide ? "hidden" : "shown");
+    host.style.setProperty(LIFT_PROPERTY, `${controlsLift(player)}px`);
     host.toggleAttribute("data-ad", player.classList.contains(YOUTUBE_SELECTORS.adShowingClass));
   };
 
@@ -72,16 +88,19 @@ export function mountCaptionOverlay(doc: Document): CaptionOverlay {
       mirror(player);
       attach(player);
     });
+    const resizes = new ResizeObserver(() => mirror(player));
 
     for (const type of PLAY_EVENTS) player.addEventListener(type, startLoop, options);
     for (const type of STILL_EVENTS) player.addEventListener(type, render, options);
 
     observer.observe(player, { attributes: true, attributeFilter: ["class"], childList: true });
+    resizes.observe(player);
     binding = {
       player,
       release() {
         listeners.abort();
         observer.disconnect();
+        resizes.disconnect();
       },
     };
     attach(player);

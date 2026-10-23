@@ -38,8 +38,20 @@ function video(): HTMLVideoElement {
   return found;
 }
 
+function placeAt(target: Element, top: number, height: number): void {
+  Object.defineProperty(target, "getBoundingClientRect", {
+    value: () => new DOMRect(0, top, 800, height),
+  });
+}
+
 function host(): Element {
   return element("lambe-captions");
+}
+
+function controlsLift(): string {
+  const found = host();
+
+  return found instanceof HTMLElement ? found.style.getPropertyValue("--lambe-controls-lift") : "";
 }
 
 function shownText(): string[] {
@@ -98,6 +110,29 @@ describe("caption overlay", () => {
     await flushMutations();
 
     expect(host().getAttribute("data-controls")).toBe("shown");
+
+    overlay.destroy();
+  });
+
+  test("overlay_clears_the_fullscreen_quick_actions", async () => {
+    const player = element(YOUTUBE_SELECTORS.player);
+    const quickActions = document.createElement("div");
+
+    quickActions.className = "ytp-fullscreen-quick-actions";
+    player.append(quickActions);
+    placeAt(player, 0, 544);
+    placeAt(element(".ytp-chrome-bottom"), 485, 59);
+    placeAt(quickActions, 424, 40);
+
+    const overlay = mountCaptionOverlay(document);
+
+    player.classList.remove(YOUTUBE_SELECTORS.autohideClass);
+    await flushMutations();
+
+    expect(controlsLift()).toBe("120px");
+    expect(host().shadowRoot?.querySelector("style")?.textContent).toMatch(
+      /:host\(\[data-controls="shown"\]\) \.captions \{\s*bottom: max\([^;]*var\(--lambe-controls-lift, 0px\)/,
+    );
 
     overlay.destroy();
   });

@@ -3,6 +3,8 @@ export const YOUTUBE_SELECTORS = {
   video: "video.html5-main-video",
   rightControls: ".ytp-right-controls",
   subtitlesButton: ".ytp-subtitles-button",
+  chromeBottom: ".ytp-chrome-bottom",
+  fullscreenQuickActions: ".ytp-fullscreen-quick-actions",
   captionContainer: ".ytp-caption-window-container",
   metadata: "ytd-watch-metadata",
   metadataVideoAttribute: "video-id",
