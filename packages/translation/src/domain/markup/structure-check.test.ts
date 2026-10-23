@@ -46,6 +46,31 @@ describe("settleAgainstSource", () => {
     expect(toMarkup(repaired.getValue())).toBe(expected);
   });
 
+  test.each([
+    [
+      "Los Angeles (<g3>L.A.</g3>)<x4/> is the largest city.",
+      "Los Angeles (<g3>L.A.</g3>) est la plus grande ville de l'État.",
+      "Los Angeles (<g3>L.A.</g3>)<x4/> est la plus grande ville de l'État.",
+    ],
+    [
+      "See <g1>the guide</g1><x1/> for more details about it.",
+      "Voir <g1>le guide</g1> pour plus de détails sur ce sujet très vaste.",
+      "Voir <g1>le guide</g1><x1/> pour plus de détails sur ce sujet très vaste.",
+    ],
+    [
+      "Los Angeles (<g3>L.A.</g3>)<x4/> is the most populous city in California.",
+      "Los Angeles, <g3>L.A.</g3>, est la ville la plus peuplée de Californie.",
+      "Los Angeles, <g3>L.A.</g3><x4/>, est la ville la plus peuplée de Californie.",
+    ],
+  ])("reinserts_a_dropped_atom_after_the_group_it_follows %#", (from, answer, expected) => {
+    const repaired = settleAgainstSource(
+      parseMarkup(from).getValue(),
+      parseMarkup(answer).getValue(),
+    );
+
+    expect(toMarkup(repaired.getValue())).toBe(expected);
+  });
+
   test("rejects_a_dropped_atom_whose_group_is_lost", () => {
     const twoGroups = parseMarkup("<g1>a <x1/></g1> <g2>b</g2> <g3>c</g3>").getValue();
     const answer = parseMarkup("a <g2>b</g2> <g3>c</g3>").getValue();

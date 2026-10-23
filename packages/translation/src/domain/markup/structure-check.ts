@@ -1,7 +1,7 @@
 import { Result } from "@lambe/kernel/result";
 import { letterCount } from "../block/block-translation";
 import { appendNode, type InlineNode } from "../block/inline-node";
-import { reinsertAtom, relativeAtomPosition } from "./atom-reinsertion";
+import { restoreAtom } from "./atom-reinsertion";
 import { type MarkupError, markupError } from "./markup";
 
 const ROOT = "root";
@@ -144,9 +144,7 @@ function reinsertLostAtoms(
     if (parent !== ROOT && !settling.kept.has(parent))
       return Result.fail(markupError("PLACEHOLDER_LOST", `${id} is missing.`));
 
-    const position = relativeAtomPosition(siblings, key);
-
-    repaired = withChildren(repaired, parent, (children) => reinsertAtom(children, key, position));
+    repaired = withChildren(repaired, parent, (children) => restoreAtom(siblings, key, children));
   }
 
   return Result.ok(repaired);
