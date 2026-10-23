@@ -1,20 +1,25 @@
 import { Result } from "@lambe/kernel/result";
 import { z } from "zod";
+import type { ModelCatalog } from "../../application/ports/model-catalog";
 import type {
   ChatOptions,
   GenerationStats,
   TranslationProvider,
 } from "../../application/ports/translation-provider";
 import type { ChatMessage } from "../../domain/prompt/prompt-adapter";
+import { type ProviderError, providerError } from "../../domain/provider/provider-error";
 import {
-  type ProviderError,
-  providerError,
-  requestCancelled,
-} from "../../domain/provider/provider-error";
+  type ChatResult,
+  type FetchFn,
+  fetchJson,
+  jsonOf,
+  type LineDecoder,
+  type ProviderFailures,
+  type StreamListeners,
+  streamChat,
+} from "./stream-support";
 
 export const KEEP_ALIVE_MS = 10 * 60_000;
-
-export type FetchFn = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 export interface OllamaConfig {
   baseUrl: string;
@@ -23,8 +28,6 @@ export interface OllamaConfig {
   timeoutMs: number;
   forbiddenHint: string;
 }
-
-type ChatResult = Result<string, ProviderError>;
 
 const counter = z.number().nonnegative().default(0);
 
@@ -41,6 +44,8 @@ const chatChunkSchema = z.union([
     total_duration: counter,
   }),
 ]);
+
+const tagsSchema = z.object({ models: z.array(z.object({ name: z.string() })) });
 
 type ChatChunk = z.infer<typeof chatChunkSchema>;
 
@@ -61,49 +66,6 @@ function statsOf(chunk: ContentChunk): GenerationStats {
   };
 }
 
-interface StreamListeners {
-  onText: (delta: string) => void;
-  onStats: (stats: GenerationStats) => void;
-}
-
-interface IdleTimer {
-  reset(): void;
-  clear(): void;
-}
-
-function idleTimer(timeoutMs: number, onIdle: () => void): IdleTimer {
-  let timer = setTimeout(onIdle, timeoutMs);
-
-  return {
-    reset() {
-      clearTimeout(timer);
-      timer = setTimeout(onIdle, timeoutMs);
-    },
-    clear() {
-      clearTimeout(timer);
-    },
-  };
-}
-
-function abortable<T>(pending: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) return Promise.reject(signal.reason);
-
-  return new Promise((resolve, reject) => {
-    const onAbort = () => reject(signal.reason);
-
-    signal.addEventListener("abort", onAbort, { once: true });
-    pending.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
-  });
-}
-
-function jsonOf(line: string): unknown {
-  try {
-    return JSON.parse(line);
-  } catch {
-    return undefined;
-  }
-}
-
 function parseChunk(line: string): Result<ChatChunk, ProviderError> {
   const parsed = chatChunkSchema.safeParse(jsonOf(line));
 
@@ -114,7 +76,7 @@ function parseChunk(line: string): Result<ChatChunk, ProviderError> {
   );
 }
 
-class ChunkAccumulator {
+class ChunkAccumulator implements LineDecoder {
   private content = "";
   private finished = false;
 
@@ -164,70 +126,61 @@ class ChunkAccumulator {
   }
 }
 
-const errorNameSchema = z.object({ name: z.enum(["AbortError", "TimeoutError"]) });
+function ollamaFailures({
+  baseUrl,
+  model,
+  timeoutMs,
+  forbiddenHint,
+}: OllamaConfig): ProviderFailures {
+  return {
+    name: "Ollama",
+    refused(status) {
+      if (status !== 403) return undefined;
 
-const isAbort = (error: unknown): boolean => errorNameSchema.safeParse(error).success;
+      return providerError(
+        "PROVIDER_FORBIDDEN_ORIGIN",
+        `Ollama refused the origin ${forbiddenHint}. Run "sudo systemctl edit ollama", add Environment="OLLAMA_ORIGINS=${forbiddenHint}" under [Service], then run "sudo systemctl restart ollama".`,
+        { origin: forbiddenHint },
+      );
+    },
+    modelMissing() {
+      return providerError(
+        "PROVIDER_MODEL_MISSING",
+        `Model ${model} is not installed. Run "ollama pull ${model}".`,
+        { model },
+      );
+    },
+    unreachable(reason) {
+      return providerError(
+        "PROVIDER_UNREACHABLE",
+        `Ollama is not reachable at ${baseUrl}. Start it with "ollama serve" or "sudo systemctl start ollama". (${reason})`,
+        { baseUrl },
+      );
+    },
+    timeout() {
+      return providerError("PROVIDER_TIMEOUT", `Ollama did not answer within ${timeoutMs} ms.`, {
+        timeoutMs: String(timeoutMs),
+      });
+    },
+  };
+}
 
-const reasonOf = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
-
-export class OllamaProvider implements TranslationProvider {
+export class OllamaProvider implements TranslationProvider, ModelCatalog {
   public readonly id = "ollama";
   public readonly model: string;
+  private readonly failures: ProviderFailures;
 
   public constructor(private readonly config: OllamaConfig) {
     this.model = config.model;
+    this.failures = ollamaFailures(config);
   }
 
-  public async chat(messages: ChatMessage[], options: ChatOptions): Promise<ChatResult> {
-    const { signal } = options;
-
-    if (signal?.aborted) return Result.fail(requestCancelled());
-
-    const controller = new AbortController();
-    const idle = idleTimer(this.config.timeoutMs, () => controller.abort());
-    const cancel = () => controller.abort();
-
-    signal?.addEventListener("abort", cancel, { once: true });
-
-    try {
-      const result = await this.exchange(messages, options, idle, controller.signal);
-
-      if (result.isFailure && signal?.aborted) return Result.fail(requestCancelled());
-
-      return result;
-    } finally {
-      idle.clear();
-      signal?.removeEventListener("abort", cancel);
-    }
-  }
-
-  private async exchange(
+  public chat(
     messages: ChatMessage[],
-    options: ChatOptions,
-    idle: IdleTimer,
-    signal: AbortSignal,
+    { contextTokens, maxOutputTokens, onText, onStats, signal }: ChatOptions,
   ): Promise<ChatResult> {
-    const sent = await this.send(messages, options, signal);
-
-    if (sent.isFailure) return Result.fail(sent.getError());
-
-    idle.reset();
-
-    return this.read(sent.getValue(), idle, signal, {
-      onText: options.onText ?? (() => undefined),
-      onStats: options.onStats ?? (() => undefined),
-    });
-  }
-
-  private async send(
-    messages: ChatMessage[],
-    { contextTokens, maxOutputTokens }: ChatOptions,
-    signal: AbortSignal,
-  ): Promise<Result<Response, ProviderError>> {
-    const { baseUrl, model, fetch } = this.config;
     const body = {
-      model,
+      model: this.model,
       messages,
       stream: true,
       keep_alive: `${KEEP_ALIVE_MS / 60_000}m`,
@@ -238,123 +191,39 @@ export class OllamaProvider implements TranslationProvider {
       },
     };
 
-    try {
-      const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/chat`, {
+    return streamChat({
+      ...this.request("/api/chat", signal),
+      init: {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
-        signal,
-      });
-
-      return Result.ok(response);
-    } catch (error) {
-      return Result.fail(this.transportError(error));
-    }
+      },
+      decoder: new ChunkAccumulator({
+        onText: onText ?? (() => undefined),
+        onStats: onStats ?? (() => undefined),
+      }),
+    });
   }
 
-  private async read(
-    response: Response,
-    idle: IdleTimer,
-    signal: AbortSignal,
-    listeners: StreamListeners,
-  ): Promise<ChatResult> {
-    const statusError = this.statusError(response.status);
+  public async listModels(signal?: AbortSignal): Promise<Result<string[], ProviderError>> {
+    const tags = await fetchJson({
+      ...this.request("/api/tags", signal),
+      init: { method: "GET" },
+      schema: tagsSchema,
+    });
 
-    if (statusError) return Result.fail(statusError);
-
-    if (response.body === null) {
-      return Result.fail(providerError("PROVIDER_BAD_RESPONSE", "Ollama sent an empty body."));
-    }
-
-    const reader = response.body.getReader();
-
-    try {
-      const streamed = await this.accumulate(reader, idle, signal, listeners);
-
-      if (!streamed.done) void reader.cancel().catch(() => undefined);
-
-      return streamed.result;
-    } catch (error) {
-      void reader.cancel().catch(() => undefined);
-
-      if (isAbort(error)) return Result.fail(this.timeoutError());
-
-      return Result.fail(
-        providerError(
-          "PROVIDER_BAD_RESPONSE",
-          `Ollama sent an unreadable body: ${reasonOf(error)}`,
-        ),
-      );
-    }
+    return tags.map(({ models }) => models.map(({ name }) => name));
   }
 
-  private async accumulate(
-    reader: ReadableStreamDefaultReader<Uint8Array>,
-    idle: IdleTimer,
-    signal: AbortSignal,
-    listeners: StreamListeners,
-  ): Promise<{ result: ChatResult; done: boolean }> {
-    const decoder = new TextDecoder();
-    const chunks = new ChunkAccumulator(listeners);
-    let buffer = "";
+  private request(path: string, signal: AbortSignal | undefined) {
+    const { baseUrl, fetch, timeoutMs } = this.config;
 
-    for (;;) {
-      const { done, value } = await abortable(reader.read(), signal);
-
-      idle.reset();
-      buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
-
-      const lines = buffer.split("\n");
-
-      buffer = done ? "" : (lines.pop() ?? "");
-
-      for (const line of lines) {
-        const pushed = chunks.push(line);
-
-        if (pushed.isFailure) return { result: Result.fail(pushed.getError()), done };
-      }
-
-      if (chunks.isDone() || done) return { result: chunks.result(), done };
-    }
-  }
-
-  private statusError(status: number): ProviderError | undefined {
-    const { forbiddenHint, model } = this.config;
-
-    if (status === 403) {
-      return providerError(
-        "PROVIDER_FORBIDDEN_ORIGIN",
-        `Ollama refused the origin ${forbiddenHint}. Run "sudo systemctl edit ollama", add Environment="OLLAMA_ORIGINS=${forbiddenHint}" under [Service], then run "sudo systemctl restart ollama".`,
-      );
-    }
-
-    if (status === 404) {
-      return providerError(
-        "PROVIDER_MODEL_MISSING",
-        `Model ${model} is not installed. Run "ollama pull ${model}".`,
-      );
-    }
-
-    if (status < 200 || status >= 300) {
-      return providerError("PROVIDER_BAD_RESPONSE", `Ollama answered with HTTP ${status}.`);
-    }
-
-    return undefined;
-  }
-
-  private transportError(error: unknown): ProviderError {
-    if (isAbort(error)) return this.timeoutError();
-
-    return providerError(
-      "PROVIDER_UNREACHABLE",
-      `Ollama is not reachable at ${this.config.baseUrl}. Start it with "ollama serve" or "sudo systemctl start ollama". (${reasonOf(error)})`,
-    );
-  }
-
-  private timeoutError(): ProviderError {
-    return providerError(
-      "PROVIDER_TIMEOUT",
-      `Ollama did not answer within ${this.config.timeoutMs} ms.`,
-    );
+    return {
+      fetch,
+      url: `${baseUrl.replace(/\/+$/, "")}${path}`,
+      timeoutMs,
+      signal,
+      failures: this.failures,
+    };
   }
 }

@@ -1,7 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { GenerationStats } from "../../application/ports/translation-provider";
 import type { ChatMessage } from "../../domain/prompt/prompt-adapter";
-import { type FetchFn, OllamaProvider } from "./ollama-provider";
+import { OllamaProvider } from "./ollama-provider";
+import type { FetchFn } from "./stream-support";
 
 const ORIGIN = "chrome-extension://abcdefghijklmnop";
 
@@ -108,6 +109,23 @@ describe("OllamaProvider", () => {
     expect(error.code).toBe("PROVIDER_FORBIDDEN_ORIGIN");
     expect(error.message).toContain(`OLLAMA_ORIGINS=${ORIGIN}`);
     expect(error.message).toContain("systemctl edit ollama");
+  });
+
+  test("forbidden_error_carries_origin_param", async () => {
+    const error = await errorOf(fetchReturning(() => new Response("", { status: 403 })));
+
+    expect(error.params).toEqual({ origin: ORIGIN });
+  });
+
+  test("lists_models_from_api_tags", async () => {
+    const fetch = fetchReturning(() =>
+      json({ models: [{ name: "translategemma:12b" }, { name: "gemma3:4b" }] }),
+    );
+
+    const models = await providerWith(fetch).listModels();
+
+    expect(String(fetch.mock.calls[0]?.[0])).toBe("http://localhost:11434/api/tags");
+    expect(models.getValue()).toEqual(["translategemma:12b", "gemma3:4b"]);
   });
 
   test("maps_connection_refused_to_PROVIDER_UNREACHABLE", async () => {
