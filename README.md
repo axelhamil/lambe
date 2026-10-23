@@ -4,7 +4,7 @@
 
 A Chrome extension that translates web pages and YouTube captions in place with the model you choose: Ollama on your computer by default, or any OpenAI-compatible server. It keeps code untouched and domain jargon as professionals write it, and toggles back to the original instantly.
 
-Lambë is Quenya for "tongue, language"; the bubble glyph is the tengwa of the same name.
+Lambë is Quenya for "tongue, language"; the glyph on the side tab is the tengwa of the same name.
 
 ## Requirements
 
@@ -24,16 +24,16 @@ Load it: open `chrome://extensions`, enable Developer mode, click **Load unpacke
 
 ## First run
 
-The settings page opens on install with a welcome screen. It says what leaves the browser (the text of the pages you translate and the captions you translate, sent only to the provider you configure) and asks for your consent. Until you agree, Lambë sends nothing: the toolbar icon, `Alt+L` and the bubble open the settings instead. You can withdraw consent at any time in **Privacy and about**.
+The settings page opens on install with a welcome screen. It says what leaves the browser (the text of the pages you translate and the captions you translate, sent only to the provider you configure) and asks for your consent. Until you agree, Lambë sends nothing: the toolbar icon, `Alt+L` and the side tab open the settings instead. You can withdraw consent at any time in **Privacy and about**.
 
 ## Use
 
 - Toolbar icon or `Alt+L`: translate the current page, then toggle between the translation and the original.
-- Click the bubble: translate the visible part of the page, then what you scroll to.
+- Click the side tab: translate the visible part of the page, then what you scroll to.
 - Click again: back to the original, from memory, no request. Once more: translated again, no request.
 - Double click: translate again, bypassing the cache and overwriting it.
-- Drag the bubble: it snaps to the nearest edge and its tail flips.
-- Right click the bubble: translate into another language for this page, translate this site automatically, hide the bubble on this site, or open the settings.
+- Drag the side tab up or down: it stays docked on the right edge, inside the window, where you left it.
+- Right click the side tab, or press the context menu key on it: translate into another language for this page, translate this site automatically, hide the side tab on this site, or open the settings.
 
 ## Settings
 
@@ -41,7 +41,7 @@ The settings page opens on install with a welcome screen. It says what leaves th
 | --- | --- |
 | Provider | Ollama or OpenAI-compatible, base URL, model (picked from the server's list), API key for OpenAI-compatible, and a connection test that explains each failure |
 | Translation | The target language, by default the browser language |
-| Sites | Show the bubble on every site, and per site rules: translate automatically, hide the bubble |
+| Sites | Show the side tab on every site, and per site rules: translate automatically, hide the side tab |
 | YouTube | Translated captions in the player |
 | Prompt | The guidelines the model follows; editing them starts a fresh cache for that text, reset restores the default |
 | Cache | Size of the translations kept on the device, and a clear button |
@@ -66,9 +66,9 @@ Lambë asks for the least it needs and requests the rest when you turn on a feat
 | `storage`, `unlimitedStorage` | Settings, the optional API key and the translation cache, on the device only |
 | `activeTab`, `scripting` | Inject the page script into the current tab when you click the toolbar icon or press `Alt+L` |
 | `http://localhost/*`, `http://127.0.0.1/*` | Reach Ollama on your computer, on any port |
-| `https://*/*`, `http://*/*` (optional) | Requested at click time for what you choose: the bubble on every site, a site translated automatically, YouTube captions, a remote provider |
+| `https://*/*`, `http://*/*` (optional) | Requested at click time for what you choose: the side tab on every site, a site translated automatically, YouTube captions, a remote provider |
 
-The manifest declares no content script. The bubble on every site, automatic translation of a site and YouTube captions register their scripts at runtime once you grant the origin. Revoking an origin in `chrome://extensions` removes its scripts and turns the setting off.
+The manifest declares no content script. The side tab on every site, automatic translation of a site and YouTube captions register their scripts at runtime once you grant the origin. Revoking an origin in `chrome://extensions` removes its scripts and turns the setting off.
 
 ## Languages
 
@@ -86,7 +86,7 @@ The private key is never committed. The store build has no `key`: the Chrome Web
 
 ## Allow the extension in Ollama
 
-Ollama answers 403 to origins it does not know. The bubble then turns red, and the connection test in the settings shows the fix for Linux, macOS and Windows with the id of the running extension. On Linux, run `sudo systemctl edit ollama`, then add:
+Ollama answers 403 to origins it does not know. The side tab then turns grey, and the connection test in the settings shows the fix for Linux, macOS and Windows with the id of the running extension. On Linux, run `sudo systemctl edit ollama`, then add:
 
 ```ini
 [Service]
@@ -155,14 +155,14 @@ Measured on 2026-10-18 in headless Brave over CDP, `translategemma:12b` on local
 | Requests after 3 screens of scroll | 15 | 16 | 21 |
 | Blocks translated after 3 screens | 40 of 253 | 55 of 253 | 91 of 253 |
 
-- Error path: against a server answering 403, the bubble shows the error state, the tooltip holds `OLLAMA_ORIGINS=chrome-extension://dccgcoohbalgmgkflpndagoallbcgnch`, the page is untouched and exactly 1 request is sent; the count is still 1 after 18 s.
+- Error path: against a server answering 403, the side tab shows the error state, the tooltip holds `OLLAMA_ORIGINS=chrome-extension://dccgcoohbalgmgkflpndagoallbcgnch`, the page is untouched and exactly 1 request is sent; the count is still 1 after 18 s.
 - Code: the 36 `pre`, `code` and `kbd` elements are byte for byte identical after translation in every frame.
 - Jargon: `fourchette` appears 0 times. `fork` survives in 16 of 17, 16 of 21 and 24 of 26 translated blocks that contain it; the other blocks say "copie". `pull request` survives in 1 of 6 blocks; the others say "demande de fusion" or "demande de tirage". A glossary is planned for Plan 2.
 - Toggle (1440 px frame): the original comes back with `documentElement.outerHTML` identical to the capture taken before translating, with 0 requests, in 1 DOM batch of under 1 ms. The first DOM change lands 0.4 ms after the pointer up: a single click acts at once, and a second click within 250 ms turns it into a double click. Toggling again restores the translated page identically, also with 0 requests.
 - Revisit (1440 px frame): with headings that end in an empty anchor now cached, the first screen takes 10 requests instead of 14. The next visit sends 1 request, for a navigation item the first visit never reached, and the one after sends 0.
 - Double click (1440 px frame): 10 new requests; 54 cache entries are overwritten and the page never shows the stale values planted in them.
-- Bubble: at every width, dragged to the opposite edge it snaps to `left: 4px`, clamps to the bottom edge (`top = height - 38 - 6`), flips its tail (`scaleX(-1)`), stays inside the frame and still answers clicks; dragged back, it snaps to `width - 38 - 4`.
-- Strict CSP (`style-src 'self'`, no inline): the bubble is styled exactly as on a normal page (38 px, fixed, same fill and stroke), with 0 CSP violations, and the page translates.
+- Side tab (re-measured on 2026-10-23 on a local fixture): 24 x 36 px at rest and 32 x 36 px on hover, its right edge equal to `clientWidth` with or without a visible scrollbar; a drag moves it only vertically and clamps it to `height - 36 - 8`.
+- Strict CSP (`style-src 'self'`, no inline): the former 38 px bubble was styled exactly as on a normal page (fixed, same fill and stroke), with 0 CSP violations, and the page translates.
 - Console: no error from the content script or the service worker. The host page logs 31 404s for fixture images and 8 CORS errors for docs.github.com fonts, which come from the saved fixture.
 
 ## Plan 3 verification

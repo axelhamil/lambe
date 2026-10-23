@@ -19,8 +19,8 @@ Lambë uses the model you choose. Out of the box it talks to Ollama on your own 
 What it does:
 
 - Translates the visible part of the page first, then what you scroll to.
-- Toggles between the translation and the original with a click on the bubble, the toolbar icon or Alt+L, with no new request.
-- Double click on the bubble translates again and refreshes the cache.
+- Toggles between the translation and the original with a click on the side tab, the toolbar icon or Alt+L, with no new request.
+- Double click on the side tab translates again and refreshes the cache.
 - Translates YouTube captions in the player, a few sentences ahead of the playhead, styled like the native captions.
 - Keeps translations on your device so pages you revisit open at once.
 
@@ -28,7 +28,7 @@ Settings:
 
 - Provider: Ollama or an OpenAI-compatible server, model picker and a connection test.
 - Translation: the language you read in.
-- Sites: show the bubble on every site, or translate some sites automatically and hide the bubble on others.
+- Sites: show the side tab on every site, or translate some sites automatically and hide the side tab on others.
 - YouTube: turn translated captions on or off.
 - Prompt: edit the guidelines the model follows.
 - Cache: see its size and clear it.
@@ -67,7 +67,7 @@ When the user clicks the toolbar icon or presses Alt+L, gives temporary access t
 
 ### `scripting`
 
-Injects the translation script into the current tab after that click, and registers it on the sites the user explicitly allowed (bubble on every site, automatic translation of a site, YouTube captions).
+Injects the translation script into the current tab after that click, and registers it on the sites the user explicitly allowed (side tab on every site, automatic translation of a site, YouTube captions).
 
 ### `http://localhost/*`
 
@@ -79,7 +79,7 @@ Same as localhost, for users whose Ollama address is written as 127.0.0.1.
 
 ### `https://*/*`
 
-Optional, requested at click time only. Granted origins are the sites the user chooses in the settings (bubble everywhere, a site translated automatically, YouTube) and the address of a remote OpenAI-compatible provider the user enters. Nothing is requested at install.
+Optional, requested at click time only. Granted origins are the sites the user chooses in the settings (side tab everywhere, a site translated automatically, YouTube) and the address of a remote OpenAI-compatible provider the user enters. Nothing is requested at install.
 
 ### `http://*/*`
 

@@ -19,8 +19,8 @@ Lambë utilise le modèle de votre choix. Par défaut, il s'adresse à Ollama su
 Ce qu'il fait :
 
 - Traduit d'abord la partie visible de la page, puis ce que vous faites défiler.
-- Bascule entre la traduction et l'original d'un clic sur la bulle, sur l'icône de la barre d'outils ou avec Alt+L, sans nouvelle requête.
-- Un double clic sur la bulle relance la traduction et rafraîchit le cache.
+- Bascule entre la traduction et l'original d'un clic sur la languette, sur l'icône de la barre d'outils ou avec Alt+L, sans nouvelle requête.
+- Un double clic sur la languette relance la traduction et rafraîchit le cache.
 - Traduit les sous-titres YouTube dans le lecteur, quelques phrases avant la tête de lecture, avec le style des sous-titres natifs.
 - Garde les traductions sur votre appareil : les pages déjà vues s'ouvrent aussitôt.
 
@@ -28,7 +28,7 @@ Réglages :
 
 - Fournisseur : Ollama ou un serveur compatible OpenAI, choix du modèle et test de connexion.
 - Traduction : la langue dans laquelle vous lisez.
-- Sites : afficher la bulle sur tous les sites, traduire certains sites automatiquement et masquer la bulle sur d'autres.
+- Sites : afficher la languette sur tous les sites, traduire certains sites automatiquement et masquer la languette sur d'autres.
 - YouTube : activer ou couper les sous-titres traduits.
 - Prompt : modifier les consignes que suit le modèle.
 - Cache : voir sa taille et le vider.
@@ -67,7 +67,7 @@ Quand l'utilisateur clique sur l'icône de la barre d'outils ou appuie sur Alt+L
 
 ### `scripting`
 
-Injecte le script de traduction dans l'onglet courant après ce clic, et l'enregistre sur les sites que l'utilisateur a explicitement autorisés (bulle sur tous les sites, traduction automatique d'un site, sous-titres YouTube).
+Injecte le script de traduction dans l'onglet courant après ce clic, et l'enregistre sur les sites que l'utilisateur a explicitement autorisés (languette sur tous les sites, traduction automatique d'un site, sous-titres YouTube).
 
 ### `http://localhost/*`
 
@@ -79,7 +79,7 @@ Comme localhost, pour les utilisateurs dont l'adresse d'Ollama s'écrit 127.0.0.
 
 ### `https://*/*`
 
-Facultative, demandée uniquement au moment du clic. Les origines accordées sont les sites que l'utilisateur choisit dans les réglages (bulle partout, site traduit automatiquement, YouTube) et l'adresse d'un fournisseur distant compatible OpenAI qu'il saisit. Rien n'est demandé à l'installation.
+Facultative, demandée uniquement au moment du clic. Les origines accordées sont les sites que l'utilisateur choisit dans les réglages (languette partout, site traduit automatiquement, YouTube) et l'adresse d'un fournisseur distant compatible OpenAI qu'il saisit. Rien n'est demandé à l'installation.
 
 ### `http://*/*`
 

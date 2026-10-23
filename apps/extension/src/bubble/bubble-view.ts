@@ -3,7 +3,7 @@ import glyphSvg from "../../../../assets/tengwa-lambe.svg?raw";
 import type { UiText } from "../i18n/ui-text";
 import { type BubbleClass, bubbleStateOf } from "./bubble-state";
 import { type ClickHandlers, createClickClassifier, type Scheduler } from "./click-classifier";
-import { clampTop, restingLeft, type Side, snapSide } from "./placement";
+import { clampTop } from "./placement";
 
 export interface BubbleHandlers extends ClickHandlers {
   onMenu(anchor: DOMRect): void;
@@ -17,7 +17,6 @@ export interface Bubble {
 interface Drag {
   startX: number;
   startY: number;
-  originLeft: number;
   originTop: number;
   moved: boolean;
 }
@@ -27,35 +26,18 @@ export const BUBBLE_SELECTOR = "button.bubble";
 const SVG_NS = "http://www.w3.org/2000/svg";
 const DRAG_THRESHOLD = 4;
 const INITIAL_TOP = 150;
-const ICON_LETTERS = "Aa";
-const OUTLINE_PATH =
-  "M9 7h22a5 5 0 0 1 5 5v11a5 5 0 0 1-5 5h-1l5 6-9-6H9a5 5 0 0 1-5-5V12a5 5 0 0 1 5-5z";
 const GLYPH_PATH = /\sd="([^"]+)"/.exec(glyphSvg)?.[1] ?? "";
-const STATE_CLASSES: BubbleClass[] = ["on", "busy", "error"];
-
-function svgElement(name: string, attributes: Record<string, string>): SVGElement {
-  const element = document.createElementNS(SVG_NS, name);
-
-  for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, value);
-
-  return element;
-}
+const STATE_CLASSES: BubbleClass[] = ["on", "busy", "error", "unavailable"];
 
 function createButton(text: UiText): HTMLButtonElement {
   const button = document.createElement("button");
-  const icon = svgElement("svg", { viewBox: "0 0 40 40", "aria-hidden": "true" });
-  const label = svgElement("text", { class: "label", x: "20", y: "21.5", "text-anchor": "middle" });
+  const icon = document.createElementNS(SVG_NS, "svg");
+  const glyph = document.createElementNS(SVG_NS, "path");
 
-  label.textContent = ICON_LETTERS;
-  icon.append(
-    svgElement("path", { class: "outline", d: OUTLINE_PATH }),
-    label,
-    svgElement("path", {
-      class: "glyph",
-      transform: "translate(9.6,-0.9) scale(0.6)",
-      d: GLYPH_PATH,
-    }),
-  );
+  icon.setAttribute("viewBox", "1.7 15.6 30 30");
+  icon.setAttribute("aria-hidden", "true");
+  glyph.setAttribute("d", GLYPH_PATH);
+  icon.append(glyph);
   button.type = "button";
   button.className = "bubble";
   button.setAttribute("aria-label", text.translate("bubble.translate"));
@@ -96,27 +78,16 @@ export function mountBubble(root: ShadowRoot, handlers: BubbleHandlers, text: Ui
     },
   };
   const classifier = createClickClassifier(scheduler, handlers);
-  let side: Side = "right";
-  let left = 0;
   let top = INITIAL_TOP;
   let drag: Drag | undefined;
 
-  const moveTo = (x: number, y: number): void => {
-    left = x;
+  const moveTo = (y: number): void => {
     top = y;
-    button.style.setProperty("--lambe-left", `${x}px`);
     button.style.setProperty("--lambe-top", `${y}px`);
   };
 
-  const size = (): number => button.getBoundingClientRect().width;
-
-  const sideUnderCenter = (): Side => snapSide(left + size() / 2, viewport().width);
-
   const place = (): void => {
-    const { width, height } = viewport();
-
-    button.classList.toggle("left", side === "left");
-    moveTo(restingLeft(side, width, size()), clampTop(top, height, size()));
+    moveTo(clampTop(top, viewport().height, button.getBoundingClientRect().height));
   };
 
   const endDrag = (): Drag | undefined => {
@@ -140,7 +111,6 @@ export function mountBubble(root: ShadowRoot, handlers: BubbleHandlers, text: Ui
       drag = {
         startX: event.clientX,
         startY: event.clientY,
-        originLeft: left,
         originTop: top,
         moved: false,
       };
@@ -164,8 +134,8 @@ export function mountBubble(root: ShadowRoot, handlers: BubbleHandlers, text: Ui
 
       drag.moved = true;
       button.classList.add("dragging");
-      moveTo(drag.originLeft + dx, drag.originTop + dy);
-      button.classList.toggle("left", sideUnderCenter() === "left");
+      moveTo(drag.originTop + dy);
+      place();
     },
     options,
   );
@@ -185,7 +155,6 @@ export function mountBubble(root: ShadowRoot, handlers: BubbleHandlers, text: Ui
         return;
       }
 
-      side = sideUnderCenter();
       place();
     },
     options,
@@ -194,7 +163,10 @@ export function mountBubble(root: ShadowRoot, handlers: BubbleHandlers, text: Ui
   button.addEventListener(
     "pointercancel",
     () => {
-      endDrag();
+      const cancelled = endDrag();
+
+      if (cancelled !== undefined) moveTo(cancelled.originTop);
+
       place();
     },
     options,
