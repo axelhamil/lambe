@@ -53,6 +53,22 @@ describe("settleAgainstSource", () => {
     expect(settleAgainstSource(twoGroups, answer).getError().code).toBe("PLACEHOLDER_LOST");
   });
 
+  test("rejects_a_lost_link_in_a_segment_with_two_links", () => {
+    const skyline = parseMarkup("<g1>Skyline</g1> of <g2>downtown Los Angeles</g2>").getValue();
+    const answer = parseMarkup("<g1>Horizon</g1> du centre-ville de Los Angeles.").getValue();
+
+    expect(settleAgainstSource(skyline, answer).getError().code).toBe("PLACEHOLDER_LOST");
+  });
+
+  test("keeps_a_link_dense_segment_that_lost_one_link", () => {
+    const dense = parseMarkup("<g1>a</g1>, <g2>b</g2> and <g3>c</g3>").getValue();
+    const answer = parseMarkup("a, <g2>b</g2> et <g3>c</g3>").getValue();
+
+    expect(toMarkup(settleAgainstSource(dense, answer).getValue())).toBe(
+      "a, <g2>b</g2> et <g3>c</g3>",
+    );
+  });
+
   test("rejects_duplicated_atom", () => {
     expect(check("Lance <x1/> <x1/> ou <g1>lis <x2/></g1>").getError().code).toBe(
       "PLACEHOLDER_DUPLICATED",
@@ -102,11 +118,11 @@ describe("settleAgainstSource", () => {
   });
 
   test("unwraps_a_group_moved_into_another_group", () => {
-    const twoGroups = parseMarkup("<g1>a</g1> <g2>b</g2>").getValue();
-    const moved = parseMarkup("<g1>a <g2>b</g2></g1>").getValue();
+    const threeGroups = parseMarkup("<g1>a</g1> <g2>b</g2> <g3>c</g3>").getValue();
+    const moved = parseMarkup("<g1>a <g2>b</g2></g1> <g3>c</g3>").getValue();
 
-    expect(settleAgainstSource(twoGroups, moved).getValue()).toEqual([
-      { kind: "group", key: 1, children: [{ kind: "text", text: "a b" }] },
-    ]);
+    expect(toMarkup(settleAgainstSource(threeGroups, moved).getValue())).toBe(
+      "<g1>a b</g1> <g3>c</g3>",
+    );
   });
 });

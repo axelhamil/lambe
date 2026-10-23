@@ -152,6 +152,14 @@ function reinsertLostAtoms(
   return Result.ok(repaired);
 }
 
+const SPARSE_GROUPS = 2;
+
+function tooManyLost(lost: number, groups: number): boolean {
+  if (groups <= SPARSE_GROUPS) return lost > 0;
+
+  return lost * 2 > groups;
+}
+
 function groupIds(placements: Placements): string[] {
   return [...placements.keys()].filter((id) => id.startsWith("<g"));
 }
@@ -185,7 +193,7 @@ export function settleAgainstSource(
   const groups = groupIds(expected).length;
   const lost = groups - settling.kept.size;
 
-  if (lost * 2 > groups)
+  if (tooManyLost(lost, groups))
     return Result.fail(markupError("PLACEHOLDER_LOST", `${lost} of ${groups} groups are missing.`));
 
   return Result.ok(translated);
