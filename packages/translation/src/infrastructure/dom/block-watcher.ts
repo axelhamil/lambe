@@ -3,6 +3,7 @@ import type { SurfaceListener } from "../../application/ports/page-surface";
 import type { BlockId } from "../../domain/block/value-objects/block-id.vo";
 import type { ProximityRank } from "../../domain/queue/translation-queue";
 import type { BlockReader, ReadBlock } from "./block-reader";
+import { isInHiddenSubtree } from "./protected-nodes";
 
 export interface ProximityEntry {
   target: Element;
@@ -60,7 +61,13 @@ interface BlockWatcherDeps {
   onDetached: (ids: BlockId[]) => void;
 }
 
-const MUTATION_OPTIONS: MutationObserverInit = { childList: true, subtree: true };
+const REVEALING_ATTRIBUTES = ["class", "style", "hidden", "open", "aria-expanded"];
+
+const MUTATION_OPTIONS: MutationObserverInit = {
+  childList: true,
+  subtree: true,
+  attributeFilter: REVEALING_ATTRIBUTES,
+};
 
 const ONE_VIEWPORT_MARGIN = "100% 0px 100% 0px";
 
@@ -134,6 +141,9 @@ export class BlockWatcher {
     for (const record of records) {
       if (record.removedNodes.length > 0) this.removals = true;
 
+      if (record.type === "attributes" && record.target instanceof Element)
+        this.addedRoots.add(record.target);
+
       for (const node of record.addedNodes) {
         const root = node instanceof Element ? node : node.parentElement;
 
@@ -158,7 +168,9 @@ export class BlockWatcher {
 
     if (this.removals) this.dropDetached();
 
-    const roots = [...this.addedRoots].filter((root) => root.isConnected);
+    const roots = [...this.addedRoots].filter(
+      (root) => root.isConnected && !(root instanceof Element && isInHiddenSubtree(root)),
+    );
     this.addedRoots.clear();
 
     const outermost = roots.filter(

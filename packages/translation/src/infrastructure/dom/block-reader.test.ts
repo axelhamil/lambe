@@ -378,14 +378,14 @@ describe("BlockReader on visually hidden text", () => {
     expect(texts).toEqual(["Shown paragraph"]);
   });
 
-  test("aria_hidden_text_is_not_a_block", () => {
+  test("aria_hidden_text_still_shown_on_screen_is_a_block", () => {
     const doc = htmlDocument(
-      '<main><div aria-hidden="true"><p>Decorative duplicate</p></div><p>Shown paragraph</p></main>',
+      '<main><div aria-hidden="true"><p>Decorative tagline</p></div><p>Shown paragraph</p></main>',
     );
 
     const texts = readerFor(doc).read(doc).map(textOf);
 
-    expect(texts).toEqual(["Shown paragraph"]);
+    expect(texts).toEqual(["Decorative tagline", "Shown paragraph"]);
   });
 
   test("screen_reader_only_text_is_not_a_block_by_class_or_computed_clip", () => {

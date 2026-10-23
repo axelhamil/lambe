@@ -394,3 +394,61 @@ describe("BlockWatcher through DomPageSurface.watch", () => {
     expect(container?.innerHTML).toBe("Hi <a>link</a> world");
   });
 });
+
+describe("BlockWatcher on content revealed later", () => {
+  const watchedPage = (body: string) => {
+    const doc = new DOMParser().parseFromString(
+      `<!doctype html><html><head><style>.collapsed{display:none}</style></head><body>${body}</body></html>`,
+      "text/html",
+    );
+    const { ports } = harness(true);
+    const surface = new DomPageSurface({ doc, window, ids: idSource(), observers: ports });
+    const events = listener();
+    const initial = surface.scan().map(textOf);
+    const stop = surface.watch(events);
+    const reported = (): string[] =>
+      events.onBlocks.mock.calls.flatMap(([blocks]) => blocks).map(textOf);
+
+    return { doc, initial, stop, reported };
+  };
+
+  test("hidden_section_revealed_by_a_class_change_is_reported", async () => {
+    const { doc, initial, stop, reported } = watchedPage(
+      '<main><p>Lead paragraph</p><section id="more" class="collapsed"><p>Early life</p></section></main>',
+    );
+
+    doc.getElementById("more")?.classList.remove("collapsed");
+    await settle();
+    stop();
+
+    expect(initial).toEqual(["Lead paragraph"]);
+    expect(reported()).toEqual(["Early life"]);
+  });
+
+  test("details_opened_later_is_reported_once", async () => {
+    const { doc, initial, stop, reported } = watchedPage(
+      '<main><details id="faq" style="display:none"><summary>Question</summary><p>Answer text</p></details></main>',
+    );
+    const faq = doc.getElementById("faq");
+
+    faq?.removeAttribute("style");
+    faq?.setAttribute("open", "");
+    await settle();
+    stop();
+
+    expect(initial).toEqual([]);
+    expect(reported()).toEqual(["Question", "Answer text"]);
+  });
+
+  test("text_added_directly_into_a_hidden_root_is_not_read", async () => {
+    const { doc, stop, reported } = watchedPage(
+      '<main><div id="menu" class="collapsed"></div></main>',
+    );
+
+    doc.getElementById("menu")?.append(doc.createTextNode("Appearance settings"));
+    await settle();
+    stop();
+
+    expect(reported()).toEqual([]);
+  });
+});

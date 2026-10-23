@@ -14,8 +14,7 @@ const EXCLUDED_TAGS = new Set([
   "math",
 ]);
 
-const HIDDEN_SELECTOR =
-  '[hidden], [aria-hidden="true"], .sr-only, .visually-hidden, .screen-reader-text';
+const HIDDEN_SELECTOR = "[hidden], .sr-only, .visually-hidden, .screen-reader-text";
 
 const MEDIAWIKI_EXCLUDED_SELECTOR = ".mw-editsection";
 
@@ -120,6 +119,13 @@ export function isExcluded(el: Element): boolean {
   if (EXCLUDED_TAGS.has(el.localName)) return true;
 
   return el.matches(EXCLUDED_ATTRIBUTES_SELECTOR) || isVisuallyHidden(el);
+}
+
+export function isInHiddenSubtree(el: Element): boolean {
+  for (let node: Element | null = el; node; node = node.parentElement)
+    if (node.matches(HIDDEN_SELECTOR) || isVisuallyHidden(node)) return true;
+
+  return false;
 }
 
 export function isProtectedInline(el: Element): boolean {
