@@ -1,9 +1,6 @@
 import { Option } from "@lambe/kernel/option";
 import type { Saved, SettingsAccess } from "./settings-access";
 
-export const PRIVACY_POLICY_URL =
-  "https://github.com/axelhamil/lambe/blob/main/docs/privacy-policy.md";
-
 interface PrivacyModelDeps extends SettingsAccess {
   manifest(): { version: string };
 }

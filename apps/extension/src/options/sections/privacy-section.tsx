@@ -2,8 +2,9 @@ import { useState } from "react";
 import { renderError } from "../../i18n/render-error";
 import { t } from "../../i18n/t";
 import { Button } from "../components/ui/button";
+import { PRIVACY_POLICY_URL } from "../project-links";
 import { useSettings } from "../use-settings";
-import { formatConsentDate, PRIVACY_POLICY_URL, privacyModel } from "./privacy-model";
+import { formatConsentDate, privacyModel } from "./privacy-model";
 
 export function PrivacySection() {
   const { loaded, update } = useSettings();
