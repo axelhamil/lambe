@@ -20,15 +20,28 @@ interface Harness {
   calls: Call[];
   pending: string[];
   failures: Option<ProviderError>[];
+  leaders: Set<string>;
 }
 
 function harness(options: { capacity?: number; maxConcurrency?: number } = {}): Harness {
   const calls: Call[] = [];
   const pending: string[] = [];
   const failures: Option<ProviderError>[] = [];
+  const leaders = new Set<string>();
+  const take = (free: number): string[][] => {
+    const [next] = pending;
+
+    if (next === undefined || !leaders.has(next))
+      return pending.splice(0, free).map((unit) => [unit]);
+
+    pending.shift();
+    pump.lead();
+
+    return [[next]];
+  };
   const work: PumpWork<string> = {
     canPump: () => true,
-    take: (free) => pending.splice(0, free).map((unit) => [unit]),
+    take,
     run: (units, scope) =>
       new Promise((resolve, reject) => {
         calls.push({ units, scope, finish: resolve, fail: reject });
@@ -46,7 +59,7 @@ function harness(options: { capacity?: number; maxConcurrency?: number } = {}): 
     maxConcurrency: options.maxConcurrency ?? 2,
   });
 
-  return { pump, calls, pending, failures };
+  return { pump, calls, pending, failures, leaders };
 }
 
 const settle = async (): Promise<void> => {
@@ -143,22 +156,60 @@ describe("RequestPump", () => {
     expect(failures[1]?.unwrap().message).toContain("disconnected twice in a row");
   });
 
-  test("lead_blocks_other_lanes_until_release", async () => {
-    const { pump, calls, pending } = harness({ capacity: 2 });
+  test("lead_blocks_other_lanes_until_its_release", async () => {
+    const { pump, calls, pending, leaders } = harness({ capacity: 2 });
 
-    pending.push("a");
+    leaders.add("a");
+    pending.push("a", "b", "c");
     pump.schedule();
     await settle();
-    pump.lead();
-    pending.push("b", "c");
+    const held = calls.length;
+    pump.release(callAt(calls, 0).scope);
+    await settle();
+
+    expect(held).toBe(1);
+    expect(calls.map((call) => call.units)).toEqual([["a"], ["b"], ["c"]]);
+  });
+
+  test("only_the_lead_request_releases_the_lead", async () => {
+    const { pump, calls, pending, leaders } = harness({ capacity: 1 });
+
+    pending.push("a", "b");
     pump.schedule();
     await settle();
-
-    expect(calls).toHaveLength(1);
-
-    pump.release();
+    leaders.add("c");
+    pending.push("c", "d");
+    callAt(calls, 0).finish(Result.ok());
     await settle();
+    pump.release(callAt(calls, 1).scope);
+    callAt(calls, 1).finish(Result.ok());
+    await settle();
+    const whileLeading = calls.map((call) => call.units);
+    callAt(calls, 2).finish(Result.ok());
+    await settle();
+
+    expect(whileLeading).toEqual([["a"], ["b"], ["c"]]);
+    expect(calls.map((call) => call.units)).toEqual([["a"], ["b"], ["c"], ["d"]]);
+  });
+
+  test("failure_before_cancel_all_does_not_stop_the_next_epoch", async () => {
+    const { pump, calls, pending, failures } = harness({ capacity: 1 });
+
+    pending.push("a", "b");
+    pump.schedule();
+    await settle();
+    callAt(calls, 0).finish(Result.fail(providerError("PROVIDER_FORBIDDEN_ORIGIN", "Refused.")));
+    await settle();
+    pump.cancelAll();
+    pending.push("c");
+    pump.schedule();
+    await settle();
+    callAt(calls, 1).finish(Result.fail(requestCancelled()));
+    await settle();
+    callAt(calls, 2).finish(Result.ok());
+    await pump.whenIdle();
 
     expect(calls.map((call) => call.units)).toEqual([["a"], ["b"], ["c"]]);
+    expect(failures).toEqual([Option.none()]);
   });
 });

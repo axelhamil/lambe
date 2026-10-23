@@ -47,6 +47,8 @@ export class RequestPump<Unit> {
   private readonly controllers = new Set<AbortController>();
   private epoch = 0;
   private leading = false;
+  private leader: AbortSignal | undefined;
+  private failure: Option<ProviderError> = Option.none();
   private transportRetried = false;
   private transportGeneration = 0;
   private pumping = false;
@@ -74,6 +76,8 @@ export class RequestPump<Unit> {
   public cancelAll(): void {
     this.epoch += 1;
     this.transportRetried = false;
+    this.failure = Option.none();
+    this.endLead();
 
     for (const controller of this.controllers) controller.abort();
 
@@ -106,10 +110,10 @@ export class RequestPump<Unit> {
     this.leading = true;
   }
 
-  public release(): void {
-    if (!this.leading) return;
+  public release(scope: RequestScope): void {
+    if (!this.leading || scope.signal !== this.leader) return;
 
-    this.leading = false;
+    this.endLead();
     this.wake();
   }
 
@@ -136,12 +140,13 @@ export class RequestPump<Unit> {
     await Promise.resolve();
 
     const lanes = new Set<Promise<void>>();
-    let failure: Option<ProviderError> = Option.none();
+
+    this.failure = Option.none();
 
     for (;;) {
       const free = this.leading ? 0 : this.laneCount() - lanes.size;
       const requests =
-        failure.isNone() && this.work.canPump() && free > 0
+        this.failure.isNone() && this.work.canPump() && free > 0
           ? this.work.take(free, this.concurrency())
           : [];
 
@@ -149,7 +154,8 @@ export class RequestPump<Unit> {
         const lane = this.process(units).then((processed) => {
           lanes.delete(lane);
 
-          if (processed.isFailure && failure.isNone()) failure = Option.some(processed.getError());
+          if (processed.isFailure && this.failure.isNone())
+            this.failure = Option.some(processed.getError());
         });
 
         lanes.add(lane);
@@ -157,7 +163,7 @@ export class RequestPump<Unit> {
 
       if (requests.length > 0) continue;
 
-      if (lanes.size === 0) return failure;
+      if (lanes.size === 0) return this.failure;
 
       await Promise.race([
         ...lanes,
@@ -184,6 +190,8 @@ export class RequestPump<Unit> {
 
     this.controllers.add(controller);
 
+    if (this.leading && this.leader === undefined) this.leader = controller.signal;
+
     for (const key of keys) this.inFlight.set(key, controller);
 
     const result = await settle(this.work.run(units, scope));
@@ -192,7 +200,7 @@ export class RequestPump<Unit> {
 
     for (const key of keys) this.inFlight.delete(key);
 
-    this.leading = false;
+    if (scope.signal === this.leader) this.endLead();
 
     if (!this.isCurrent(scope) || scope.signal.aborted) return Result.ok();
 
@@ -201,6 +209,11 @@ export class RequestPump<Unit> {
     this.transportRetried = false;
 
     return Result.ok();
+  }
+
+  private endLead(): void {
+    this.leading = false;
+    this.leader = undefined;
   }
 
   private transportFailure(error: ProviderError, generation: number): Result<void, ProviderError> {

@@ -178,7 +178,6 @@ export class CaptionTranslationService {
 
   private endSession(): void {
     this.pump.cancelAll();
-    this.pump.release();
 
     for (const sentence of this.session?.sentences ?? []) this.queue.drop(sentence.id);
 
@@ -346,7 +345,7 @@ export class CaptionTranslationService {
 
             if (!live() || sentence === undefined) return;
 
-            this.pump.release();
+            this.pump.release(scope);
             this.settleSentence(session, sentence, settlementOf(outcome));
           },
         },

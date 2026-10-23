@@ -172,7 +172,6 @@ export class PageTranslationService {
 
     this.pump.cancelAll();
     this.firstRequestPending = true;
-    this.pump.release();
     this.deps.surface.show("original");
     this.settled.clear();
 
@@ -472,7 +471,7 @@ export class PageTranslationService {
           if (!this.pump.isCurrent(scope) || block === undefined || nodes.isNone()) return;
 
           committed.add(outcome.id);
-          this.pump.release();
+          this.pump.release(scope);
           this.apply({
             translations: [{ blockId: block.id, kind: "structured", nodes: nodes.unwrap() }],
             settled: [block],

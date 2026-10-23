@@ -339,6 +339,36 @@ describe("CaptionTranslationService", () => {
     expect(service.state()).toEqual({ kind: "translated" });
   });
 
+  test("aborted_requests_finishing_after_a_seek_leave_the_lead_alone", async () => {
+    const controlled = controlledTranslator();
+    const { service, load, seek } = setup({
+      translate: controlled.translate,
+      sentencesPerRequest: 2,
+    });
+    load(manualTrack(20));
+
+    const first = controlled.nextCall();
+    await service.toggle();
+    await first;
+    const lanes = Promise.all([controlled.nextCall(), controlled.nextCall()]);
+    controlled.call(0).finish(frenchOutcomes(controlled.call(0).request));
+    await lanes;
+    seek(60000);
+    const lead = controlled.nextCall();
+    controlled.call(1).finish(Result.fail(requestCancelled()));
+    await lead;
+    controlled.call(2).finish(Result.fail(requestCancelled()));
+    await flush();
+    const whileLeading = controlled.calls.length;
+    controlled.autoFinish();
+    controlled.call(3).finish(frenchOutcomes(controlled.call(3).request));
+    await service.whenIdle();
+
+    expect(segmentsOf(controlled.call(3))).toEqual(["Sentence 12."]);
+    expect(whileLeading).toBe(4);
+    expect(segmentsOf(controlled.call(4))).toEqual(["Sentence 13.", "Sentence 14."]);
+  });
+
   test("restarted_session_requests_never_alias_the_previous_session", async () => {
     const controlled = controlledTranslator();
     const { service, load, seek, texts, flags } = setup({
@@ -398,6 +428,58 @@ describe("CaptionTranslationService", () => {
 
     expect(aborted).toBe(true);
     expect(afterLateOutcomes).toEqual([]);
+    expect(texts()).toEqual(["fr Line 0.", "fr Line 1."]);
+    expect(service.state()).toEqual({ kind: "translated" });
+  });
+
+  test("navigation_with_requests_in_flight_starts_the_new_video_with_one_sentence", async () => {
+    const controlled = controlledTranslator();
+    const { service, load, navigate } = setup({
+      translate: controlled.translate,
+      sentencesPerRequest: 2,
+    });
+    load(manualTrack(20));
+
+    const first = controlled.nextCall();
+    await service.toggle();
+    await first;
+    const lanes = Promise.all([controlled.nextCall(), controlled.nextCall()]);
+    controlled.call(0).finish(frenchOutcomes(controlled.call(0).request));
+    await lanes;
+    navigate(OTHER);
+    load(manualTrack(6, { video: OTHER, word: "Line" }));
+    const lead = controlled.nextCall();
+    controlled.call(1).finish(Result.fail(requestCancelled()));
+    await lead;
+    controlled.call(2).finish(Result.fail(requestCancelled()));
+    await flush();
+
+    expect(segmentsOf(controlled.call(3))).toEqual(["Line 0."]);
+    expect(controlled.calls.length).toBe(4);
+  });
+
+  test("provider_failure_before_navigation_does_not_block_the_next_video", async () => {
+    const controlled = controlledTranslator();
+    const { service, load, navigate, texts } = setup({
+      translate: controlled.translate,
+      sentencesPerRequest: 2,
+    });
+    load(manualTrack(20));
+
+    const first = controlled.nextCall();
+    await service.toggle();
+    await first;
+    const lanes = Promise.all([controlled.nextCall(), controlled.nextCall()]);
+    controlled.call(0).finish(frenchOutcomes(controlled.call(0).request));
+    await lanes;
+    controlled.call(1).finish(Result.fail(forbidden));
+    await flush();
+    navigate(OTHER);
+    controlled.autoFinish();
+    load(manualTrack(2, { video: OTHER, word: "Line" }));
+    controlled.call(2).finish(Result.fail(requestCancelled()));
+    await service.whenIdle();
+
     expect(texts()).toEqual(["fr Line 0.", "fr Line 1."]);
     expect(service.state()).toEqual({ kind: "translated" });
   });
