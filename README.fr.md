@@ -50,7 +50,7 @@
 </div>
 
 <p align="center">
-  <img src="docs/store/assets/screenshot-1-1280x800.png" alt="Un article Wikipédia traduit sur place par Lambë, sa languette au bord droit" width="100%">
+  <img src="docs/store/assets/screenshot-1-1280x800.png" alt="Un article de voyage traduit sur place par Lambë, sa languette au bord droit" width="100%">
 </p>
 
 **Lambë** traduit la page que vous lisez sans la quitter, avec le modèle de votre choix : [Ollama](https://ollama.com) sur votre ordinateur par défaut, ou n'importe quel serveur compatible OpenAI. Elle laisse le code intact, garde le jargon métier tel que les professionnels l'écrivent et rétablit l'original instantanément.

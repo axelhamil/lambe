@@ -50,7 +50,7 @@
 </div>
 
 <p align="center">
-  <img src="docs/store/assets/screenshot-1-1280x800.png" alt="A Wikipedia article translated in place by Lambë, its side tab on the right edge" width="100%">
+  <img src="docs/store/assets/screenshot-1-1280x800.png" alt="A travel article translated in place by Lambë, its side tab on the right edge" width="100%">
 </p>
 
 **Lambë** translates the page you are reading without leaving it, with the model you choose: [Ollama](https://ollama.com) on your computer by default, or any OpenAI-compatible server. It keeps code untouched and domain jargon as professionals write it, and toggles back to the original instantly.
