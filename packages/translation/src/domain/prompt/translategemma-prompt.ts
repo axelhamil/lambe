@@ -11,8 +11,13 @@ function contextLine(brief: PageBrief): string {
   return `Context: the text comes from ${brief.host}, page "${brief.title}".${headings} ${JARGON_RULE}`;
 }
 
-function contextLines(brief: ContentBrief, target: LanguageCode): string[] {
-  return brief.kind === "captions" ? captionContextLines(brief, target) : [contextLine(brief)];
+const LINE_NUMBER_RULE =
+  "Keep the [N] number at the start of every line and return every line on its own line with its number.";
+
+function ruleLines(brief: ContentBrief, target: LanguageCode): string[] {
+  if (brief.kind === "captions") return [...captionContextLines(brief, target), LINE_NUMBER_RULE];
+
+  return [contextLine(brief), TAG_RULE];
 }
 
 function build({ source, target, brief, segments }: PromptInput): ChatMessage[] {
@@ -34,8 +39,7 @@ function build({ source, target, brief, segments }: PromptInput): ChatMessage[] 
 
   const content = [
     opening,
-    ...contextLines(brief, target),
-    TAG_RULE,
+    ...ruleLines(brief, target),
     `${request}\n\n\n${encodeBatch(segments)}`,
   ].join("\n");
 

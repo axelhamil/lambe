@@ -5,6 +5,8 @@ import { captionContextLines } from "./caption-context";
 import type { ChatMessage, ContentBrief, PromptAdapter, PromptInput } from "./prompt-adapter";
 import { JARGON_RULE, languageLabel, overheadTokensOf, TAG_RULE } from "./prompt-adapter";
 
+const TONE_RULE = "Keep the tone, register and formatting of the source.";
+
 function briefLines(brief: PageBrief): string[] {
   return [
     `Site: ${brief.host}`,
@@ -14,14 +16,16 @@ function briefLines(brief: PageBrief): string[] {
   ].filter((line) => line !== "");
 }
 
-function contextLines(brief: ContentBrief, target: LanguageCode): string[] {
-  if (brief.kind === "captions") return captionContextLines(brief, target);
+function ruleLines(brief: ContentBrief, target: LanguageCode): string[] {
+  if (brief.kind === "captions") return [...captionContextLines(brief, target), TONE_RULE];
 
   return [
     "Page context:",
     ...briefLines(brief),
     "Infer the field of the page from this context.",
     JARGON_RULE,
+    TONE_RULE,
+    TAG_RULE,
   ];
 }
 
@@ -37,9 +41,7 @@ function build({ source, target, brief, segments }: PromptInput): ChatMessage[] 
 
   const system = [
     `You translate segments of ${subject.content} from ${from} into ${to.label}.`,
-    ...contextLines(brief, target),
-    "Keep the tone, register and formatting of the source.",
-    TAG_RULE,
+    ...ruleLines(brief, target),
     "Return exactly the segments you received, one [N] line each, with the same numbers, and nothing else.",
   ].join("\n");
 

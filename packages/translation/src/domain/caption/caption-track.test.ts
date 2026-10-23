@@ -23,12 +23,18 @@ describe("trackSignature", () => {
     };
     const reworded = {
       ...track,
-      units: [...track.units.slice(0, 1), { text: "gone", startMs: 400, endMs: 800 }],
+      units: [...track.units.slice(0, 1), { text: "going", startMs: 400, endMs: 800 }],
     };
 
     expect(trackSignature(same)).toBe(trackSignature(track));
     expect(trackSignature(french)).not.toBe(trackSignature(track));
     expect(trackSignature(longer)).not.toBe(trackSignature(track));
+    const retimed = {
+      ...track,
+      units: [...track.units.slice(0, 1), { text: "gonna", startMs: 450, endMs: 800 }],
+    };
+
     expect(trackSignature(reworded)).not.toBe(trackSignature(track));
+    expect(trackSignature(retimed)).not.toBe(trackSignature(track));
   });
 });

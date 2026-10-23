@@ -14,15 +14,32 @@ export interface CaptionTrack {
   units: TimedText[];
 }
 
-export function trackSignature(track: CaptionTrack): string {
-  const textLength = track.units.reduce((total, unit) => total + unit.text.length, 0);
+const FNV_OFFSET = 0x811c9dc5;
 
+const FNV_PRIME = 0x01000193;
+
+function fnv1a(text: string): string {
+  let hash = FNV_OFFSET;
+
+  for (let index = 0; index < text.length; index += 1) {
+    hash = Math.imul(hash ^ text.charCodeAt(index), FNV_PRIME);
+  }
+
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function contentOf(units: TimedText[]): string {
+  return units
+    .map(({ text, startMs, endMs }) => `${startMs}\u001f${endMs}\u001f${text}`)
+    .join("\u001e");
+}
+
+export function trackSignature(track: CaptionTrack): string {
   return JSON.stringify([
     track.videoId.value,
     track.language.value,
     track.generated,
     track.units.length,
-    track.units.at(-1)?.endMs ?? 0,
-    textLength,
+    fnv1a(contentOf(track.units)),
   ]);
 }

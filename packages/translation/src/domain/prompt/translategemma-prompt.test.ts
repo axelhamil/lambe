@@ -104,7 +104,7 @@ describe("translateGemmaPrompt", () => {
         target: captions.target,
         brief: captionBrief,
       }),
-    ).toBeLessThan(600);
+    ).toBeLessThan(520);
   });
 
   test("caption_brief_replaces_the_page_context_line", () => {
@@ -116,5 +116,7 @@ describe("translateGemmaPrompt", () => {
     expect(content).toContain("Previous lines, for context only, do not translate them:");
     expect(content).not.toContain("Context: the text comes from");
     expect(content).not.toContain("Leave terms of art");
+    expect(content).not.toContain("<xN/>");
+    expect(content).toContain("Keep the [N] number at the start of every line");
   });
 });

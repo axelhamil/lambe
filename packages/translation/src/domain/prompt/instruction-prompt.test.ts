@@ -85,6 +85,7 @@ describe("instructionPrompt", () => {
     expect(system).toContain("Return exactly the segments you received");
     expect(system).not.toContain("Site: www.youtube.com");
     expect(system).not.toContain("Page context:");
+    expect(system).not.toContain("<xN/>");
     expect(messages[1]?.content).toEndWith("[1] Fork the <g1>repository</g1>.");
   });
 });
