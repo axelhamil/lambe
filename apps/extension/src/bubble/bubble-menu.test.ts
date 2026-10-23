@@ -23,6 +23,7 @@ function fakeActions(): MenuActions {
     translateTo: mock(() => {}),
     autoTranslateSite: mock(() => {}),
     hideOnSite: mock(() => {}),
+    chooseLanguage: mock(() => {}),
     openSettings: mock(() => {}),
   };
 }

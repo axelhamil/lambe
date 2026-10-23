@@ -49,6 +49,9 @@ export function menuActions(deps: MenuActionDeps): MenuActions {
         "Lambë could not hide its bubble on this site.",
       );
     },
+    chooseLanguage() {
+      deps.sendToWorker({ type: "lambe/open-options", section: "translation" });
+    },
     openSettings() {
       deps.sendToWorker({ type: "lambe/open-options" });
     },

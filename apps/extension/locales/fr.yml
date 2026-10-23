@@ -76,6 +76,7 @@ options:
       privacy: "Ce qui quitte votre navigateur, votre accord et le projet."
   provider:
     kindLabel: "Type de serveur"
+    guide: "Débutant avec les modèles locaux ? Lisez le guide d'installation"
     kindHint: "Ollama fait tourner les modèles sur cet ordinateur. Compatible OpenAI couvre LM Studio, llama.cpp, vLLM, OpenRouter et les API en ligne."
     kind:
       ollama: "Ollama"

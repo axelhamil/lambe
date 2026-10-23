@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { localModelGuideUrl } from "../project-links";
 import { useSettings } from "../use-settings";
 import {
   type ConnectionView,
@@ -277,6 +278,15 @@ export function ProviderSection() {
           </SelectContent>
         </Select>
         <FieldDescription>{t("options.provider.kindHint")}</FieldDescription>
+        <Button asChild variant="link" className="self-start px-0">
+          <a
+            href={localModelGuideUrl(chrome.i18n.getUILanguage())}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {t("options.provider.guide")}
+          </a>
+        </Button>
       </Field>
       <Field>
         <FieldLabel htmlFor="provider-base-url">{t("options.provider.baseUrlLabel")}</FieldLabel>

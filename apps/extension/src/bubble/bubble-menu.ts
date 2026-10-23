@@ -8,6 +8,7 @@ export interface MenuActions {
   translateTo(language: LanguageCode): void;
   autoTranslateSite(): void;
   hideOnSite(): void;
+  chooseLanguage(): void;
   openSettings(): void;
 }
 
@@ -108,7 +109,7 @@ export function mountBubbleMenu(
       ...languages.map((language) =>
         item(languageName(names, language), () => actions.translateTo(language)),
       ),
-      item(translate("menu.moreLanguages"), () => actions.openSettings()),
+      item(translate("menu.moreLanguages"), () => actions.chooseLanguage()),
     );
 
     return [heading, group];
