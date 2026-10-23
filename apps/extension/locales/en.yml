@@ -40,3 +40,35 @@ youtube:
   button: "Translated captions (Lambë)"
   buttonOn: "Hide the translated captions (Lambë)"
   translating: "Translating the captions…"
+options:
+  shell:
+    documentTitle: "Lambë settings"
+    navLabel: "Settings sections"
+    problemTitle: "Check your saved settings"
+    resetDefaults: "Reset to defaults"
+    keepAndFix: "Keep and fix"
+    section:
+      provider: "Provider"
+      translation: "Translation"
+      sites: "Sites"
+      youtube: "YouTube"
+      prompt: "Prompt"
+      cache: "Cache"
+      shortcut: "Shortcut"
+      privacy: "Privacy and about"
+    summary:
+      provider: "The model server that translates, and how Lambë reaches it."
+      translation: "The language you read in and how pages are translated."
+      sites: "Where the bubble appears and which sites translate on their own."
+      youtube: "Translated captions on YouTube videos."
+      prompt: "The guidelines the model follows when it translates."
+      cache: "Translations kept on this device so pages you revisit open at once."
+      shortcut: "The keyboard shortcut that turns translation on and off."
+      privacy: "What leaves your browser, your consent, and the project."
+
+onboarding:
+  title: "Before Lambë translates anything"
+  disclosure: "The text of the pages you translate and the captions of YouTube videos are sent to the provider you configure, and nowhere else. Nothing goes to the developer. No analytics."
+  local: "Out of the box, that provider is Ollama on this computer, so the text stays on your machine."
+  later: "You can look through the settings first. Translation starts once you agree, and you can withdraw your consent at any time in Privacy and about."
+  consent: "Agree and turn on translation"

@@ -1,0 +1,252 @@
+@import "tailwindcss";
+
+@source "../../src/options";
+
+:root {
+  --radius: 0.5rem;
+  --font-body:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue",
+    sans-serif;
+  --font-display:
+    "Iowan Old Style", "Palatino Linotype", Palatino, "URW Palladio L", P052, "Book Antiqua",
+    Georgia, serif;
+  --text-body: 0.9375rem;
+  --text-lead: 1.0625rem;
+  --text-brand: 1.3125rem;
+  --text-heading: 1.625rem;
+  --text-title: 2.125rem;
+  --leading-body: 1.6;
+  --leading-tight: 1.2;
+  --measure: 62ch;
+  --content-width: 46rem;
+  --glyph-brand: 1.75rem;
+  --glyph-onboarding: 5.5rem;
+  --glyph-onboarding-compact: 3.5rem;
+
+  --background: #f4f7f6;
+  --foreground: #15201c;
+  --sidebar: #ebf0ee;
+  --card: #ffffff;
+  --card-foreground: #15201c;
+  --popover: #ffffff;
+  --popover-foreground: #15201c;
+  --primary: #0d7059;
+  --primary-foreground: #ffffff;
+  --secondary: #e3ebe8;
+  --secondary-foreground: #15201c;
+  --muted: #e3ebe8;
+  --muted-foreground: #52625c;
+  --accent: #dde8e4;
+  --accent-foreground: #15201c;
+  --destructive: #b8342a;
+  --border: #d3ddd9;
+  --input: #c4d1cc;
+  --ring: #0d7059;
+  --glyph: #0d7059;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0f1419;
+    --foreground: #e3e9ee;
+    --sidebar: #131a21;
+    --card: #161b22;
+    --card-foreground: #e3e9ee;
+    --popover: #161b22;
+    --popover-foreground: #e3e9ee;
+    --primary: #7ee0c3;
+    --primary-foreground: #0b2a22;
+    --secondary: #1f2730;
+    --secondary-foreground: #e3e9ee;
+    --muted: #1f2730;
+    --muted-foreground: #8d99a5;
+    --accent: #1d2a2c;
+    --accent-foreground: #e3e9ee;
+    --destructive: #ff7b72;
+    --border: #253039;
+    --input: #2e3a45;
+    --ring: #7ee0c3;
+    --glyph: #7ee0c3;
+  }
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+    outline-color: color-mix(in srgb, var(--ring) 50%, transparent);
+  }
+
+  html {
+    color-scheme: light dark;
+  }
+
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-body);
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none;
+    animation: none;
+  }
+}
+
+@layer components {
+  .shell-sidebar {
+    background: var(--sidebar);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .brand {
+    font-family: var(--font-display);
+    font-size: var(--text-brand);
+    line-height: var(--leading-tight);
+    letter-spacing: 0.01em;
+  }
+
+  .brand-glyph {
+    width: auto;
+    height: var(--glyph-brand);
+    fill: var(--glyph);
+  }
+
+  .section-nav a {
+    color: var(--muted-foreground);
+    font-size: var(--text-body);
+  }
+
+  .section-nav a:hover,
+  .section-nav a[aria-current="page"] {
+    color: var(--foreground);
+  }
+
+  .section-nav a[aria-current="page"] {
+    background: var(--accent);
+    box-shadow: inset 2px 0 0 var(--primary);
+  }
+
+  .section-picker {
+    background: var(--card);
+  }
+
+  .shell-main {
+    width: 100%;
+    max-width: var(--content-width);
+  }
+
+  .section-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: var(--text-title);
+    font-weight: 500;
+    line-height: var(--leading-tight);
+    letter-spacing: -0.005em;
+  }
+
+  .section-summary {
+    margin: 0;
+    max-width: var(--measure);
+    color: var(--muted-foreground);
+    font-size: var(--text-lead);
+  }
+
+  .onboarding {
+    padding: 2rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+  }
+
+  .onboarding p {
+    margin: 0;
+    max-width: var(--measure);
+    font-size: var(--text-lead);
+  }
+
+  .onboarding-glyph {
+    width: auto;
+    height: var(--glyph-onboarding-compact);
+    fill: var(--glyph);
+  }
+
+  .onboarding-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: var(--text-heading);
+    font-weight: 500;
+    line-height: var(--leading-tight);
+  }
+
+  .onboarding .onboarding-note {
+    color: var(--muted-foreground);
+    font-size: var(--text-body);
+  }
+
+  .settings-problem {
+    border-color: color-mix(in srgb, var(--destructive) 45%, var(--border));
+    box-shadow: inset 3px 0 0 var(--destructive);
+  }
+
+  .settings-problem [data-slot="alert-title"] {
+    color: var(--destructive);
+    font-size: var(--text-lead);
+  }
+
+  .settings-issues {
+    margin: 0;
+    padding-left: 1.25rem;
+    list-style: disc;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.8125rem;
+  }
+
+  @media (min-width: 48rem) {
+    .shell-sidebar {
+      border-bottom: 0;
+      border-right: 1px solid var(--border);
+    }
+
+    .onboarding {
+      padding: 2.5rem;
+    }
+
+    .onboarding-glyph {
+      height: var(--glyph-onboarding);
+    }
+  }
+}

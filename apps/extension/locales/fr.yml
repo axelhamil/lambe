@@ -40,3 +40,35 @@ youtube:
   button: "Sous-titres traduits (Lambë)"
   buttonOn: "Masquer les sous-titres traduits (Lambë)"
   translating: "Traduction des sous-titres en cours…"
+options:
+  shell:
+    documentTitle: "Réglages de Lambë"
+    navLabel: "Sections des réglages"
+    problemTitle: "Réglages à vérifier"
+    resetDefaults: "Rétablir les valeurs par défaut"
+    keepAndFix: "Garder et corriger"
+    section:
+      provider: "Fournisseur"
+      translation: "Traduction"
+      sites: "Sites"
+      youtube: "YouTube"
+      prompt: "Consignes"
+      cache: "Cache"
+      shortcut: "Raccourci"
+      privacy: "Confidentialité et à propos"
+    summary:
+      provider: "Le serveur de modèles qui traduit, et la façon dont Lambë s'y connecte."
+      translation: "La langue dans laquelle vous lisez et la façon dont les pages sont traduites."
+      sites: "Où la bulle apparaît et quels sites se traduisent d'eux-mêmes."
+      youtube: "Les sous-titres traduits des vidéos YouTube."
+      prompt: "Les consignes que le modèle suit quand il traduit."
+      cache: "Les traductions gardées sur cet appareil, pour que les pages déjà lues s'ouvrent aussitôt."
+      shortcut: "Le raccourci clavier qui active ou désactive la traduction."
+      privacy: "Ce qui quitte votre navigateur, votre accord et le projet."
+
+onboarding:
+  title: "Avant que Lambë ne traduise quoi que ce soit"
+  disclosure: "Le texte des pages que vous traduisez et les sous-titres des vidéos YouTube sont envoyés au fournisseur que vous configurez, et nulle part ailleurs. Rien ne part chez le développeur. Aucune mesure d'audience."
+  local: "Par défaut, ce fournisseur est Ollama sur cet ordinateur : le texte ne quitte donc pas votre machine."
+  later: "Vous pouvez d'abord parcourir les réglages. La traduction démarre dès que vous donnez votre accord, et vous pouvez le retirer à tout moment dans Confidentialité et à propos."
+  consent: "Accepter et activer la traduction"
