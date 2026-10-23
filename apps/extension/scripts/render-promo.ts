@@ -62,4 +62,4 @@ if (browser.exitCode !== 0) {
   process.exit(1);
 }
 
-console.log(`Promo tile written to ${OUTPUT_PATH}.`);
+process.stdout.write(`Promo tile written to ${OUTPUT_PATH}.\n`);

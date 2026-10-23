@@ -55,7 +55,7 @@ const visit = (path: string): void => {
 const watchPage = (path = `/watch?v=${VIDEO}`) => {
   visit(path);
   const doc = new DOMParser().parseFromString(FIXTURE, "text/html");
-  const surface = new YoutubePlayerSurface({ doc, window });
+  const surface = new YoutubePlayerSurface({ doc, window, log: { debug: () => undefined } });
   const element = (selector: string): Element => {
     const found = doc.querySelector(selector);
 

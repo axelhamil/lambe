@@ -1,6 +1,7 @@
 import { Option } from "@lambe/kernel/option";
 import { Result } from "@lambe/kernel/result";
 import { BatchTranslationService } from "@lambe/translation/application/batch-translation.service";
+import type { DebugLog } from "@lambe/translation/application/ports/debug-log";
 import type { ProviderCapacity } from "@lambe/translation/application/ports/provider-capacity";
 import type { TranslationCache } from "@lambe/translation/application/ports/translation-cache";
 import { DEFAULT_GUIDELINES } from "@lambe/translation/domain/prompt/guidelines";
@@ -37,6 +38,7 @@ export interface WorkerEnv {
   cache: TranslationCache;
   forbiddenHint: string;
   now: () => number;
+  log: DebugLog;
 }
 
 interface WorkerHostDeps {
@@ -84,7 +86,7 @@ export function workerBuilder(env: WorkerEnv): BuildWorker {
       forgetAfterIdleMs: KEEP_ALIVE_MS,
       now: env.now,
       onStats: (stats) => {
-        if (config.debug) console.debug("Lambë: provider stats", stats);
+        env.log.debug("Lambë: provider stats", stats);
       },
     });
     const service = new BatchTranslationService({

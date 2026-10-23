@@ -19,6 +19,7 @@ export default defineConfig({
   modules: ["@wxt-dev/i18n/module", "@wxt-dev/module-react"],
   vite: () => ({ plugins: [tailwindcss()] }),
   zip: {
+    name: "lambe",
     artifactTemplate: STORE_BUILD
       ? "{{name}}-{{version}}-{{browser}}-store.zip"
       : "{{name}}-{{version}}-{{browser}}.zip",
@@ -27,6 +28,7 @@ export default defineConfig({
     name: "__MSG_ext_name__",
     description: "__MSG_ext_description__",
     default_locale: "en",
+    minimum_chrome_version: "130",
     ...(STORE_BUILD ? {} : { key: EXTENSION_PUBLIC_KEY }),
     permissions: ["storage", "unlimitedStorage", "activeTab", "scripting"],
     host_permissions: LOCAL_HOSTS,

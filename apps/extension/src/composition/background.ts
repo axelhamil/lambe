@@ -5,6 +5,7 @@ import { chromeScriptRegistrar } from "../access/script-registrar";
 import { activateTab, showUnavailable, type TabScripting } from "../activation/activate-tab";
 import { StorageTranslationCache } from "../adapters/chrome/storage-translation-cache";
 import { t } from "../i18n/t";
+import { createLogger, debugSetting } from "../logging/logger";
 import {
   type OpenOptionsMessage,
   openOptionsMessageSchema,
@@ -38,6 +39,7 @@ function workerHost(): WorkerHost {
       cache: new StorageTranslationCache(chrome.storage.local),
       forbiddenHint: `chrome-extension://${chrome.runtime.id}`,
       now: Date.now,
+      log: createLogger(debugSetting(settingsStore())),
     }),
   });
 }
