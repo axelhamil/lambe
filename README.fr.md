@@ -121,6 +121,7 @@ Activez d'abord **YouTube** dans les réglages : Chrome demande l'accès à `htt
 - Vignette promotionnelle : `docs/store/assets/promo-440x280.png`.
 - Règles de confidentialité : [`docs/privacy-policy.md`](docs/privacy-policy.md). Leur URL publique remplace `<PRIVACY_POLICY_URL>` dans la fiche ; c'est la seule étape manuelle.
 - Version du store : `pnpm zip`, puis `LAMBE_STORE=1 pnpm --filter @lambe/extension check:manifest` pour vérifier qu'elle n'a ni `key` ni script de contenu statique, et exactement les autorisations prévues.
+- Publication automatique et configuration initiale : [`docs/store/publishing.fr.md`](docs/store/publishing.fr.md).
 
 La publication automatique, les secrets du dépôt et les mesures de vérification sont décrits dans le [README anglais](README.md#release).
 

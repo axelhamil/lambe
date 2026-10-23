@@ -3,12 +3,19 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to rebuild and publish again (for example v0.2.0)
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 jobs:
   release-please:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
@@ -31,15 +38,19 @@ jobs:
 
   publish:
     needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+    if: >-
+      !cancelled() && (github.event_name == 'workflow_dispatch'
+      || needs.release-please.outputs.release_created == 'true')
     runs-on: ubuntu-latest
+    concurrency:
+      group: chrome-web-store
+      cancel-in-progress: false
     env:
-      CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
-      TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
+      TAG_NAME: ${{ inputs.tag || needs.release-please.outputs.tag_name }}
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          ref: refs/tags/${{ inputs.tag || needs.release-please.outputs.tag_name }}
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
@@ -57,7 +68,9 @@ jobs:
       - name: Build the store zip
         env:
           LAMBE_STORE: "1"
-        run: pnpm --filter @lambe/extension exec wxt zip -b chrome
+        run: |
+          pnpm --filter @lambe/extension exec wxt zip -b chrome
+          pnpm --filter @lambe/extension check:manifest
       - id: zip
         name: Locate the zips
         run: |
@@ -82,18 +95,36 @@ jobs:
           UNPACKED_ZIP: ${{ steps.zip.outputs.unpacked }}
           STORE_ZIP: ${{ steps.zip.outputs.store }}
         run: gh release upload "$TAG_NAME" "$UNPACKED_ZIP" "$STORE_ZIP" --clobber
-      - name: Check the store manifest
-        if: env.CHROME_EXTENSION_ID != ''
+      - id: store
+        name: Check the store secrets
         env:
-          LAMBE_STORE: "1"
-        run: pnpm --filter @lambe/extension check:manifest
-      - name: Publish to the Chrome Web Store
-        if: env.CHROME_EXTENSION_ID != ''
-        env:
-          CHROME_API_VERSION: v2
-          CHROME_PUBLISH_TYPE: STAGED_PUBLISH
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
           CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
           CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
           CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
+        run: |
+          missing=()
+          for name in CHROME_EXTENSION_ID CHROME_PUBLISHER_ID CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL CHROME_SERVICE_ACCOUNT_PRIVATE_KEY; do
+            if [ -z "${!name}" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::notice::Chrome Web Store publish skipped, missing secrets: ${missing[*]}. See docs/store/publishing.md."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+      - name: Publish to the Chrome Web Store
+        if: steps.store.outputs.configured == 'true'
+        env:
+          CHROME_API_VERSION: v2
+          CHROME_PUBLISH_TYPE: DEFAULT_PUBLISH
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
+          CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
+          PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
           ZIP: ${{ steps.zip.outputs.store }}
-        run: pnpm --filter @lambe/extension exec wxt submit --chrome-zip "$ZIP"
+        run: |
+          export CHROME_SERVICE_ACCOUNT_PRIVATE_KEY="${PRIVATE_KEY//\\n/$'\n'}"
+          pnpm --filter @lambe/extension exec wxt submit --chrome-zip "$ZIP"
