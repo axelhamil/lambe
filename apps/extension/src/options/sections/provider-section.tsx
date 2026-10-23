@@ -3,7 +3,6 @@ import { CircleXIcon } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { chromeHostAccess } from "../../access/host-access";
-import { renderError } from "../../i18n/render-error";
 import { t } from "../../i18n/t";
 import { defaultSettings } from "../../settings/settings";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
@@ -20,6 +19,7 @@ import { ConnectionResult } from "./provider-connection";
 import { isProviderKind, KindChoice, ModelField } from "./provider-fields";
 import {
   type ConnectionView,
+  editBaseUrl,
   listedModel,
   type ProviderDraft,
   type ProviderSaveError,
@@ -28,6 +28,7 @@ import {
   type SaveResult,
   switchKind,
 } from "./provider-model";
+import { problemNotice } from "./settings-access";
 
 const DEFAULT_PROVIDER = defaultSettings("en").provider;
 
@@ -38,7 +39,7 @@ function saveMessage(error: ProviderSaveError): string {
     case "MODEL_REQUIRED":
       return t(`options.provider.saveFailed.${error.code}`);
     default:
-      return renderError({ code: error.code });
+      return problemNotice(error);
   }
 }
 
@@ -48,12 +49,13 @@ export function ProviderSection() {
   const [view, setView] = useState<ConnectionView>();
   const [testing, setTesting] = useState(false);
   const [saved, setSaved] = useState<SaveResult>();
+  const savedBaseUrl = loaded.settings.provider.baseUrl;
 
   useEffect(() => {
-    void secrets.apiKey().then((apiKey) => {
+    void secrets.apiKeyFor(savedBaseUrl).then((apiKey) => {
       setDraft((current) => ({ ...current, apiKey: apiKey.unwrapOr(current.apiKey) }));
     });
-  }, [secrets]);
+  }, [secrets, savedBaseUrl]);
 
   const model = () =>
     providerModel({
@@ -122,7 +124,9 @@ export function ProviderSection() {
                 type="url"
                 inputMode="url"
                 value={draft.baseUrl}
-                onChange={(event) => edit({ baseUrl: event.target.value })}
+                onChange={(event) =>
+                  edit(editBaseUrl(draft, event.target.value, loaded.settings.provider))
+                }
                 aria-describedby="provider-base-url-description"
                 autoComplete="off"
                 spellCheck={false}

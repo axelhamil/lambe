@@ -12,6 +12,8 @@ import { desiredRegistrations } from "./registrations";
 
 const settingsWith = (change: Partial<Settings>): Settings => ({
   ...defaultSettings("en"),
+  bubbleEverywhere: false,
+  youtube: false,
   ...change,
 });
 
@@ -135,7 +137,7 @@ describe("desiredRegistrations", () => {
       sites: [{ origin: "https://example.com", autoTranslate: true, hideBubble: false }],
     });
 
-    expect(idsOf(defaultSettings("en"), ["<all_urls>"])).toEqual([]);
+    expect(idsOf(settingsWith({}), ["<all_urls>"])).toEqual([]);
     expect(idsOf(enabled, [])).toEqual([]);
   });
 });

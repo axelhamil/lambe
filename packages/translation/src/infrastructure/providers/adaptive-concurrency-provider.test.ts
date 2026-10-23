@@ -5,7 +5,7 @@ import type {
   TranslationProvider,
 } from "../../application/ports/translation-provider";
 import type { ChatMessage } from "../../domain/prompt/prompt-adapter";
-import type { ProviderError } from "../../domain/provider/provider-error";
+import { type ProviderError, providerError } from "../../domain/provider/provider-error";
 import {
   type AdaptiveConcurrencyOptions,
   AdaptiveConcurrencyProvider,
@@ -166,5 +166,40 @@ describe("AdaptiveConcurrencyProvider", () => {
     for (const maxConcurrency of [0, -1, 1.5, Number.NaN]) {
       expect(() => adaptive(inner, { maxConcurrency })).toThrow(RangeError);
     }
+  });
+
+  test("rate_limited_call_is_retried_after_the_advised_delay_then_with_backoff", async () => {
+    const answers: ChatResult[] = [
+      Result.fail(providerError("PROVIDER_RATE_LIMITED", "slow", { retryAfterMs: "500" })),
+      Result.fail(providerError("PROVIDER_RATE_LIMITED", "slow")),
+      Result.ok("done"),
+    ];
+    const extra: ChatResult = Result.ok("extra");
+    const chat = mock(async () => answers.shift() ?? extra);
+    const sleep = mock(async (_ms: number) => undefined);
+
+    const result = await adaptive({ id: "openai", model: "gpt", chat }, { sleep }).chat(
+      ask("Hello"),
+      options,
+    );
+
+    expect(result.getValue()).toBe("done");
+    expect(sleep.mock.calls.map(([ms]) => ms)).toEqual([500, 2000]);
+  });
+
+  test("rate_limited_wait_stops_when_the_request_is_cancelled", async () => {
+    const controller = new AbortController();
+    const chat = mock(async () =>
+      Result.fail<string, ProviderError>(providerError("PROVIDER_RATE_LIMITED", "slow")),
+    );
+    const sleep = mock(async () => controller.abort());
+
+    const result = await adaptive({ id: "openai", model: "gpt", chat }, { sleep }).chat(
+      ask("Hello"),
+      { ...options, signal: controller.signal },
+    );
+
+    expect(result.getError().code).toBe("REQUEST_CANCELLED");
+    expect(chat).toHaveBeenCalledTimes(1);
   });
 });

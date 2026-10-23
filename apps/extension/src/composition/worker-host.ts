@@ -5,9 +5,7 @@ import type { DebugLog } from "@lambe/translation/application/ports/debug-log";
 import type { ProviderCapacity } from "@lambe/translation/application/ports/provider-capacity";
 import type { TranslationCache } from "@lambe/translation/application/ports/translation-cache";
 import { DEFAULT_GUIDELINES } from "@lambe/translation/domain/prompt/guidelines";
-import { instructionPrompt } from "@lambe/translation/domain/prompt/instruction-prompt";
-import { modelFamilyOf } from "@lambe/translation/domain/prompt/prompt-adapter";
-import { translateGemmaPrompt } from "@lambe/translation/domain/prompt/translategemma-prompt";
+import { modelProfileOf } from "@lambe/translation/domain/prompt/model-profile";
 import {
   type ProviderError,
   providerError,
@@ -17,14 +15,13 @@ import { AdaptiveConcurrencyProvider } from "@lambe/translation/infrastructure/p
 import {
   KEEP_ALIVE_MS,
   type OllamaConfig,
-  OllamaProvider,
 } from "@lambe/translation/infrastructure/providers/ollama-provider";
-import { OpenAiCompatibleProvider } from "@lambe/translation/infrastructure/providers/openai-compatible-provider";
 import { isConsented } from "../activation/consent-gate";
 import { type RuntimeConfig, toRuntimeConfig } from "../config/runtime-config";
-import type { SecretsStore } from "../settings/secrets-store";
+import { type Credential, keyFor, type SecretsStore } from "../settings/secrets-store";
 import type { Settings } from "../settings/settings";
 import type { SettingsStore } from "../settings/settings-store";
+import { providerFor } from "./provider-factory";
 
 export interface Worker {
   service: BatchTranslationService;
@@ -36,7 +33,7 @@ export type BuildWorker = (config: RuntimeConfig, apiKey: Option<string>) => Wor
 export interface WorkerEnv {
   fetch: OllamaConfig["fetch"];
   cache: TranslationCache;
-  forbiddenHint: string;
+  origin: string;
   now: () => number;
   log: DebugLog;
 }
@@ -45,6 +42,11 @@ interface WorkerHostDeps {
   settings: SettingsStore;
   secrets: SecretsStore;
   build: BuildWorker;
+}
+
+interface Snapshot {
+  settings: Settings;
+  credential: Option<Credential>;
 }
 
 interface BuiltWorker {
@@ -59,29 +61,10 @@ function consentRequired(): ProviderError {
   );
 }
 
-function providerFor(
-  config: RuntimeConfig,
-  apiKey: Option<string>,
-  env: WorkerEnv,
-): OllamaProvider | OpenAiCompatibleProvider {
-  const { provider } = config;
-  const common = {
-    baseUrl: provider.baseUrl,
-    model: provider.model,
-    fetch: env.fetch,
-    timeoutMs: provider.timeoutMs,
-  };
-
-  if (provider.kind === "openai-compatible") {
-    return new OpenAiCompatibleProvider({ ...common, apiKey, now: env.now });
-  }
-
-  return new OllamaProvider({ ...common, forbiddenHint: env.forbiddenHint });
-}
-
 export function workerBuilder(env: WorkerEnv): BuildWorker {
   return (config, apiKey) => {
-    const adaptive = new AdaptiveConcurrencyProvider(providerFor(config, apiKey, env), {
+    const provider = providerFor(config.provider, { ...env, apiKey });
+    const adaptive = new AdaptiveConcurrencyProvider(provider, {
       maxConcurrency: config.provider.concurrency,
       forgetAfterIdleMs: KEEP_ALIVE_MS,
       now: env.now,
@@ -93,10 +76,7 @@ export function workerBuilder(env: WorkerEnv): BuildWorker {
       provider: adaptive,
       cache: env.cache,
       hasher: sha256Hasher,
-      prompt:
-        modelFamilyOf(config.provider.model) === "translategemma"
-          ? translateGemmaPrompt
-          : instructionPrompt,
+      prompt: modelProfileOf(config.provider.model).prompt,
       contextTokens: config.contextTokens,
       maxSegmentsPerBatch: config.maxSegmentsPerBatch,
       guidelines: config.guidelines.unwrapOr(DEFAULT_GUIDELINES),
@@ -118,13 +98,34 @@ function fingerprintOf(settings: Settings, apiKey: Option<string>): string {
 export class WorkerHost implements ProviderCapacity {
   private built: Option<BuiltWorker> = Option.none();
 
+  private loaded: Option<Promise<Snapshot>> = Option.none();
+
   public constructor(private readonly deps: WorkerHostDeps) {}
 
+  private snapshot(): Promise<Snapshot> {
+    if (this.loaded.isSome()) return this.loaded.unwrap();
+
+    this.deps.settings.subscribe(({ settings }) => this.patch({ settings }));
+    this.deps.secrets.subscribe((credential) => this.patch({ credential }));
+
+    const loading = Promise.all([this.deps.settings.load(), this.deps.secrets.credential()]).then(
+      ([{ settings }, credential]) => ({ settings, credential }),
+    );
+
+    this.loaded = Option.some(loading);
+
+    return loading;
+  }
+
+  private patch(change: Partial<Snapshot>): void {
+    this.loaded = this.loaded.map((loading) =>
+      loading.then((snapshot) => ({ ...snapshot, ...change })),
+    );
+  }
+
   public async service(): Promise<Result<BatchTranslationService, ProviderError>> {
-    const [{ settings }, apiKey] = await Promise.all([
-      this.deps.settings.load(),
-      this.deps.secrets.apiKey(),
-    ]);
+    const { settings, credential } = await this.snapshot();
+    const apiKey = keyFor(credential, settings.provider.baseUrl);
 
     if (!isConsented(settings)) return Result.fail(consentRequired());
 

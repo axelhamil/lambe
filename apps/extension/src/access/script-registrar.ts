@@ -3,6 +3,7 @@ import type { Registration } from "./registrations";
 export interface ScriptRegistrar {
   registered(): Promise<Registration[]>;
   register(registrations: Registration[]): Promise<void>;
+  update(registrations: Registration[]): Promise<void>;
   unregister(ids: string[]): Promise<void>;
 }
 
@@ -31,5 +32,6 @@ export const chromeScriptRegistrar: ScriptRegistrar = {
   registered: async () =>
     (await chrome.scripting.getRegisteredContentScripts()).map(registrationOf),
   register: (registrations) => chrome.scripting.registerContentScripts(registrations.map(scriptOf)),
+  update: (registrations) => chrome.scripting.updateContentScripts(registrations),
   unregister: (ids) => chrome.scripting.unregisterContentScripts({ ids }),
 };

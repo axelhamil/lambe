@@ -1,6 +1,6 @@
 # Publier sur le Chrome Web Store
 
-Chaque version publiée sur `main` est envoyée au Chrome Web Store par `.github/workflows/release.yml` et mise en ligne dès que l'examen est validé. Cette page décrit la configuration à faire une seule fois.
+Chaque release est envoyée au Chrome Web Store par `.github/workflows/release.yml` et mise en ligne dès que l'examen est validé. Cette page décrit la configuration du store à faire une seule fois ; le reste du circuit de release est dans [`../maintenance/releases.md`](../maintenance/releases.md) (en anglais).
 
 ## 1. Premier envoi, à la main
 
@@ -37,13 +37,13 @@ Dans le dépôt, **Settings**, **Secrets and variables**, **Actions** :
 | `CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL` | `client_email` de la clé JSON |
 | `CHROME_SERVICE_ACCOUNT_PRIVATE_KEY` | `private_key` de la clé JSON, de `-----BEGIN` à `END PRIVATE KEY-----` ; le workflow convertit les `\n` littéraux en retours à la ligne |
 
-`BOT_CLIENT_ID` et `BOT_PRIVATE_KEY` (l'application GitHub qui crée les releases) sont déjà requis par release-please. Tant qu'un secret `CHROME_*` manque, l'étape de publication est ignorée avec un avertissement et la release reçoit quand même ses zips. Supprimez le fichier de clé JSON une fois les secrets enregistrés.
+La variable `BOT_CLIENT_ID` et le secret `BOT_PRIVATE_KEY` (l'application GitHub qui crée les releases) sont déjà requis par release-please ([releases.md](../maintenance/releases.md#repository-settings)). Tant qu'un secret `CHROME_*` manque, l'étape de publication est ignorée avec un avertissement et la release reçoit quand même ses zips. Supprimez le fichier de clé JSON une fois les secrets enregistrés.
 
 ## 5. Déroulé d'une release
 
-1. Fusionnez des Conventional Commits (`feat:`, `fix:`) dans `main`.
-2. release-please ouvre ou met à jour une PR de release avec la version suivante et le changelog.
-3. La fusion de cette PR crée le tag.
+1. Fusionnez des Conventional Commits (`feat:`, `fix:`) dans `develop`.
+2. release-please ouvre ou met à jour une PR de release contre `develop` avec la version suivante et le changelog.
+3. La fusion de cette PR crée le tag, publie la release GitHub en préversion et avance `main` jusqu'à elle.
 4. Le job `publish` récupère le tag, lance `pnpm verify`, génère `*-chrome.zip` (version non empaquetée, garde `key`) et `*-chrome-store.zip` (`LAMBE_STORE=1`, sans `key`), vérifie les deux manifestes et joint les zips à la release.
 5. `wxt submit` envoie le zip du store par l'[API CWS v2](https://developer.chrome.com/docs/webstore/api) avec le `publishType` `DEFAULT_PUBLISH` : la version est [publiée dès son approbation](https://developer.chrome.com/docs/webstore/api/reference/rest/v2/publishers.items/publish).
 
@@ -51,7 +51,7 @@ Ne modifiez jamais une version ou un tag à la main.
 
 ## 6. Relancer une publication
 
-Si l'étape du store échoue (secret mal saisi, examen en cours, panne), relancez-la sans nouvelle release : **Actions**, **Release**, **Run workflow**, saisissez le tag existant (par exemple `v0.2.0`). Le job reconstruit ce tag, remplace les fichiers de la release et soumet à nouveau. Les publications s'exécutent une par une.
+Si l'étape du store échoue (secret mal saisi, examen en cours, panne), relancez-la sans nouvelle release : **Actions**, **release**, **Run workflow**, saisissez le tag existant (par exemple `v0.2.0`). Le job reconstruit ce tag, remplace les fichiers de la release et soumet à nouveau. Les publications s'exécutent une par une.
 
 Le store refuse de recevoir deux fois une version déjà acceptée : ne relancez qu'un tag qu'il n'a pas encore pris.
 

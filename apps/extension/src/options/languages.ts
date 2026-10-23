@@ -1,4 +1,5 @@
 import { Option } from "@lambe/kernel/option";
+import { languageName } from "@lambe/translation/domain/language/language-name";
 
 export interface LanguageOption {
   code: string;
@@ -82,9 +83,7 @@ function capitalized(label: string, locale: string): string {
 }
 
 export function labelOf(code: string, uiLanguage: string): string {
-  const names = new Intl.DisplayNames([uiLanguage, "en"], { type: "language", fallback: "code" });
-
-  return capitalized(names.of(code) ?? code, uiLanguage);
+  return capitalized(languageName(code, [uiLanguage, "en"]), uiLanguage);
 }
 
 function nativeLabelOf(code: string): string {

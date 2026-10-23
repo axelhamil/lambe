@@ -8,6 +8,7 @@ import { type SiteRule, siteRuleOf } from "../settings/site-rule";
 
 export interface PageRules {
   hideBubble: boolean;
+  bubbleAllowed: boolean;
   autoTranslate: boolean;
   target: LanguageCode;
   siteRule: SiteRule;
@@ -20,11 +21,17 @@ export function pageRulesFor(settings: Settings, origin: string): PageRules {
 
   return {
     hideBubble: rule.hideBubble,
+    bubbleAllowed:
+      settings.bubbleEverywhere || settings.sites.some((site) => site.origin === origin),
     autoTranslate: rule.autoTranslate && isConsented(settings),
     target,
     siteRule: rule,
     languages: menuLanguages(target.value, settings.recentTargets),
   };
+}
+
+export function bubbleVisible(rules: PageRules, activated: boolean): boolean {
+  return !rules.hideBubble && (rules.bubbleAllowed || activated);
 }
 
 export function pageNeedsTranslation(rules: PageRules, pageLanguage: string): boolean {

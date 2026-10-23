@@ -238,3 +238,8 @@
     }
   }
 }
+
+[data-slot="item-description"] {
+  display: block;
+  -webkit-line-clamp: unset;
+}

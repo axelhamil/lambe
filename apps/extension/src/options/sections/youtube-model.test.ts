@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { YOUTUBE_MATCHES } from "../../permissions";
-import { fakeSettingsAccess } from "./testing/fake-settings-access";
+import { fakePermissionDeps } from "./testing/fake-permission-deps";
 import { youtubeModel } from "./youtube-model";
 
 describe("youtube model", () => {
   test("enabling_requests_the_youtube_origin_then_saves", async () => {
-    const fake = fakeSettingsAccess();
+    const fake = fakePermissionDeps();
     const grant = Promise.withResolvers<boolean>();
     fake.access.request.mockImplementationOnce(() => grant.promise);
 
@@ -21,7 +21,7 @@ describe("youtube model", () => {
   });
 
   test("denied_grant_leaves_it_off", async () => {
-    const fake = fakeSettingsAccess({}, false);
+    const fake = fakePermissionDeps({ youtube: false }, false);
 
     const changed = await youtubeModel(fake.deps).setEnabled(true);
 

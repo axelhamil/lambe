@@ -20,7 +20,8 @@ import {
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "../components/ui/item";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
-import type { ConnectionView, FixGuide, ProviderKind } from "./provider-model";
+import type { FixGuide } from "../ollama-origins-fix";
+import type { ConnectionView, ProviderKind } from "./provider-model";
 
 export interface CommandLineProps {
   text: string;

@@ -10,14 +10,14 @@ import { youtubeModel, youtubeState } from "./youtube-model";
 export function YoutubeSection() {
   const { loaded, update } = useSettings();
   const granted = useGrantedOrigins();
-  const { error, follow } = useChangeFeedback();
+  const { notice, follow } = useChangeFeedback();
   const model = youtubeModel({ access: chromeHostAccess, update });
   const state = youtubeState(loaded.settings, granted.unwrapOr([]));
   const missing = granted.isSome() && state.permissionMissing;
 
   return (
     <>
-      <ChangeNotice error={error} />
+      <ChangeNotice notice={notice} />
       <Card>
         <CardContent>
           <SwitchField

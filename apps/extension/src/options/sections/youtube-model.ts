@@ -3,7 +3,7 @@ import type { Settings } from "../../settings/settings";
 import {
   type Change,
   grantThenSave,
-  type SettingsAccess,
+  type PermissionDeps,
   saveThenRelease,
   type ToggleState,
   toggleState,
@@ -13,7 +13,7 @@ export function youtubeState(settings: Settings, granted: string[]): ToggleState
   return toggleState(settings.youtube, granted, YOUTUBE_MATCHES);
 }
 
-export function youtubeModel(deps: SettingsAccess) {
+export function youtubeModel(deps: PermissionDeps) {
   const setEnabled = (on: boolean): Promise<Change> => {
     if (on) {
       return grantThenSave(deps, YOUTUBE_MATCHES, (current) => ({ ...current, youtube: true }));

@@ -5,6 +5,14 @@ export function isConsented(settings: Settings): boolean {
   return settings.consentAt !== undefined;
 }
 
+export function grantConsent(settings: Settings, now: number): Settings {
+  return { ...settings, consentAt: now };
+}
+
+export function withdrawConsent(settings: Settings): Settings {
+  return { ...settings, consentAt: undefined };
+}
+
 export async function hasConsent(settings: SettingsStore): Promise<boolean> {
   const { settings: current } = await settings.load();
 
