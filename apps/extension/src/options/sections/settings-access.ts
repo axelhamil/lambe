@@ -11,9 +11,10 @@ export interface SettingsAccess {
   update(change: (current: Settings) => Settings): Promise<Saved>;
 }
 
+export function problemNotice(problem: SettingsProblem): string {
+  return renderError({ code: problem.code });
+}
+
 export function noticeOf(saved: Saved, success: MessageKey): string {
-  return saved.match({
-    ok: () => t(success),
-    fail: (problem) => renderError({ code: problem.code }),
-  });
+  return saved.match({ ok: () => t(success), fail: problemNotice });
 }

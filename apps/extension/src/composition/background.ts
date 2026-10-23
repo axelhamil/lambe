@@ -2,6 +2,7 @@ import type { BatchTranslateOptions } from "@lambe/translation/application/batch
 import { chromeHostAccess } from "../access/host-access";
 import { reconciler } from "../access/reconcile";
 import { chromeScriptRegistrar } from "../access/script-registrar";
+import { extensionOriginOf } from "../access/web-origin";
 import { activateTab, showUnavailable, type TabScripting } from "../activation/activate-tab";
 import { StorageTranslationCache } from "../adapters/chrome/storage-translation-cache";
 import { t } from "../i18n/t";
@@ -37,7 +38,7 @@ function workerHost(): WorkerHost {
     build: workerBuilder({
       fetch: globalThis.fetch.bind(globalThis),
       cache: new StorageTranslationCache(chrome.storage.local),
-      forbiddenHint: `chrome-extension://${chrome.runtime.id}`,
+      origin: extensionOriginOf(chrome.runtime.id),
       now: Date.now,
       log: createLogger(debugSetting(settingsStore())),
     }),

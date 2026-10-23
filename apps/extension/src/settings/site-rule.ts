@@ -1,12 +1,13 @@
 import { z } from "zod";
+import { webOriginOf } from "../access/web-origin";
 
-const WEB_SCHEMES = new Set(["http:", "https:"]);
-
-const originSchema = z.string().refine((value) => {
-  const url = URL.parse(value);
-
-  return url !== null && WEB_SCHEMES.has(url.protocol) && url.origin === value;
-}, "Site origin must look like https://example.com.");
+const originSchema = z.string().refine(
+  (value) =>
+    webOriginOf(value)
+      .filter((origin) => origin === value)
+      .isSome(),
+  "Site origin must look like https://example.com.",
+);
 
 export const siteRuleSchema = z.object({
   origin: originSchema,

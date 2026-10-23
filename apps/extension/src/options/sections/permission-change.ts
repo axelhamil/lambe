@@ -1,11 +1,12 @@
 import { Result } from "@lambe/kernel/result";
 import type { HostAccess } from "../../access/host-access";
-import { isGranted, sitePatternOf } from "../../access/registrations";
+import { isGranted } from "../../access/registrations";
+import { sitePatternOf } from "../../access/web-origin";
 import { LOCAL_HOSTS, OPTIONAL_HOSTS, YOUTUBE_MATCHES } from "../../permissions";
 import type { Settings } from "../../settings/settings";
 import type { SettingsProblem } from "../../settings/settings-store";
 
-export interface SettingsAccess {
+export interface PermissionDeps {
   access: HostAccess;
   update(change: (current: Settings) => Settings): Promise<Result<void, SettingsProblem>>;
 }
@@ -50,7 +51,7 @@ function touchesLocalHosts(origin: string): boolean {
 }
 
 export async function saveThenRelease(
-  deps: SettingsAccess,
+  deps: PermissionDeps,
   change: (current: Settings) => Settings,
   origins: string[],
 ): Promise<Change> {
@@ -75,7 +76,7 @@ export async function saveThenRelease(
 }
 
 export async function grantThenSave(
-  deps: SettingsAccess,
+  deps: PermissionDeps,
   origins: string[],
   change: (current: Settings) => Settings,
 ): Promise<Change> {

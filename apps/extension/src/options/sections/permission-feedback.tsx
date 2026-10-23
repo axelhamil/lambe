@@ -1,11 +1,11 @@
 import { Option } from "@lambe/kernel/option";
 import { useState } from "react";
-import { renderError } from "../../i18n/render-error";
 import { t } from "../../i18n/t";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import type { Change, ChangeError } from "./permission-change";
+import { problemNotice } from "./settings-access";
 
 interface PermissionMissingProps {
   onRegrant(): void;
@@ -43,9 +43,7 @@ export function ChangeNotice({ error }: ChangeNoticeProps) {
 
   const failure = error.unwrap();
   const message =
-    failure.code === "PERMISSION_DENIED"
-      ? t("options.sites.denied")
-      : renderError({ code: failure.code });
+    failure.code === "PERMISSION_DENIED" ? t("options.sites.denied") : problemNotice(failure);
 
   return (
     <Alert className="change-notice" role="status">

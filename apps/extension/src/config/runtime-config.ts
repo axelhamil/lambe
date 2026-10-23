@@ -1,6 +1,6 @@
 import { Option } from "@lambe/kernel/option";
 import { LanguageCode } from "@lambe/translation/domain/language/value-objects/language-code.vo";
-import { modelFamilyOf } from "@lambe/translation/domain/prompt/prompt-adapter";
+import { modelProfileOf } from "@lambe/translation/domain/prompt/model-profile";
 import type { ProviderSettings, Settings } from "../settings/settings";
 import type { SettingsStore } from "../settings/settings-store";
 
@@ -27,16 +27,12 @@ const ENGINE = {
 
 const ENGLISH = LanguageCode.create("en").getValue();
 
-function contextTokensFor(model: string): number {
-  return modelFamilyOf(model) === "translategemma" ? 2048 : 8192;
-}
-
 export function toRuntimeConfig(settings: Settings): RuntimeConfig {
   return {
     ...ENGINE,
     provider: settings.provider,
     target: LanguageCode.create(settings.target).unwrapOr(ENGLISH),
-    contextTokens: contextTokensFor(settings.provider.model),
+    contextTokens: modelProfileOf(settings.provider.model).contextTokens,
     guidelines: Option.some(settings.prompt).filter((text) => text.trim() !== ""),
     debug: settings.debug,
   };

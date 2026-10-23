@@ -146,6 +146,7 @@ options:
     consentMissing: "You have not agreed yet, so Lambë translates nothing."
     withdrawHint: "Withdrawing stops every translation at once. You can agree again from the welcome panel."
     withdraw: "Withdraw consent"
+    withdrawn: "Consent withdrawn. Lambë sends nothing to the model until you agree again."
     aboutTitle: "About"
     version: "Version $1"
     policy: "Read the privacy policy"

@@ -16,11 +16,11 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import type { FixGuide } from "../ollama-origins-fix";
 import { localModelGuideUrl } from "../project-links";
 import { useSettings } from "../use-settings";
 import {
   type ConnectionView,
-  type FixGuide,
   listedModel,
   type ProviderDraft,
   type ProviderKind,
@@ -30,6 +30,7 @@ import {
   type SaveResult,
   switchKind,
 } from "./provider-model";
+import { problemNotice } from "./settings-access";
 
 const KIND_LABEL = {
   ollama: "options.provider.kind.ollama",
@@ -48,7 +49,7 @@ function saveMessage(error: ProviderSaveError): string {
     case "MODEL_REQUIRED":
       return t(`options.provider.saveFailed.${error.code}`);
     default:
-      return renderError({ code: error.code });
+      return problemNotice(error);
   }
 }
 

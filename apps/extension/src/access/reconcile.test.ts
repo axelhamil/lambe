@@ -3,22 +3,16 @@ import { OPTIONAL_HOSTS, YOUTUBE_MATCHES } from "../permissions";
 import { defaultSettings, type Settings } from "../settings/settings";
 import { SETTINGS_KEY, SettingsStore } from "../settings/settings-store";
 import { fakeStorageArea } from "../settings/testing/fake-storage-area";
-import type { HostAccess } from "./host-access";
 import { reconcile } from "./reconcile";
 import type { Registration } from "./registrations";
 import type { ScriptRegistrar } from "./script-registrar";
+import { fakeHostAccess } from "./testing/fake-host-access";
 
 const fakeChrome = (settings: Partial<Settings>, origins: string[]) => {
   const storage = fakeStorageArea({ [SETTINGS_KEY]: { ...defaultSettings("en"), ...settings } });
   const scripts = new Map<string, Registration>();
-  const granted = [...origins];
+  const { access, origins: granted } = fakeHostAccess({ granted: origins });
   let staleSnapshot: Registration[] | undefined;
-
-  const access: HostAccess = {
-    granted: mock(async () => [...granted]),
-    request: mock(async () => false),
-    remove: mock(async () => false),
-  };
 
   const registrar = {
     registered: mock(async () => {

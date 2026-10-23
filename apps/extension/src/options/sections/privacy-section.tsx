@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { renderError } from "../../i18n/render-error";
 import { t } from "../../i18n/t";
 import { Button } from "../components/ui/button";
 import { PRIVACY_POLICY_URL } from "../project-links";
 import { useSettings } from "../use-settings";
 import { formatConsentDate, privacyModel } from "./privacy-model";
+import { noticeOf } from "./settings-access";
 
 export function PrivacySection() {
   const { loaded, update } = useSettings();
@@ -18,11 +18,7 @@ export function PrivacySection() {
   const consentAt = model.consentAt();
 
   const withdraw = async (): Promise<void> => {
-    const saved = await model.withdraw();
-
-    setNotice(
-      saved.match({ ok: () => "", fail: (problem) => renderError({ code: problem.code }) }),
-    );
+    setNotice(noticeOf(await model.withdraw(), "options.privacy.withdrawn"));
   };
 
   return (

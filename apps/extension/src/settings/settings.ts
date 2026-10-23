@@ -1,19 +1,18 @@
 import { LanguageCode } from "@lambe/translation/domain/language/value-objects/language-code.vo";
 import { z } from "zod";
+import { webUrlOf } from "../access/web-origin";
 import { siteRuleSchema } from "./site-rule";
 
 export const SETTINGS_VERSION = 1;
 
 export const RECENT_TARGETS_LIMIT = 24;
 
-const WEB_SCHEMES = new Set(["http:", "https:"]);
-
 const positiveInt = z.int().positive();
 
 const baseUrlSchema = z
   .url()
   .refine(
-    (value) => WEB_SCHEMES.has(URL.parse(value)?.protocol ?? ""),
+    (value) => webUrlOf(value).isSome(),
     "Provider base URL must start with http:// or https://.",
   );
 

@@ -1,12 +1,12 @@
 import { Option } from "@lambe/kernel/option";
-import { sitePatternOf } from "../../access/registrations";
+import { sitePatternOf, webOriginOf } from "../../access/web-origin";
 import { OPTIONAL_HOSTS } from "../../permissions";
 import type { Settings } from "../../settings/settings";
 import { type SiteRule, siteRuleOf, withSiteRule } from "../../settings/site-rule";
 import {
   type Change,
   grantThenSave,
-  type SettingsAccess,
+  type PermissionDeps,
   saveThenRelease,
   type ToggleState,
   toggleState,
@@ -17,8 +17,6 @@ export interface SiteRow {
   permissionMissing: boolean;
 }
 
-const WEB_SCHEMES = new Set(["http:", "https:"]);
-
 const HAS_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
 
 export function originOf(input: string): Option<string> {
@@ -26,11 +24,7 @@ export function originOf(input: string): Option<string> {
 
   if (trimmed === "") return Option.none();
 
-  const url = URL.parse(HAS_SCHEME.test(trimmed) ? trimmed : `https://${trimmed}`);
-
-  if (url === null || !WEB_SCHEMES.has(url.protocol) || url.hostname === "") return Option.none();
-
-  return Option.some(url.origin);
+  return webOriginOf(HAS_SCHEME.test(trimmed) ? trimmed : `https://${trimmed}`);
 }
 
 export function pendingOriginOf(hash: string): Option<string> {
@@ -61,7 +55,7 @@ export function siteRows(settings: Settings, granted: string[]): SiteRow[] {
   }));
 }
 
-export function sitesModel(deps: SettingsAccess) {
+export function sitesModel(deps: PermissionDeps) {
   const removeRule = (origin: string): Promise<Change> =>
     saveThenRelease(
       deps,

@@ -9,6 +9,7 @@ import {
 } from "../permissions";
 import type { Settings } from "../settings/settings";
 import type { SiteRule } from "../settings/site-rule";
+import { isWebProtocol, sitePatternOf } from "./web-origin";
 
 export interface Registration {
   id: string;
@@ -29,8 +30,6 @@ interface MatchPattern {
 
 const ALL_URLS = "<all_urls>";
 
-const WEB_SCHEMES = new Set(["http", "https"]);
-
 const PATTERN = /^([^:/]+):\/\/([^/]*)(\/.*)$/;
 
 const SITE_PREFIX = "lambe-site:";
@@ -44,7 +43,7 @@ function patternOf(pattern: string): Option<MatchPattern> {
 }
 
 function schemeCovers(granted: string, scheme: string): boolean {
-  return granted === scheme || (granted === "*" && WEB_SCHEMES.has(scheme));
+  return granted === scheme || (granted === "*" && isWebProtocol(`${scheme}:`));
 }
 
 function hostCovers(granted: string, host: string): boolean {
@@ -106,14 +105,6 @@ function youtubeRegistrations(): Registration[] {
     }),
     registration("lambe-youtube", YOUTUBE_SCRIPT, YOUTUBE_MATCHES, { css: [YOUTUBE_CSS] }),
   ];
-}
-
-export function sitePatternOf(origin: string): Option<string> {
-  const url = URL.parse(origin);
-
-  if (url === null) return Option.none();
-
-  return Option.some(`${url.protocol}//${url.hostname}/*`);
 }
 
 function siteRegistration(rule: SiteRule, granted: string[]): Registration[] {

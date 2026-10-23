@@ -1,3 +1,4 @@
+import { grantConsent, isConsented } from "../activation/consent-gate";
 import { t } from "../i18n/t";
 import { Button } from "./components/ui/button";
 import { LambeGlyph } from "./lambe-glyph";
@@ -6,10 +7,10 @@ import { useSettings } from "./use-settings";
 export function Onboarding() {
   const { loaded, update } = useSettings();
 
-  if (loaded.settings.consentAt !== undefined) return null;
+  if (isConsented(loaded.settings)) return null;
 
   const consent = (): void => {
-    void update((current) => ({ ...current, consentAt: Date.now() }));
+    void update((current) => grantConsent(current, Date.now()));
   };
 
   return (

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Option } from "@lambe/kernel/option";
-import type { HostAccess } from "../../access/host-access";
+import { fakeHostAccess } from "../../access/testing/fake-host-access";
 import { renderError } from "../../i18n/render-error";
 import { SecretsStore } from "../../settings/secrets-store";
 import { defaultSettings } from "../../settings/settings";
@@ -26,16 +26,7 @@ const unreachable: Route = () => {
 function setup(route: Route = ollamaTags(), grants = true) {
   const storage = fakeStorageArea({ [SETTINGS_KEY]: defaultSettings("en") });
   const store = new SettingsStore(storage.area, "en");
-  const requested: string[][] = [];
-  const hostAccess: HostAccess = {
-    granted: async () => [],
-    request: async (origins) => {
-      requested.push(origins);
-
-      return grants;
-    },
-    remove: async () => true,
-  };
+  const { access: hostAccess } = fakeHostAccess({ grants });
   const model = providerModel({
     extensionId: EXTENSION_ID,
     fetch: async (input, init) => route(String(input), init),
@@ -43,6 +34,8 @@ function setup(route: Route = ollamaTags(), grants = true) {
     secrets: new SecretsStore(storage.area),
     update: (change) => store.update(change),
   });
+
+  const requested = (): string[][] => hostAccess.request.mock.calls.map(([origins]) => origins);
 
   return { model, store, storage, requested };
 }
@@ -133,7 +126,7 @@ describe("provider model", () => {
     const { provider } = (await store.load()).settings;
 
     expect(saved.isSuccess).toBe(true);
-    expect(requested).toEqual([["https://api.example.com/*"]]);
+    expect(requested()).toEqual([["https://api.example.com/*"]]);
     expect(provider).toMatchObject({
       kind: "openai-compatible",
       baseUrl: "https://api.example.com/v1",

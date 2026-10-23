@@ -146,6 +146,7 @@ options:
     consentMissing: "Vous n'avez pas encore donné votre accord : Lambë ne traduit rien."
     withdrawHint: "Retirer votre accord arrête aussitôt toute traduction. Vous pourrez le redonner depuis le panneau d'accueil."
     withdraw: "Retirer mon accord"
+    withdrawn: "Accord retiré. Lambë n'envoie plus rien au modèle tant que vous ne l'avez pas redonné."
     aboutTitle: "À propos"
     version: "Version $1"
     policy: "Lire la politique de confidentialité"

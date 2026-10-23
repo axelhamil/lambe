@@ -62,7 +62,7 @@ function hostOver(initial: Record<string, unknown>) {
       return new Response("", { status: 500 });
     },
     cache: { getMany: async () => new Map(), setMany: async () => undefined },
-    forbiddenHint: "chrome-extension://test",
+    origin: "chrome-extension://test",
     now: () => 0,
     log: { debug: () => undefined },
   });

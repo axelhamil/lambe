@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { OPTIONAL_HOSTS } from "../../permissions";
 import { defaultSettings } from "../../settings/settings";
 import { bubbleEverywhereState, pendingOriginOf, siteRows, sitesModel } from "./sites-model";
-import { fakeSettingsAccess } from "./testing/fake-settings-access";
+import { fakePermissionDeps } from "./testing/fake-permission-deps";
 
 const ORIGIN = "https://example.org";
 
@@ -10,7 +10,7 @@ const SITE = `${ORIGIN}/*`;
 
 describe("sites model", () => {
   test("bubble_everywhere_is_saved_only_after_the_grant", async () => {
-    const fake = fakeSettingsAccess();
+    const fake = fakePermissionDeps();
     const grant = Promise.withResolvers<boolean>();
     fake.access.request.mockImplementationOnce(() => grant.promise);
 
@@ -26,7 +26,7 @@ describe("sites model", () => {
   });
 
   test("denied_grant_leaves_the_setting_off", async () => {
-    const fake = fakeSettingsAccess({}, false);
+    const fake = fakePermissionDeps({}, false);
 
     const changed = await sitesModel(fake.deps).setBubbleEverywhere(true);
 
@@ -36,11 +36,11 @@ describe("sites model", () => {
   });
 
   test("turning_it_off_keeps_origins_a_site_rule_still_needs", async () => {
-    const withRule = fakeSettingsAccess({
+    const withRule = fakePermissionDeps({
       bubbleEverywhere: true,
       sites: [{ origin: ORIGIN, autoTranslate: true, hideBubble: false }],
     });
-    const withoutRule = fakeSettingsAccess({ bubbleEverywhere: true });
+    const withoutRule = fakePermissionDeps({ bubbleEverywhere: true });
 
     await sitesModel(withRule.deps).setBubbleEverywhere(false);
     await sitesModel(withoutRule.deps).setBubbleEverywhere(false);
@@ -51,7 +51,7 @@ describe("sites model", () => {
   });
 
   test("pending_origin_from_the_menu_is_prefilled", async () => {
-    const fake = fakeSettingsAccess();
+    const fake = fakePermissionDeps();
     const pending = pendingOriginOf(`#sites?origin=${encodeURIComponent(`${ORIGIN}/`)}`);
 
     await sitesModel(fake.deps).addSite(pending.unwrap());
@@ -66,7 +66,7 @@ describe("sites model", () => {
   });
 
   test("removing_the_last_flag_removes_the_rule_and_its_permission", async () => {
-    const fake = fakeSettingsAccess({
+    const fake = fakePermissionDeps({
       sites: [{ origin: ORIGIN, autoTranslate: true, hideBubble: false }],
     });
 
