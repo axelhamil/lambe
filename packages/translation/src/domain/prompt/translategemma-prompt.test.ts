@@ -26,6 +26,7 @@ const input = (overrides: Partial<PromptInput> = {}): PromptInput => ({
     { n: 1, markup: "Open a <g1>pull request</g1>." },
     { n: 2, markup: "Run <x1/> first." },
   ],
+  guidelines: "",
   ...overrides,
 });
 
@@ -39,6 +40,8 @@ const captionBrief: CaptionBrief = {
   generated: true,
   preceding: ["p".repeat(120), "q".repeat(120)],
 };
+
+const CUSTOM = "Use formal French and translate every technical term.";
 
 const contentOf = (prompt: PromptInput): string =>
   translateGemmaPrompt.build(prompt)[0]?.content ?? "";
@@ -103,6 +106,7 @@ describe("translateGemmaPrompt", () => {
         source: captions.source,
         target: captions.target,
         brief: captionBrief,
+        guidelines: "",
       }),
     ).toBeLessThan(520);
   });
@@ -118,5 +122,21 @@ describe("translateGemmaPrompt", () => {
     expect(content).not.toContain("Leave terms of art");
     expect(content).not.toContain("<xN/>");
     expect(content).toContain("Keep the [N] number at the start of every line");
+  });
+
+  test("custom_guidelines_replace_the_default_block", () => {
+    const content = contentOf(input({ guidelines: CUSTOM }));
+
+    expect(content).toContain(CUSTOM);
+    expect(content).not.toContain("Leave terms of art");
+    expect(content).toContain(
+      "Keep the [N] number at the start of every line and every <xN/> and <gN>...</gN> tag exactly as given",
+    );
+  });
+
+  test("caption_prompt_ignores_guidelines", () => {
+    expect(contentOf(input({ brief: captionBrief, guidelines: CUSTOM }))).toBe(
+      contentOf(input({ brief: captionBrief })),
+    );
   });
 });

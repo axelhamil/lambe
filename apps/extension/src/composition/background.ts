@@ -60,6 +60,7 @@ async function buildWorker(): Promise<Worker> {
       modelFamilyOf(provider.model) === "translategemma" ? translateGemmaPrompt : instructionPrompt,
     contextTokens: config.contextTokens,
     maxSegmentsPerBatch: config.maxSegmentsPerBatch,
+    guidelines: "",
   });
 
   return { service, capacity: adaptive };
