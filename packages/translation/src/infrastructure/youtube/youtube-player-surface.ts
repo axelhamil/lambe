@@ -54,17 +54,18 @@ export class YoutubePlayerSurface implements CaptionSurface {
   }
 
   readBrief(): Omit<CaptionBrief, "generated" | "preceding"> {
-    const { doc, window } = this.deps;
+    const { window } = this.deps;
+    const metadata = this.currentMetadata();
+    const read = (selector: string): string =>
+      cleanText(metadata?.querySelector(selector)?.textContent);
 
     return {
       kind: "captions",
       host: window.location.host,
       url: window.location.href,
-      title: cleanText(doc.querySelector(YOUTUBE_SELECTORS.title)?.textContent),
-      channel: cleanText(doc.querySelector(YOUTUBE_SELECTORS.channel)?.textContent),
-      description: cleanText(
-        doc.querySelector(YOUTUBE_SELECTORS.description)?.getAttribute("content"),
-      ),
+      title: read(YOUTUBE_SELECTORS.title),
+      channel: read(YOUTUBE_SELECTORS.channel),
+      description: read(YOUTUBE_SELECTORS.description),
     };
   }
 
@@ -162,6 +163,16 @@ export class YoutubePlayerSurface implements CaptionSurface {
 
   private isMainVideo(target: EventTarget | null): boolean {
     return target instanceof Element && target.matches(YOUTUBE_SELECTORS.video);
+  }
+
+  private currentMetadata(): Element | null {
+    const metadata = this.deps.doc.querySelector(YOUTUBE_SELECTORS.metadata);
+    const shown = metadata?.getAttribute(YOUTUBE_SELECTORS.metadataVideoAttribute);
+    const current = this.videoId()
+      .map((id) => id.value)
+      .toUndefined();
+
+    return shown !== undefined && shown === current ? metadata : null;
   }
 
   private player(): Element | null {

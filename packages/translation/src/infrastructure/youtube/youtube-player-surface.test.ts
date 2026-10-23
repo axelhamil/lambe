@@ -115,6 +115,19 @@ describe("YoutubePlayerSurface", () => {
     });
   });
 
+  test("brief_ignores_metadata_of_the_previous_video", () => {
+    const { surface } = watchPage(`/watch?v=${OTHER_VIDEO}`);
+
+    expect(surface.readBrief()).toEqual({
+      kind: "captions",
+      host: "www.youtube.com",
+      url: `https://www.youtube.com/watch?v=${OTHER_VIDEO}`,
+      title: "",
+      channel: "",
+      description: "",
+    });
+  });
+
   test("non_watch_page_has_no_video_id", () => {
     for (const path of [`/results?search_query=rivers&v=${VIDEO}`, `/shorts/${VIDEO}`, "/watch"]) {
       const { surface } = watchPage(path);
