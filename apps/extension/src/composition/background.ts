@@ -125,6 +125,9 @@ export function startBackground(): void {
   chrome.runtime.onConnect.addListener((port) => {
     if (port.name !== TRANSLATE_PORT_NAME) return;
 
+    port.onDisconnect.addListener(() => {
+      void chrome.runtime.lastError;
+    });
     serveTranslatePort(port, answer, reported);
   });
 
