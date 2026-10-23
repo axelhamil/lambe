@@ -6,6 +6,7 @@ import type { LanguageCode } from "@lambe/translation/domain/language/value-obje
 import { DomPageSurface } from "@lambe/translation/infrastructure/dom/dom-page-surface";
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root";
+import { runWithConsent } from "../activation/consent-gate";
 import { ChromeLanguageDetector } from "../adapters/chrome/chrome-language-detector";
 import { PortBatchTranslator } from "../adapters/chrome/port-batch-translator";
 import bubbleCss from "../bubble/bubble.css?raw";
@@ -173,12 +174,17 @@ export function startContent(ctx: ContentScriptContext): void {
       console.error("Lambë could not open its settings.", cause);
     });
   };
+  const withConsent = (action: () => void): void => {
+    void runWithConsent(store, action, () => sendToWorker({ type: "lambe/open-options" })).catch(
+      (cause: unknown) => console.error("Lambë could not read its settings.", cause),
+    );
+  };
   const follow: AppAction = async ({ page }) => {
     let latest: Option<PageRules> = Option.none();
     const actions = menuActions({
       origin: location.origin,
       settings: store,
-      translateWith,
+      translateWith: (language) => withConsent(() => translateWith(language)),
       sendToWorker,
     });
     const menuState = (): MenuState => {
@@ -189,7 +195,7 @@ export function startContent(ctx: ContentScriptContext): void {
     const bubble = await bubbleSlot(
       ctx,
       page,
-      { onSingle: toggle, onDouble: retranslate },
+      { onSingle: () => withConsent(toggle), onDouble: () => withConsent(retranslate) },
       { actions, state: menuState },
     );
     const apply = (rules: PageRules): void => {
