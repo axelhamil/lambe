@@ -547,6 +547,52 @@ describe("CaptionTranslationService", () => {
     expect(service.state()).toEqual({ kind: "translated" });
   });
 
+  test("sound_pieces_show_their_original_and_are_never_sent", async () => {
+    const controlled = controlledTranslator();
+    const { service, load, texts, flags } = setup({ translate: controlled.translate });
+    const spoken = spokenTrack(2);
+    load({
+      ...spoken,
+      units: [
+        { text: "[Music]", startMs: 0, endMs: 900 },
+        ...spoken.units.map((unit) => ({
+          ...unit,
+          startMs: unit.startMs + 1000,
+          endMs: unit.endMs + 1000,
+        })),
+      ],
+    });
+
+    const first = controlled.nextCall();
+    await service.toggle();
+    await first;
+    const lead = segmentsOf(controlled.call(0));
+    controlled.autoFinish();
+    controlled.call(0).finish(frenchOutcomes(controlled.call(0).request));
+    await service.whenIdle();
+
+    expect(lead).toEqual(["Sentence number 0 is here."]);
+    expect(controlled.calls.flatMap(segmentsOf)).not.toContain("[Music]");
+    expect(texts()[0]).toBe("[Music]");
+    expect(flags()).toEqual([false, true, true]);
+    expect(service.state()).toEqual({ kind: "translated" });
+  });
+
+  test("bracketed_cue_of_a_manual_track_is_never_sent", async () => {
+    const { service, load, sent, texts } = setup();
+    const track = manualTrack(2);
+    load({
+      ...track,
+      units: [...track.units, { text: "[Applause]", startMs: 10000, endMs: 12000 }],
+    });
+
+    await service.toggle();
+    await service.whenIdle();
+
+    expect(sent().flat()).not.toContain("[Applause]");
+    expect(texts()).toEqual(["fr Sentence 0.", "fr Sentence 1.", "[Applause]"]);
+  });
+
   test("toggle_off_restores_native_captions_and_cc_state", async () => {
     const controlled = controlledTranslator();
     const { service, surface, load, texts } = setup({ translate: controlled.translate });

@@ -194,8 +194,10 @@ export class CaptionTranslationService {
 
     remember(this.memory, signature, settled);
 
-    if (track.language.sharesPrimarySubtagWith(this.deps.target)) {
-      for (const sentence of sentences) settled.set(sentence.index, Option.none());
+    const sameLanguage = track.language.sharesPrimarySubtagWith(this.deps.target);
+
+    for (const sentence of sentences) {
+      if (sameLanguage || sentence.sound) settled.set(sentence.index, Option.none());
     }
 
     this.sessions += 1;
@@ -302,7 +304,7 @@ export class CaptionTranslationService {
 
     this.leadPending = false;
 
-    const sentence = session.sentences[session.current];
+    const sentence = session.sentences.slice(session.current).find((candidate) => !candidate.sound);
 
     if (sentence === undefined || session.settled.has(sentence.index)) return Option.none();
 

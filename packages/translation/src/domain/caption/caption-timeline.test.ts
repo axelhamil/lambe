@@ -19,6 +19,7 @@ const sentences: CaptionSentence[] = spans.map(([startMs, endMs], index) => ({
   startMs,
   endMs,
   text: `sentence ${index}`,
+  sound: false,
 }));
 
 const line = (startMs: number, endMs: number, text: string): CaptionLine => ({

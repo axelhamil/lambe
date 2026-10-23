@@ -10,6 +10,7 @@ describe("sentenceId", () => {
       startMs: 0,
       endMs: 900,
       text: "Never gonna give you up.",
+      sound: false,
     };
 
     expect(sentence.id.value).toBe("dQw4w9WgXcQ:12");

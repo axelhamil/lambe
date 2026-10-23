@@ -29,6 +29,8 @@ const FRAGMENT_JOIN_GAP_MS = 1500;
 
 const MIN_DURATION_MS = 1000;
 
+const SOUND_CUE = /^\[[^\]]*\]$/;
+
 interface Piece {
   words: TimedText[];
   sound: boolean;
@@ -274,16 +276,16 @@ function joinFragments(pieces: Piece[]): Piece[] {
   return result;
 }
 
-function timedSentences(videoId: VideoId, spans: TimedText[][]): CaptionSentence[] {
-  return spans.map((words, index) => {
+function timedSentences(videoId: VideoId, pieces: Piece[]): CaptionSentence[] {
+  return pieces.map(({ words, sound }, index) => {
     const startMs = startOf(words);
-    const following = spans[index + 1];
+    const following = pieces[index + 1]?.words;
     const nextStart = following === undefined ? Number.POSITIVE_INFINITY : startOf(following);
     const text = words.map((word) => word.text).join(" ");
     const capped = Math.min(endOf(words), nextStart);
     const endMs = Math.max(startMs, capped, Math.min(startMs + MIN_DURATION_MS, nextStart));
 
-    return { id: sentenceId(videoId, index), index, startMs, endMs, text };
+    return { id: sentenceId(videoId, index), index, startMs, endMs, text, sound };
   });
 }
 
@@ -297,6 +299,7 @@ function cueSentences(track: CaptionTrack): CaptionSentence[] {
       startMs: cue.startMs,
       endMs: cue.endMs,
       text: cue.text,
+      sound: SOUND_CUE.test(cue.text),
     }));
 }
 
@@ -316,8 +319,5 @@ export function segmentSentences(track: CaptionTrack): CaptionSentence[] {
       capLength(piece.words, rules).map((words) => ({ words, sound: piece.sound })),
     );
 
-  return timedSentences(
-    track.videoId,
-    joinFragments(sentences).map((piece) => piece.words),
-  );
+  return timedSentences(track.videoId, joinFragments(sentences));
 }

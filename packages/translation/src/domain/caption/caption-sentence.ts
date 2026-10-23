@@ -7,6 +7,7 @@ export interface CaptionSentence {
   startMs: number;
   endMs: number;
   text: string;
+  sound: boolean;
 }
 
 export function sentenceId(videoId: VideoId, index: number): BlockId {
