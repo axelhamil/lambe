@@ -1,0 +1,28 @@
+ext:
+  name: "Lambë"
+  description: "Traduit les pages web sur place avec un LLM local."
+  actionTitle: "Traduire cette page avec Lambë"
+  commandToggle: "Activer ou désactiver la traduction de la page"
+
+common:
+  save: "Enregistrer"
+  cancel: "Annuler"
+  reset: "Réinitialiser"
+  remove: "Supprimer"
+  copy: "Copier"
+  learnMore: "En savoir plus"
+
+error:
+  PROVIDER_UNREACHABLE: "Le serveur de modèles est injoignable à l'adresse {baseUrl}. Démarrez-le ou vérifiez l'adresse, puis réessayez."
+  PROVIDER_UNAUTHORIZED: "Le serveur {baseUrl} a refusé la clé d'API. Vérifiez-la dans les réglages, puis réessayez."
+  PROVIDER_FORBIDDEN_ORIGIN: "Ollama refuse les requêtes venant de {origin}. Ajoutez cette origine à OLLAMA_ORIGINS, redémarrez Ollama, puis réessayez."
+  PROVIDER_MODEL_MISSING: "Le modèle {model} n'est pas installé. Installez-le ou choisissez un autre modèle dans les réglages."
+  PROVIDER_BAD_RESPONSE: "Le serveur de modèles a renvoyé une réponse inattendue. Réessayez, ou choisissez un autre modèle si le problème persiste."
+  PROVIDER_TIMEOUT: "Le serveur de modèles n'a pas répondu en {timeoutMs} ms. Réessayez, ou choisissez un modèle plus léger."
+  REQUEST_CANCELLED: "La traduction a été annulée."
+  NO_CAPTIONS: "Cette vidéo n'a pas de sous-titres à traduire."
+  CONSENT_REQUIRED: "Lambë a besoin de votre accord avant d'envoyer du texte à un modèle. Ouvrez les réglages pour en prendre connaissance et l'accepter."
+  PAGE_UNAVAILABLE: "Lambë ne peut pas fonctionner sur cette page : les pages du navigateur et le Chrome Web Store sont fermés aux extensions."
+  SETTINGS_INVALID: "Vos réglages enregistrés ne sont pas valides, Lambë utilise donc les valeurs par défaut. Corrigez-les ou réinitialisez-les."
+  SETTINGS_FROM_NEWER_VERSION: "Vos réglages proviennent d'une version plus récente de Lambë, les valeurs par défaut sont donc utilisées. Mettez l'extension à jour ou réinitialisez les réglages."
+  UNKNOWN: "Une erreur est survenue. Réessayez."
