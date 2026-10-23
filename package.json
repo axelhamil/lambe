@@ -3,6 +3,17 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "description": "Translate web pages and YouTube captions in place with the model you choose, local first.",
+  "license": "MIT",
+  "author": "axelhamil",
+  "homepage": "https://github.com/axelhamil/lambe#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/axelhamil/lambe.git"
+  },
+  "bugs": {
+    "url": "https://github.com/axelhamil/lambe/issues"
+  },
   "scripts": {
     "check": "biome check .",
     "fix": "biome check --write .",
