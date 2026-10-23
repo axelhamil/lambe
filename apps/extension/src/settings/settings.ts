@@ -4,6 +4,8 @@ import { siteRuleSchema } from "./site-rule";
 
 export const SETTINGS_VERSION = 1;
 
+export const RECENT_TARGETS_LIMIT = 24;
+
 const WEB_SCHEMES = new Set(["http:", "https:"]);
 
 const positiveInt = z.int().positive();
@@ -32,6 +34,7 @@ export const settingsSchema = z.object({
   consentAt: z.number().optional(),
   provider: providerSettingsSchema,
   target: targetSchema,
+  recentTargets: z.array(targetSchema).max(RECENT_TARGETS_LIMIT).default([]),
   bubbleEverywhere: z.boolean(),
   youtube: z.boolean(),
   sites: z.array(siteRuleSchema),
@@ -66,6 +69,7 @@ export function defaultSettings(uiLanguage: string): Settings {
       timeoutMs: 120000,
     },
     target: uiTarget(uiLanguage),
+    recentTargets: [],
     bubbleEverywhere: false,
     youtube: false,
     sites: [],

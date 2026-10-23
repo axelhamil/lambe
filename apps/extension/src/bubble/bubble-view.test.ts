@@ -9,7 +9,11 @@ function setup() {
   document.body.append(host);
 
   const root = host.attachShadow({ mode: "open" });
-  const handlers = { onSingle: mock(() => {}), onDouble: mock(() => {}) };
+  const handlers = {
+    onSingle: mock(() => {}),
+    onDouble: mock(() => {}),
+    onMenu: mock(() => {}),
+  };
   const bubble = mountBubble(root, handlers, fakeUiText);
   const button = root.querySelector("button");
 

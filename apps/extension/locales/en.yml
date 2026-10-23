@@ -40,6 +40,15 @@ youtube:
   button: "Translated captions (Lambë)"
   buttonOn: "Hide the translated captions (Lambë)"
   translating: "Translating the captions…"
+
+menu:
+  label: "Lambë menu"
+  translateTo: "Translate this page to"
+  moreLanguages: "More languages…"
+  autoTranslateSite: "Always translate this site"
+  hideOnSite: "Hide the bubble on this site"
+  settings: "Lambë settings"
+
 options:
   shell:
     documentTitle: "Lambë settings"

@@ -1,0 +1,96 @@
+:host {
+  --lambe-menu-fill: rgba(22, 27, 34, 0.92);
+  --lambe-menu-edge: rgba(201, 209, 217, 0.18);
+  --lambe-menu-hover: rgba(126, 224, 195, 0.12);
+  --lambe-menu-muted: rgba(201, 209, 217, 0.6);
+  --lambe-menu-font: 400 13px / 1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
+  --lambe-menu-heading-font: 500 11px / 1.3 system-ui, -apple-system, "Segoe UI", sans-serif;
+  --lambe-menu-width: 232px;
+  --lambe-menu-radius: 10px;
+  --lambe-menu-item-radius: 6px;
+  --lambe-menu-pad: 4px;
+  --lambe-menu-item-pad: 6px 10px 6px 12px;
+  --lambe-menu-blur: 12px;
+  --lambe-menu-shadow: 0 8px 24px rgba(1, 4, 9, 0.45);
+  --lambe-menu-mark: 2px;
+}
+
+.menu {
+  position: fixed;
+  left: var(--lambe-menu-left, 0px);
+  top: var(--lambe-menu-top, 0px);
+  z-index: var(--lambe-z-index);
+  box-sizing: border-box;
+  width: var(--lambe-menu-width);
+  padding: var(--lambe-menu-pad);
+  color: var(--lambe-ink);
+  font: var(--lambe-menu-font);
+  background: var(--lambe-menu-fill);
+  border: 1px solid var(--lambe-menu-edge);
+  border-radius: var(--lambe-menu-radius);
+  box-shadow: var(--lambe-menu-shadow);
+  backdrop-filter: blur(var(--lambe-menu-blur));
+  animation: lambe-menu-in var(--lambe-fade) ease-out;
+}
+
+.menu[hidden] {
+  display: none;
+}
+
+.menu-heading {
+  padding: var(--lambe-menu-item-pad);
+  color: var(--lambe-menu-muted);
+  font: var(--lambe-menu-heading-font);
+}
+
+.menu-item {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: var(--lambe-menu-item-pad);
+  border-radius: var(--lambe-menu-item-radius);
+  box-shadow: inset 0 0 0 transparent;
+  cursor: pointer;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--lambe-menu-hover);
+  box-shadow: inset var(--lambe-menu-mark) 0 0 var(--lambe-accent);
+}
+
+.menu-item:focus-visible {
+  outline: none;
+}
+
+.menu-item[aria-checked="true"]::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--lambe-accent);
+  box-shadow: 0 0 var(--lambe-glow) var(--lambe-accent);
+}
+
+.menu-separator {
+  height: 1px;
+  margin: var(--lambe-menu-pad) 0;
+  background: var(--lambe-menu-edge);
+}
+
+@keyframes lambe-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu {
+    animation: none;
+  }
+}

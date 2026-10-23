@@ -5,6 +5,10 @@ import { type BubbleClass, bubbleStateOf } from "./bubble-state";
 import { type ClickHandlers, createClickClassifier, type Scheduler } from "./click-classifier";
 import { clampTop, restingLeft, type Side, snapSide } from "./placement";
 
+export interface BubbleHandlers extends ClickHandlers {
+  onMenu(anchor: DOMRect): void;
+}
+
 export interface Bubble {
   render(state: ViewState): void;
   destroy(): void;
@@ -17,6 +21,8 @@ interface Drag {
   originTop: number;
   moved: boolean;
 }
+
+export const BUBBLE_SELECTOR = "button.bubble";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const DRAG_THRESHOLD = 4;
@@ -60,7 +66,7 @@ function createButton(text: UiText): HTMLButtonElement {
   return button;
 }
 
-function viewport(): { width: number; height: number } {
+export function viewport(): { width: number; height: number } {
   const layout = document.documentElement;
 
   return {
@@ -69,7 +75,7 @@ function viewport(): { width: number; height: number } {
   };
 }
 
-export function mountBubble(root: ShadowRoot, handlers: ClickHandlers, text: UiText): Bubble {
+export function mountBubble(root: ShadowRoot, handlers: BubbleHandlers, text: UiText): Bubble {
   const button = createButton(text);
   const listeners = new AbortController();
   const timers = new Set<number>();
@@ -200,6 +206,16 @@ export function mountBubble(root: ShadowRoot, handlers: ClickHandlers, text: UiT
       event.stopPropagation();
 
       if (event.detail === 0) handlers.onSingle();
+    },
+    options,
+  );
+
+  button.addEventListener(
+    "contextmenu",
+    (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      handlers.onMenu(button.getBoundingClientRect());
     },
     options,
   );

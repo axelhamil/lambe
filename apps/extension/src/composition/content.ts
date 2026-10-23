@@ -1,18 +1,30 @@
+import { Option } from "@lambe/kernel/option";
 import { PageTranslationService } from "@lambe/translation/application/page-translation.service";
+import { isShowingTranslation } from "@lambe/translation/application/view-state";
 import { BlockId } from "@lambe/translation/domain/block/value-objects/block-id.vo";
+import type { LanguageCode } from "@lambe/translation/domain/language/value-objects/language-code.vo";
 import { DomPageSurface } from "@lambe/translation/infrastructure/dom/dom-page-surface";
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root";
 import { ChromeLanguageDetector } from "../adapters/chrome/chrome-language-detector";
 import { PortBatchTranslator } from "../adapters/chrome/port-batch-translator";
 import bubbleCss from "../bubble/bubble.css?raw";
+import {
+  type BubbleMenu,
+  type MenuActions,
+  type MenuState,
+  mountBubbleMenu,
+} from "../bubble/bubble-menu";
+import bubbleMenuCss from "../bubble/bubble-menu.css?raw";
 import { type Bubble, mountBubble } from "../bubble/bubble-view";
 import type { ClickHandlers } from "../bubble/click-classifier";
 import { loadRuntimeConfig } from "../config/runtime-config";
 import { catalogUiText } from "../i18n/ui-text";
 import { connectWorker } from "../messaging/connect-worker";
+import type { OpenOptionsMessage } from "../messaging/open-options.contract";
 import { toggleMessageSchema } from "../messaging/toggle.contract";
 import { SettingsStore } from "../settings/settings-store";
+import { menuActions } from "./menu-actions";
 import { followPageRules, type PageRules, pageNeedsTranslation } from "./page-rules";
 
 function blockIds(): () => BlockId {
@@ -53,7 +65,13 @@ async function buildApp(store: SettingsStore): Promise<ContentApp> {
 
 interface MountedBubble {
   bubble: Bubble;
+  menu: BubbleMenu;
   unsubscribe(): void;
+}
+
+interface MenuSource {
+  actions: MenuActions;
+  state(): MenuState;
 }
 
 type AppAction = (app: ContentApp) => Promise<void>;
@@ -66,23 +84,30 @@ async function bubbleSlot(
   ctx: ContentScriptContext,
   page: PageTranslationService,
   handlers: ClickHandlers,
+  source: MenuSource,
 ): Promise<BubbleSlot> {
   const ui = await createShadowRootUi<MountedBubble>(ctx, {
     name: "lambe-bubble",
-    css: bubbleCss,
+    css: `${bubbleCss}\n${bubbleMenuCss}`,
     mode: "open",
     position: "inline",
     anchor: () => document.documentElement,
     onMount: (_container, shadow) => {
-      const bubble = mountBubble(shadow, handlers, catalogUiText);
+      const menu = mountBubbleMenu(shadow, source.actions, catalogUiText.translate);
+      const bubble = mountBubble(
+        shadow,
+        { ...handlers, onMenu: (anchor) => menu.open(anchor, source.state()) },
+        catalogUiText,
+      );
       const unsubscribe = page.subscribe((state) => bubble.render(state));
 
       bubble.render(page.state());
 
-      return { bubble, unsubscribe };
+      return { bubble, menu, unsubscribe };
     },
     onRemove: (mounted) => {
       mounted?.unsubscribe();
+      mounted?.menu.destroy();
       mounted?.bubble.destroy();
     },
   });
@@ -128,10 +153,48 @@ export function startContent(ctx: ContentScriptContext): void {
       "Lambë could not translate the page again.",
     );
   };
+  let pageTarget = Option.none<LanguageCode>();
+  const translateWith = (language: LanguageCode): void => {
+    touched = true;
+    pageTarget = Option.some(language);
+    run(
+      translating(async (page) => {
+        page.retarget(language);
+
+        if (isShowingTranslation(page.state())) return;
+
+        await page.toggle();
+      }),
+      "Lambë could not translate the page to this language.",
+    );
+  };
+  const sendToWorker = (message: OpenOptionsMessage): void => {
+    void chrome.runtime.sendMessage(message).catch((cause: unknown) => {
+      console.error("Lambë could not open its settings.", cause);
+    });
+  };
   const follow: AppAction = async ({ page }) => {
-    const bubble = await bubbleSlot(ctx, page, { onSingle: toggle, onDouble: retranslate });
+    let latest: Option<PageRules> = Option.none();
+    const actions = menuActions({
+      origin: location.origin,
+      settings: store,
+      translateWith,
+      sendToWorker,
+    });
+    const menuState = (): MenuState => {
+      const rules = latest.unwrap();
+
+      return { origin: location.origin, siteRule: rules.siteRule, languages: rules.languages };
+    };
+    const bubble = await bubbleSlot(
+      ctx,
+      page,
+      { onSingle: toggle, onDouble: retranslate },
+      { actions, state: menuState },
+    );
     const apply = (rules: PageRules): void => {
-      page.retarget(rules.target);
+      latest = Option.some(rules);
+      page.retarget(pageTarget.unwrapOr(rules.target));
       bubble.show(!rules.hideBubble);
 
       if (touched || !pageNeedsTranslation(rules, document.documentElement.lang)) return;
