@@ -4,6 +4,10 @@ import { LambeGlyph } from "./lambe-glyph";
 import { Onboarding } from "./onboarding";
 import { SECTION_NAME, SECTION_SUMMARY, type SectionId, sectionFromHash } from "./section-model";
 import { SectionNav } from "./section-nav";
+import { CacheSection } from "./sections/cache-section";
+import { PrivacySection } from "./sections/privacy-section";
+import { PromptSection } from "./sections/prompt-section";
+import { ShortcutSection } from "./sections/shortcut-section";
 import { SettingsProblem } from "./settings-problem";
 
 function useHashSection(): SectionId {
@@ -41,6 +45,10 @@ export function App() {
           </h1>
           <p className="section-summary">{t(SECTION_SUMMARY[section])}</p>
         </section>
+        {section === "prompt" && <PromptSection />}
+        {section === "cache" && <CacheSection />}
+        {section === "shortcut" && <ShortcutSection />}
+        {section === "privacy" && <PrivacySection />}
       </main>
     </div>
   );
