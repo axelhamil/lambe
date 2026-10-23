@@ -44,7 +44,7 @@ Save, then run `sudo systemctl restart ollama`.
 
 ## Optional: parallel requests
 
-Nothing else is required. Lambë keeps one request queued ahead of the one streaming, so the GPU never waits between requests, and asks Ollama to keep the model loaded for 30 s (`keep_alive`). If you also add `Environment="OLLAMA_NUM_PARALLEL=4"` to the same `[Service]` block, Lambë sees the replies stream side by side, raises its concurrency up to `provider.concurrency` (default 8) and splits the visible screen across the slots. Without it, Lambë stays at 1 request at a time.
+Nothing else is required. Lambë keeps one request queued ahead of the one streaming, so the GPU never waits between requests, and asks Ollama to keep the model loaded for 10 minutes (`keep_alive`). If you also add `Environment="OLLAMA_NUM_PARALLEL=4"` to the same `[Service]` block, Lambë sees the replies stream side by side, raises its concurrency up to `provider.concurrency` (default 8) and splits the visible screen across the slots. Without it, Lambë stays at 1 request at a time. The learned concurrency is shared by every tab and kept for the same 10 minutes after the last reply, then Lambë starts again from 1.
 
 ## Configuration override
 
