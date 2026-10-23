@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { t } from "../i18n/t";
 import { AppSidebar } from "./app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "./components/ui/sidebar";
@@ -15,6 +14,7 @@ import { SitesSection } from "./sections/sites-section";
 import { TranslationSection } from "./sections/translation-section";
 import { YoutubeSection } from "./sections/youtube-section";
 import { SettingsProblem } from "./settings-problem";
+import { useHash } from "./use-hash";
 
 const SECTION_VIEW = {
   provider: ProviderSection,
@@ -27,22 +27,8 @@ const SECTION_VIEW = {
   privacy: PrivacySection,
 } satisfies Record<SectionId, () => React.JSX.Element>;
 
-function useHashSection(): SectionId {
-  const [section, setSection] = useState(() => sectionFromHash(window.location.hash));
-
-  useEffect(() => {
-    const onHashChange = (): void => setSection(sectionFromHash(window.location.hash));
-
-    window.addEventListener("hashchange", onHashChange);
-
-    return () => window.removeEventListener("hashchange", onHashChange);
-  }, []);
-
-  return section;
-}
-
 export function App() {
-  const section = useHashSection();
+  const section = sectionFromHash(useHash().hash);
   const View = SECTION_VIEW[section];
 
   return (

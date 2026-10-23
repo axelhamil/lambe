@@ -19,7 +19,7 @@ import {
 } from "../components/ui/input-group";
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "../components/ui/item";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
+import { Tipped } from "../help-tip";
 import type { FixGuide } from "../ollama-origins-fix";
 import type { ConnectionView, ProviderKind } from "./provider-model";
 
@@ -39,14 +39,11 @@ function CommandLine({ text }: CommandLineProps) {
     <InputGroup>
       <InputGroupInput readOnly value={text} aria-label={t("options.provider.command")} />
       <InputGroupAddon align="inline-end">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <InputGroupButton size="icon-xs" aria-label={label} onClick={copy}>
-              {copied ? <CheckIcon /> : <CopyIcon />}
-            </InputGroupButton>
-          </TooltipTrigger>
-          <TooltipContent>{label}</TooltipContent>
-        </Tooltip>
+        <Tipped tip={label}>
+          <InputGroupButton size="icon-xs" aria-label={label} onClick={copy}>
+            {copied ? <CheckIcon /> : <CopyIcon />}
+          </InputGroupButton>
+        </Tipped>
       </InputGroupAddon>
     </InputGroup>
   );

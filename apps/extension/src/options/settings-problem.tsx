@@ -1,9 +1,9 @@
 import { CircleAlertIcon } from "lucide-react";
 import { useState } from "react";
-import { renderError } from "../i18n/render-error";
 import { t } from "../i18n/t";
 import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
 import { Button } from "./components/ui/button";
+import { problemNotice } from "./sections/settings-access";
 import { useSettings } from "./use-settings";
 
 export function SettingsProblem() {
@@ -19,7 +19,7 @@ export function SettingsProblem() {
       <CircleAlertIcon />
       <AlertTitle>{t("options.shell.problemTitle")}</AlertTitle>
       <AlertDescription className="flex flex-col gap-list">
-        <p>{renderError({ code: problem.code })}</p>
+        <p>{problemNotice(problem)}</p>
         <ul className="flex flex-col gap-tight">
           {problem.issues.map((issue) => (
             <li key={issue}>{issue}</li>

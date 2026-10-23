@@ -3,6 +3,7 @@ import { sitePatternOf, webOriginOf } from "../../access/web-origin";
 import { OPTIONAL_HOSTS } from "../../permissions";
 import type { Settings } from "../../settings/settings";
 import { type SiteRule, siteRuleOf, withSiteRule } from "../../settings/site-rule";
+import { hashParam } from "../section-model";
 import {
   type Change,
   grantThenSave,
@@ -28,15 +29,17 @@ export function originOf(input: string): Option<string> {
 }
 
 export function pendingOriginOf(hash: string): Option<string> {
-  const query = hash.split("?")[1];
+  return hashParam(hash, "origin")
+    .filter((origin) => HAS_SCHEME.test(origin))
+    .flatMap(originOf);
+}
 
-  if (query === undefined) return Option.none();
+export function siteHost(origin: string): string {
+  return new URL(origin).host;
+}
 
-  const origin = new URLSearchParams(query).get("origin");
-
-  if (origin === null || !HAS_SCHEME.test(origin)) return Option.none();
-
-  return originOf(origin);
+export function siteLabel(origin: string): string {
+  return new URL(origin).protocol === "http:" ? origin : siteHost(origin);
 }
 
 export function bubbleEverywhereState(settings: Settings, granted: string[]): ToggleState {

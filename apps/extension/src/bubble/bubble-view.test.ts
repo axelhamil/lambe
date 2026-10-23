@@ -93,6 +93,27 @@ describe("bubble view", () => {
     expect(handlers.onDouble).not.toHaveBeenCalled();
   });
 
+  test("the_tab_returns_to_its_dragged_place_once_the_window_grows_back", () => {
+    const { button } = setup();
+    const height = window.innerHeight;
+    const resizeTo = (value: number): void => {
+      Object.defineProperty(window, "innerHeight", { configurable: true, value });
+      window.dispatchEvent(new Event("resize"));
+    };
+
+    drag(button, 200, 650);
+
+    expect(topOf(button)).toBe("600px");
+
+    resizeTo(300);
+
+    expect(topOf(button)).toBe("292px");
+
+    resizeTo(height);
+
+    expect(topOf(button)).toBe("600px");
+  });
+
   test("a_move_under_4px_is_a_click_and_4px_is_a_drag", async () => {
     const { button, handlers } = setup();
     const rest = topOf(button);

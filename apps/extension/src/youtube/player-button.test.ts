@@ -138,4 +138,25 @@ describe("player button", () => {
 
     expect(document.querySelector(".lambe-ytp-tooltip")).toBeNull();
   });
+
+  test("an_error_tooltip_wraps_so_the_whole_fix_stays_readable", () => {
+    const button = mountPlayerButton(document, () => {}, fakeUiText);
+    const lambe = lambeButton();
+
+    lambe.dispatchEvent(new MouseEvent("mouseenter"));
+    button.render({
+      kind: "error",
+      error: providerError("PROVIDER_FORBIDDEN_ORIGIN", "Origin refused.", {
+        baseUrl: "http://localhost:11434",
+      }),
+    });
+
+    expect(element(".lambe-ytp-tooltip").getAttribute("data-state")).toBe("error");
+
+    button.render({ kind: "original" });
+
+    expect(element(".lambe-ytp-tooltip").hasAttribute("data-state")).toBe(false);
+
+    button.destroy();
+  });
 });

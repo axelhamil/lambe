@@ -1,5 +1,5 @@
 import type { ViewState } from "@lambe/translation/application/page-translation.service";
-import glyphSvg from "../../../../assets/tengwa-lambe.svg?raw";
+import { GLYPH_PATH } from "../brand/glyph-path";
 import type { UiText } from "../i18n/ui-text";
 import { type BubbleClass, bubbleStateOf } from "./bubble-state";
 import { type ClickHandlers, createClickClassifier, type Scheduler } from "./click-classifier";
@@ -26,7 +26,6 @@ export const BUBBLE_SELECTOR = "button.bubble";
 const SVG_NS = "http://www.w3.org/2000/svg";
 const DRAG_THRESHOLD = 4;
 const INITIAL_TOP = 150;
-const GLYPH_PATH = /\sd="([^"]+)"/.exec(glyphSvg)?.[1] ?? "";
 const STATE_CLASSES: BubbleClass[] = ["on", "busy", "error", "unavailable"];
 
 function createButton(text: UiText): HTMLButtonElement {
@@ -78,16 +77,18 @@ export function mountBubble(root: ShadowRoot, handlers: BubbleHandlers, text: Ui
     },
   };
   const classifier = createClickClassifier(scheduler, handlers);
-  let top = INITIAL_TOP;
+  let wantedTop = INITIAL_TOP;
+  let shownTop = INITIAL_TOP;
   let drag: Drag | undefined;
 
-  const moveTo = (y: number): void => {
-    top = y;
-    button.style.setProperty("--lambe-top", `${y}px`);
+  const place = (): void => {
+    shownTop = clampTop(wantedTop, viewport().height, button.getBoundingClientRect().height);
+    button.style.setProperty("--lambe-top", `${shownTop}px`);
   };
 
-  const place = (): void => {
-    moveTo(clampTop(top, viewport().height, button.getBoundingClientRect().height));
+  const moveTo = (y: number): void => {
+    wantedTop = y;
+    place();
   };
 
   const endDrag = (): Drag | undefined => {
@@ -111,7 +112,7 @@ export function mountBubble(root: ShadowRoot, handlers: BubbleHandlers, text: Ui
       drag = {
         startX: event.clientX,
         startY: event.clientY,
-        originTop: top,
+        originTop: shownTop,
         moved: false,
       };
 
@@ -135,7 +136,6 @@ export function mountBubble(root: ShadowRoot, handlers: BubbleHandlers, text: Ui
       drag.moved = true;
       button.classList.add("dragging");
       moveTo(drag.originTop + dy);
-      place();
     },
     options,
   );
@@ -155,7 +155,7 @@ export function mountBubble(root: ShadowRoot, handlers: BubbleHandlers, text: Ui
         return;
       }
 
-      place();
+      moveTo(shownTop);
     },
     options,
   );
@@ -165,9 +165,9 @@ export function mountBubble(root: ShadowRoot, handlers: BubbleHandlers, text: Ui
     () => {
       const cancelled = endDrag();
 
-      if (cancelled !== undefined) moveTo(cancelled.originTop);
+      if (cancelled === undefined) return;
 
-      place();
+      moveTo(cancelled.originTop);
     },
     options,
   );

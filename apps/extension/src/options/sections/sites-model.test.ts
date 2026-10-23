@@ -3,7 +3,13 @@ import { t } from "../../i18n/t";
 import { OPTIONAL_HOSTS } from "../../permissions";
 import { defaultSettings, type ProviderSettings } from "../../settings/settings";
 import { changeNoticeOf } from "./permission-change";
-import { bubbleEverywhereState, pendingOriginOf, siteRows, sitesModel } from "./sites-model";
+import {
+  bubbleEverywhereState,
+  pendingOriginOf,
+  siteLabel,
+  siteRows,
+  sitesModel,
+} from "./sites-model";
 import { fakePermissionDeps } from "./testing/fake-permission-deps";
 
 const ORIGIN = "https://example.org";
@@ -103,6 +109,11 @@ describe("sites model", () => {
     expect((await fake.current()).sites).toEqual([
       { origin: ORIGIN, autoTranslate: true, hideBubble: false },
     ]);
+  });
+
+  test("an_http_site_shows_its_scheme_and_an_https_site_only_its_host", () => {
+    expect(siteLabel("http://intranet.example:8080")).toBe("http://intranet.example:8080");
+    expect(siteLabel(ORIGIN)).toBe("example.org");
   });
 
   test("removing_the_last_flag_removes_the_rule_and_its_permission", async () => {

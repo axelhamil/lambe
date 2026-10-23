@@ -24,6 +24,7 @@ export async function renderWithSettings(ui: ReactNode, initial: Record<string, 
         secrets={new SecretsStore(storage.area)}
         initial={loaded}
         defaults={defaultSettings("en")}
+        uiLanguage="en"
       >
         {ui}
       </SettingsProvider>,

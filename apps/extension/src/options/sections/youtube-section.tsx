@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { chromeHostAccess } from "../../access/host-access";
 import { t } from "../../i18n/t";
 import { Card, CardContent } from "../components/ui/card";
@@ -11,7 +12,7 @@ export function YoutubeSection() {
   const { loaded, update } = useSettings();
   const granted = useGrantedOrigins();
   const { notice, follow } = useChangeFeedback();
-  const model = youtubeModel({ access: chromeHostAccess, update });
+  const model = useMemo(() => youtubeModel({ access: chromeHostAccess, update }), [update]);
   const state = youtubeState(loaded.settings, granted.unwrapOr([]));
   const missing = granted.isSome() && state.permissionMissing;
 

@@ -17,13 +17,12 @@ import { useSettings } from "../use-settings";
 import { formatConsentDate, privacyModel } from "./privacy-model";
 
 export function PrivacySection() {
-  const { loaded, update } = useSettings();
+  const { loaded, update, uiLanguage: locale } = useSettings();
   const model = privacyModel({
     settings: loaded.settings,
     update,
     manifest: () => chrome.runtime.getManifest(),
   });
-  const locale = chrome.i18n.getUILanguage();
   const consentAt = model.consentAt();
 
   const withdraw = async (): Promise<void> =>

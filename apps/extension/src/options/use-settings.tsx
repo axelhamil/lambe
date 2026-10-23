@@ -12,6 +12,7 @@ interface SettingsContextValue {
   update(change: (current: Settings) => Settings): Promise<Saved>;
   reset(): Promise<Saved>;
   secrets: SecretsStore;
+  uiLanguage: string;
 }
 
 interface SettingsProviderProps {
@@ -19,6 +20,7 @@ interface SettingsProviderProps {
   secrets: SecretsStore;
   initial: LoadedSettings;
   defaults: Settings;
+  uiLanguage: string;
   children: ReactNode;
 }
 
@@ -29,6 +31,7 @@ export function SettingsProvider({
   secrets,
   initial,
   defaults,
+  uiLanguage,
   children,
 }: SettingsProviderProps) {
   const [loaded, setLoaded] = useState(initial);
@@ -52,8 +55,8 @@ export function SettingsProvider({
       return updated;
     };
 
-    return { loaded, save, update, reset: () => save(defaults), secrets };
-  }, [loaded, store, secrets, defaults]);
+    return { loaded, save, update, reset: () => save(defaults), secrets, uiLanguage };
+  }, [loaded, store, secrets, defaults, uiLanguage]);
 
   return <SettingsContext value={value}>{children}</SettingsContext>;
 }

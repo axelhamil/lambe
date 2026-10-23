@@ -1,6 +1,6 @@
 import { isShowingTranslation, type ViewState } from "@lambe/translation/application/view-state";
 import { YOUTUBE_SELECTORS } from "@lambe/translation/infrastructure/youtube/youtube-selectors";
-import glyphSvg from "../../../../assets/tengwa-lambe.svg?raw";
+import { GLYPH_PATH } from "../brand/glyph-path";
 import type { UiText } from "../i18n/ui-text";
 
 export interface PlayerButton {
@@ -19,7 +19,6 @@ const FRAME_PATH = "M3 3h18a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2
 const FRAME_OUTLINE_PATH = `${FRAME_PATH}M3 5v14h18V5z`;
 const GLYPH_TRANSFORM = "translate(12 12) scale(0.5) translate(-16.71 -30.57)";
 const GLYPH_STROKE_WIDTH = "1.5";
-const GLYPH_PATH = /\sd="([^"]+)"/.exec(glyphSvg)?.[1] ?? "";
 
 function svgElement(doc: Document, name: string, attributes: Record<string, string>): SVGElement {
   const element = doc.createElementNS(SVG_NS, name);
@@ -121,6 +120,7 @@ export function mountPlayerButton(doc: Document, onClick: () => void, text: UiTe
   const listeners = new AbortController();
   const options = { signal: listeners.signal };
   let hint = text.translate("youtube.button");
+  let failed = false;
 
   const place = (): void => {
     const subtitles = doc.querySelector(YOUTUBE_SELECTORS.subtitlesButton);
@@ -138,6 +138,11 @@ export function mountPlayerButton(doc: Document, onClick: () => void, text: UiTe
     if (tooltip.parentElement !== player) player.append(tooltip);
 
     tooltip.textContent = hint;
+    tooltip.style.setProperty("--lambe-ytp-tooltip-left", "0px");
+
+    if (failed) tooltip.setAttribute("data-state", "error");
+    else tooltip.removeAttribute("data-state");
+
     tooltip.hidden = false;
 
     const frame = player.getBoundingClientRect();
@@ -178,12 +183,13 @@ export function mountPlayerButton(doc: Document, onClick: () => void, text: UiTe
       const label = labelOf(state, text);
 
       hint = hintOf(state, text);
+      failed = state.kind === "error";
       button.setAttribute("aria-pressed", String(isShowingTranslation(state)));
       button.setAttribute("aria-label", label);
       button.setAttribute("data-title-no-tooltip", label);
       button.classList.toggle(PULSE_CLASS, state.kind === "translating");
 
-      if (state.kind === "error") {
+      if (failed) {
         button.setAttribute("data-state", "error");
         button.setAttribute("aria-description", hint);
       } else {

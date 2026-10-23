@@ -15,8 +15,7 @@ import {
 } from "../components/ui/card";
 import { Field, FieldDescription } from "../components/ui/field";
 import { Textarea } from "../components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
-import { HelpTip } from "../help-tip";
+import { HelpTip, Tipped } from "../help-tip";
 import { toastSaved } from "../saved-toast";
 import { useSettings } from "../use-settings";
 import { type PromptVersion, promptModel } from "./prompt-model";
@@ -92,15 +91,12 @@ function PromptEditor({ model }: PromptEditorProps) {
         <Button disabled={!changed} onClick={() => void save()}>
           {t("options.prompt.save")}
         </Button>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="outline" disabled={!custom} onClick={() => void reset()}>
-              <RotateCcwIcon />
-              {t("options.prompt.reset")}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">{t("options.prompt.resetTip")}</TooltipContent>
-        </Tooltip>
+        <Tipped tip={t("options.prompt.resetTip")}>
+          <Button variant="outline" disabled={!custom} onClick={() => void reset()}>
+            <RotateCcwIcon />
+            {t("options.prompt.reset")}
+          </Button>
+        </Tipped>
       </CardFooter>
     </Card>
   );

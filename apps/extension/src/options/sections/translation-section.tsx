@@ -45,8 +45,7 @@ function LanguageItem({ option, value, selected, onChoose }: LanguageItemProps) 
 }
 
 export function TranslationSection() {
-  const { loaded, update } = useSettings();
-  const uiLanguage = chrome.i18n.getUILanguage();
+  const { loaded, update, uiLanguage } = useSettings();
   const options = useMemo(() => languageOptions(uiLanguage), [uiLanguage]);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");

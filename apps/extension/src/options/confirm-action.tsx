@@ -11,7 +11,7 @@ import {
   AlertDialogTrigger,
 } from "./components/ui/alert-dialog";
 import { Button } from "./components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./components/ui/tooltip";
+import { Tipped } from "./help-tip";
 
 export interface ConfirmActionProps {
   label: string;
@@ -32,16 +32,13 @@ export function ConfirmAction({
 }: ConfirmActionProps) {
   return (
     <AlertDialog>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <AlertDialogTrigger asChild>
-            <Button variant="outline" disabled={disabled}>
-              {label}
-            </Button>
-          </AlertDialogTrigger>
-        </TooltipTrigger>
-        <TooltipContent className="max-w-xs">{tip}</TooltipContent>
-      </Tooltip>
+      <Tipped tip={tip}>
+        <AlertDialogTrigger asChild>
+          <Button variant="outline" disabled={disabled}>
+            {label}
+          </Button>
+        </AlertDialogTrigger>
+      </Tipped>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
