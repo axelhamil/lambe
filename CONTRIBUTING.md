@@ -10,13 +10,13 @@ Thanks for helping improve Lambë, the Chrome extension that translates pages an
 Fork the repository on GitHub, clone your fork, then:
 
 ```sh
-nvm use            # Node 24.20 from .nvmrc
-corepack enable    # pnpm 11 from packageManager
+nvm use            # Node 24.22.1 from .nvmrc
+corepack enable    # pnpm 12 from packageManager
 pnpm install       # also installs the husky hooks
 pnpm verify
 ```
 
-You need Node 24.20 or newer, pnpm 11 and Bun 1.4.0 (`.bun-version`) for the tests and scripts. To try a change in the browser, build with `pnpm --filter @lambe/extension build` and load `apps/extension/.output/chrome-mv3` unpacked in Chrome or Brave, with [Ollama](https://ollama.com) running locally ([docs/local-ai.md](docs/local-ai.md)).
+You need Node 24.22.1 or newer, pnpm 12 and Bun 1.4.4 (`.bun-version`) for the tests and scripts. To try a change in the browser, build with `pnpm --filter @lambe/extension build` and load `apps/extension/.output/chrome-mv3` unpacked in Chrome or Brave, with [Ollama](https://ollama.com) running locally ([docs/local-ai.md](docs/local-ai.md)).
 
 ## Before a PR
 

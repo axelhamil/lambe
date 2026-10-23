@@ -181,7 +181,7 @@ La clé privée n'est jamais versionnée. La version du store n'a pas de `key` :
 
 ## Développement
 
-Il vous faut Node 24.20 ou plus récent (`.nvmrc`), pnpm 11 (`packageManager`) et Bun 1.4.0 pour les tests et les scripts (`.bun-version`, lu aussi par la CI).
+Il vous faut Node 24.22.1 ou plus récent (`.nvmrc`), pnpm 12 (`packageManager`) et Bun 1.4.4 pour les tests et les scripts (`.bun-version`, lu aussi par la CI).
 
 | Commande | Rôle |
 | --- | --- |

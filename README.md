@@ -181,7 +181,7 @@ The private key is never committed. The store build has no `key`: the Chrome Web
 
 ## Development
 
-You need Node 24.20 or newer (`.nvmrc`), pnpm 11 (`packageManager`) and Bun 1.4.0 for tests and scripts (`.bun-version`, also read by CI).
+You need Node 24.22.1 or newer (`.nvmrc`), pnpm 12 (`packageManager`) and Bun 1.4.4 for tests and scripts (`.bun-version`, also read by CI).
 
 | Command | What it does |
 | --- | --- |
