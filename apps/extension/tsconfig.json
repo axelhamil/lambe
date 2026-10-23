@@ -6,6 +6,7 @@
     "entrypoints/**/*.ts",
     "scripts/**/*.ts",
     "test-setup/**/*.ts",
-    "wxt.config.ts"
+    "wxt.config.ts",
+    ".wxt/types/paths.d.ts"
   ]
 }

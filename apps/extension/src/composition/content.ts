@@ -1,4 +1,3 @@
-import "../bubble/bubble.css";
 import { PageTranslationService } from "@lambe/translation/application/page-translation.service";
 import { BlockId } from "@lambe/translation/domain/block/value-objects/block-id.vo";
 import { DomPageSurface } from "@lambe/translation/infrastructure/dom/dom-page-surface";
@@ -6,13 +5,13 @@ import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root";
 import { ChromeLanguageDetector } from "../adapters/chrome/chrome-language-detector";
 import { PortBatchTranslator } from "../adapters/chrome/port-batch-translator";
+import bubbleCss from "../bubble/bubble.css?raw";
 import { type Bubble, mountBubble } from "../bubble/bubble-view";
 import type { ClickHandlers } from "../bubble/click-classifier";
 import { loadRuntimeConfig } from "../config/runtime-config";
 import { connectWorker } from "../messaging/connect-worker";
 import { toggleMessageSchema } from "../messaging/toggle.contract";
 import { SettingsStore } from "../settings/settings-store";
-import { hostsBubble } from "./bubble-frames";
 
 function blockIds(): () => BlockId {
   let next = 0;
@@ -59,8 +58,6 @@ interface MountedBubble {
 
 type AppAction = (app: ContentApp) => Promise<void>;
 
-const ALL_FRAMES = import.meta.env.LAMBE_ALL_FRAMES === "1";
-
 async function showBubble(
   ctx: ContentScriptContext,
   page: PageTranslationService,
@@ -68,6 +65,7 @@ async function showBubble(
 ): Promise<void> {
   const ui = await createShadowRootUi<MountedBubble>(ctx, {
     name: "lambe-bubble",
+    css: bubbleCss,
     mode: "open",
     position: "inline",
     anchor: () => document.documentElement,
@@ -118,8 +116,6 @@ export function startContent(ctx: ContentScriptContext): void {
 
     return false;
   });
-
-  if (!hostsBubble({ isTop: window.top === window.self, allFrames: ALL_FRAMES })) return;
 
   run(
     ({ page }) => showBubble(ctx, page, { onSingle: toggle, onDouble: retranslate }),

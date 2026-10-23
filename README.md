@@ -19,7 +19,7 @@ pnpm --filter @lambe/extension build
 
 Load it: open `chrome://extensions`, enable Developer mode, click **Load unpacked** and pick `apps/extension/.output/chrome-mv3`.
 
-The production build mounts the bubble in the top frame only. `LAMBE_ALL_FRAMES=1 pnpm --filter @lambe/extension build` runs the content script and the bubble in every frame; the proof page below needs it.
+The manifest declares no content script and no host access beyond `localhost` and `127.0.0.1`: the page script is injected on demand in the top frame only.
 
 ## Extension id
 
@@ -77,7 +77,7 @@ On a watch page, Lambë adds a button to the player controls, left of the subtit
 
 [release-please](https://github.com/googleapis/release-please) runs on `main` (`.github/workflows/release.yml`). It reads Conventional Commits, opens a release PR, then tags and writes the changelog when that PR merges. Versions start from `.release-please-manifest.json` (`0.0.0`) with `bump-minor-pre-major`, and the extension `package.json` (hence the manifest version) follows the root. Never edit a version or a tag by hand.
 
-When a release is created, the `publish` job checks out its tag, runs `pnpm verify` and builds two zips without `LAMBE_ALL_FRAMES`. `*-chrome.zip` is a loadable unpacked build that keeps its `key` (checked by `check:manifest`). `*-chrome-store.zip` is built with `LAMBE_STORE=1`, which drops the `key` the store rejects. Both are attached to the GitHub release. Then, if the store secrets exist, the job runs the store guard (`check:manifest` with `LAMBE_STORE=1`: no `key` and no `<all_urls>` in `host_permissions` or content script `matches`) and submits the store zip to the Chrome Web Store with `wxt submit` over the CWS API v2. The submission is staged (`CHROME_PUBLISH_TYPE: STAGED_PUBLISH`): once approved it waits for a manual publish in the developer dashboard. To publish as soon as the review passes, remove that line from the submit step in `release.yml`. CI (`.github/workflows/ci.yml`) runs `pnpm install --frozen-lockfile`, `pnpm verify`, the extension build and `check:manifest` (the dev manifest keeps its `key`) on every pull request and on pushes to any branch but `main`. Both workflows are dormant until the repository has a remote.
+When a release is created, the `publish` job checks out its tag, runs `pnpm verify` and builds two zips. `*-chrome.zip` is a loadable unpacked build that keeps its `key` (checked by `check:manifest`). `*-chrome-store.zip` is built with `LAMBE_STORE=1`, which drops the `key` the store rejects. Both are attached to the GitHub release. Then, if the store secrets exist, the job runs the store guard (`check:manifest` with `LAMBE_STORE=1`: no `key`, no static content script, and exactly the narrow `permissions`, `host_permissions` and `optional_host_permissions`) and submits the store zip to the Chrome Web Store with `wxt submit` over the CWS API v2. The submission is staged (`CHROME_PUBLISH_TYPE: STAGED_PUBLISH`): once approved it waits for a manual publish in the developer dashboard. To publish as soon as the review passes, remove that line from the submit step in `release.yml`. CI (`.github/workflows/ci.yml`) runs `pnpm install --frozen-lockfile`, `pnpm verify`, the extension build and `check:manifest` (the dev manifest keeps its `key`) on every pull request and on pushes to any branch but `main`. Both workflows are dormant until the repository has a remote.
 
 Repository secrets:
 
