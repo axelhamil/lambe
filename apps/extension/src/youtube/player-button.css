@@ -1,0 +1,51 @@
+.lambe-ytp-button {
+  --lambe-ytp-ink: #fff;
+  --lambe-ytp-error: #ff7b72;
+  --lambe-ytp-bar: #f00;
+  --lambe-ytp-bar-width: 12px;
+  --lambe-ytp-bar-height: 3px;
+  --lambe-ytp-bar-bottom: 10px;
+  --lambe-ytp-bar-radius: 3px;
+  --lambe-ytp-icon-height: 50%;
+  --lambe-ytp-pulse: 0.5s ease-in-out infinite alternate;
+
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  vertical-align: top;
+}
+
+.lambe-ytp-button svg {
+  height: var(--lambe-ytp-icon-height);
+  fill: var(--lambe-ytp-ink);
+  pointer-events: none;
+}
+
+.lambe-ytp-button[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  left: calc(50% - var(--lambe-ytp-bar-width) / 2);
+  bottom: var(--lambe-ytp-bar-bottom);
+  width: var(--lambe-ytp-bar-width);
+  height: var(--lambe-ytp-bar-height);
+  border-radius: var(--lambe-ytp-bar-radius);
+  background: var(--lambe-ytp-bar);
+}
+
+.lambe-ytp-button.lambe-ytp-button-pulse svg {
+  animation: lambe-ytp-pulse var(--lambe-ytp-pulse);
+}
+
+.lambe-ytp-button[data-state="error"] svg {
+  fill: var(--lambe-ytp-error);
+}
+
+@keyframes lambe-ytp-pulse {
+  from {
+    opacity: 0.3;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
