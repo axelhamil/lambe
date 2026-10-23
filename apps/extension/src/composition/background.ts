@@ -13,6 +13,9 @@ import {
   KEEP_ALIVE_MS,
   OllamaProvider,
 } from "@lambe/translation/infrastructure/providers/ollama-provider";
+import { chromeHostAccess } from "../access/host-access";
+import { reconciler } from "../access/reconcile";
+import { chromeScriptRegistrar } from "../access/script-registrar";
 import { StorageTranslationCache } from "../adapters/chrome/storage-translation-cache";
 import { loadRuntimeConfig } from "../config/runtime-config";
 import { TOGGLE_MESSAGE } from "../messaging/toggle.contract";
@@ -95,7 +98,23 @@ async function toggleActiveTab(): Promise<void> {
   }
 }
 
+function syncScriptRegistrations(): void {
+  const settings = new SettingsStore(chrome.storage.local, chrome.i18n.getUILanguage());
+  const sync = reconciler({ settings, access: chromeHostAccess, registrar: chromeScriptRegistrar });
+  const resync = (): void => {
+    void sync();
+  };
+
+  chrome.runtime.onInstalled.addListener(resync);
+  chrome.runtime.onStartup.addListener(resync);
+  chrome.permissions.onAdded.addListener(resync);
+  chrome.permissions.onRemoved.addListener(resync);
+  settings.subscribe(resync);
+}
+
 export function startBackground(): void {
+  syncScriptRegistrations();
+
   let worker: Promise<Worker> | undefined;
   let capacity: ProviderCapacity | undefined;
 
