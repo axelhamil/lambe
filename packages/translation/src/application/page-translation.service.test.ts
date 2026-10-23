@@ -500,9 +500,9 @@ describe("PageTranslationService", () => {
       ["Read", "the docs", "before forking."],
     ]);
     expect(sentBlocks(control.calls).at(2)).toEqual([
-      "Pricing",
       "Forks share code with upstream.",
       "A fork keeps its own history.",
+      "Pricing",
     ]);
     expect(committed("linked")).toEqual({
       blockId: LINKED.id,
@@ -1009,8 +1009,26 @@ describe("PageTranslationService", () => {
 
     expect(sentMarkup()).toEqual([
       ["Forks share code with upstream.", "A fork keeps its own history."],
-      ["Pricing", "Search docs", "Pull requests flow back upstream."],
+      ["Pull requests flow back upstream.", "Pricing", "Search docs"],
     ]);
+  });
+
+  test("near_content_goes_before_visible_chrome_when_nothing_visible_is_content", async () => {
+    const { service, near, sentMarkup } = setup({
+      blocks: [chrome("navbar", "Pricing"), chrome("search", "Search docs"), GAMMA],
+      firstRequestSegments: 1,
+      maxSegmentsPerRequest: 1,
+      concurrency: () => 2,
+    });
+
+    await service.toggle();
+
+    near("navbar", 0);
+    near("search", 0);
+    near("gamma", 1);
+    await service.whenIdle();
+
+    expect(sentMarkup()[0]).toEqual(["Pull requests flow back upstream."]);
   });
 
   test("streamed_outcome_is_committed_before_the_request_ends_and_not_twice", async () => {

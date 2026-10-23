@@ -12,8 +12,11 @@ interface QueueEntry {
 
 const ROLE_ORDER: Record<BlockRole, number> = { article: 0, content: 1, chrome: 2 };
 
+const isChrome = (entry: QueueEntry): number => (entry.role === "chrome" ? 1 : 0);
+
 function compare(left: QueueEntry, right: QueueEntry): number {
   return (
+    isChrome(left) - isChrome(right) ||
     left.rank - right.rank ||
     ROLE_ORDER[left.role] - ROLE_ORDER[right.role] ||
     left.position - right.position

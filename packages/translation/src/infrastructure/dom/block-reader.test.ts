@@ -366,3 +366,71 @@ describe("BlockReader roles", () => {
       expect(roleOf(reads, text)).toBe("chrome");
   });
 });
+
+describe("BlockReader on visually hidden text", () => {
+  test("text_under_display_none_or_visibility_hidden_is_not_a_block", () => {
+    const doc = htmlDocument(
+      '<main><div style="display: none"><p>Collapsed menu entry</p></div><p style="visibility: hidden">Invisible label</p><p hidden>Hidden attribute text</p><p>Shown paragraph</p></main>',
+    );
+
+    const texts = readerFor(doc).read(doc).map(textOf);
+
+    expect(texts).toEqual(["Shown paragraph"]);
+  });
+
+  test("aria_hidden_text_is_not_a_block", () => {
+    const doc = htmlDocument(
+      '<main><div aria-hidden="true"><p>Decorative duplicate</p></div><p>Shown paragraph</p></main>',
+    );
+
+    const texts = readerFor(doc).read(doc).map(textOf);
+
+    expect(texts).toEqual(["Shown paragraph"]);
+  });
+
+  test("screen_reader_only_text_is_not_a_block_by_class_or_computed_clip", () => {
+    const doc = htmlDocument(
+      '<style>.toggle-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(1px,1px,1px,1px)}.skip-label{position:absolute;clip-path:inset(50%)}</style><main><h2>History<span class="toggle-label">Toggle History subsection</span></h2><p class="sr-only">Only for readers one</p><p class="visually-hidden">Only for readers two</p><p class="screen-reader-text">Only for readers three</p><p class="skip-label">Skip to content</p><p>Shown paragraph</p></main>',
+    );
+
+    const texts = readerFor(doc).read(doc).map(textOf);
+
+    expect(texts).toEqual(["History", "Shown paragraph"]);
+  });
+
+  test("edit_section_links_are_left_out_of_the_heading", () => {
+    const doc = htmlDocument(
+      '<main><h2>Geography<span class="mw-editsection"><span>[</span><a href="?action=edit">edit</a><span>]</span></span></h2></main>',
+    );
+
+    const texts = readerFor(doc).read(doc).map(textOf);
+
+    expect(texts).toEqual(["Geography"]);
+  });
+});
+
+describe("BlockReader roles of low value regions", () => {
+  test("reference_lists_and_endnotes_are_chrome", () => {
+    const doc = htmlDocument(
+      '<main><p>Body text</p><div class="mw-references-wrap"><ol class="references"><li>Smith 2004, p. 12</li></ol></div><div class="reflist"><p>Jones 1999</p></div><section role="doc-endnotes"><ol><li>Endnote source</li></ol></section></main>',
+    );
+
+    const reads = readerFor(doc).read(doc);
+
+    for (const text of ["Smith 2004", "Jones 1999", "Endnote source"])
+      expect(roleOf(reads, text)).toBe("chrome");
+
+    expect(roleOf(reads, "Body text")).toBe("content");
+  });
+
+  test("navboxes_are_chrome", () => {
+    const doc = htmlDocument(
+      '<main><p>Body text</p><div class="navbox"><table><tr><th>Cities of California</th><td>Long Beach and Pasadena</td></tr></table></div></main>',
+    );
+
+    const reads = readerFor(doc).read(doc);
+
+    expect(roleOf(reads, "Cities of California")).toBe("chrome");
+    expect(roleOf(reads, "Long Beach and Pasadena")).toBe("chrome");
+  });
+});

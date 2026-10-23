@@ -461,10 +461,11 @@ export class PageTranslationService {
     const urgent = this.visibleContentOutstanding();
     const maxRank: ProximityRank = urgent ? 0 : 1;
     const maxRole: BlockRole = urgent ? "content" : "chrome";
+    const frontRank: ProximityRank = urgent || !this.queue.holds(1, "content") ? 0 : 1;
 
     if (this.firstRequestPending) {
       const firstSize = Math.min(max, Math.max(1, this.deps.firstRequestSegments));
-      const first = this.queue.take(firstSize, 0, maxRole);
+      const first = this.queue.take(firstSize, frontRank, maxRole);
 
       if (first.length > 0) {
         this.firstRequestPending = false;
@@ -475,10 +476,10 @@ export class PageTranslationService {
     }
 
     const parts = Math.min(free, Math.max(1, this.deps.capacity.concurrency()));
-    const visible = parts > 1 ? this.queue.take(parts * max, 0, maxRole) : [];
+    const front = parts > 1 ? this.queue.take(parts * max, frontRank, maxRole) : [];
 
-    if (visible.length > 0) {
-      return balancedRuns(visible, parts, max, (id) => {
+    if (front.length > 0) {
+      return balancedRuns(front, parts, max, (id) => {
         const block = this.blocks.get(id.value);
 
         return block === undefined ? 0 : toMarkup(block.nodes).length;

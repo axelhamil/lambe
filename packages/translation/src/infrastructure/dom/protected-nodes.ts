@@ -14,7 +14,12 @@ const EXCLUDED_TAGS = new Set([
   "math",
 ]);
 
-const EXCLUDED_ATTRIBUTES_SELECTOR = '[contenteditable], [translate="no"], .notranslate';
+const HIDDEN_SELECTOR =
+  '[hidden], [aria-hidden="true"], .sr-only, .visually-hidden, .screen-reader-text';
+
+const MEDIAWIKI_EXCLUDED_SELECTOR = ".mw-editsection";
+
+const EXCLUDED_ATTRIBUTES_SELECTOR = `[contenteditable], [translate="no"], .notranslate, ${HIDDEN_SELECTOR}, ${MEDIAWIKI_EXCLUDED_SELECTOR}`;
 
 export const EXCLUDED_SELECTOR = `${[...EXCLUDED_TAGS].join(", ")}, ${EXCLUDED_ATTRIBUTES_SELECTOR}`;
 
@@ -77,10 +82,44 @@ function isCitation(el: Element): boolean {
   return el.classList.contains("reference") || CITATION_MARK.test((el.textContent ?? "").trim());
 }
 
+const atMostAPixel = (length: string): boolean => Number.parseFloat(length) <= 1;
+
+function clipsToNothing(clip: string): boolean {
+  const [top = Number.NaN, right = Number.NaN, bottom = Number.NaN, left = Number.NaN] =
+    /^rect\((.*)\)$/
+      .exec(clip.trim())?.[1]
+      ?.split(/[\s,]+/)
+      .map((edge) => Number.parseFloat(edge)) ?? [];
+
+  return right <= left || bottom <= top;
+}
+
+function isScreenReaderOnly(style: CSSStyleDeclaration): boolean {
+  if (style.position !== "absolute" && style.position !== "fixed") return false;
+
+  if (clipsToNothing(style.clip) || /^inset\(\s*50%/.test(style.clipPath)) return true;
+
+  return (
+    (style.overflow === "hidden" || style.overflow === "clip") &&
+    atMostAPixel(style.width) &&
+    atMostAPixel(style.height)
+  );
+}
+
+function isVisuallyHidden(el: Element): boolean {
+  const style = el.ownerDocument.defaultView?.getComputedStyle(el);
+
+  if (!style) return false;
+
+  if (style.display === "none" || style.visibility === "hidden") return true;
+
+  return isScreenReaderOnly(style);
+}
+
 export function isExcluded(el: Element): boolean {
   if (EXCLUDED_TAGS.has(el.localName)) return true;
 
-  return el.matches(EXCLUDED_ATTRIBUTES_SELECTOR);
+  return el.matches(EXCLUDED_ATTRIBUTES_SELECTOR) || isVisuallyHidden(el);
 }
 
 export function isProtectedInline(el: Element): boolean {

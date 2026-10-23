@@ -14,7 +14,12 @@ const CHROME_ROLES = [
   "button",
   "tab",
   "menuitem",
+  "doc-endnotes",
+  "doc-footnote",
+  "doc-bibliography",
 ];
+
+const MEDIAWIKI_CHROME_SELECTORS = ["ol.references", ".reflist", ".mw-references-wrap", ".navbox"];
 
 const CHROME_SELECTOR = [
   "nav",
@@ -25,6 +30,7 @@ const CHROME_SELECTOR = [
   "label",
   "select",
   ...CHROME_ROLES.map((role) => `[role~="${role}"]`),
+  ...MEDIAWIKI_CHROME_SELECTORS,
 ].join(", ");
 
 const PAGE_BAND_SELECTOR = "header, footer";

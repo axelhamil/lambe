@@ -53,19 +53,20 @@ describe("TranslationQueue", () => {
     const taken = queue.take(5, 0, "content");
 
     expect(values(taken)).toEqual(["title", "file-info"]);
-    expect(values(queue.take(5))).toEqual(["navbar", "footer-text"]);
+    expect(values(queue.take(5))).toEqual(["footer-text", "navbar"]);
   });
 
-  test("visible_chrome_before_off_screen_content", () => {
+  test("near_content_before_any_chrome_then_chrome_by_rank", () => {
     const queue = new TranslationQueue();
     queue.enqueue(id("next-paragraph"), 1, "content", 2);
     queue.enqueue(id("footer"), 1, "chrome", 3);
     queue.enqueue(id("navbar"), 0, "chrome", 0);
     queue.enqueue(id("title"), 0, "content", 1);
+    queue.enqueue(id("next-article"), 1, "article", 4);
 
-    const taken = queue.take(4);
+    const taken = queue.take(5);
 
-    expect(values(taken)).toEqual(["title", "navbar", "next-paragraph", "footer"]);
+    expect(values(taken)).toEqual(["title", "next-article", "next-paragraph", "navbar", "footer"]);
   });
 
   test("reenqueue_moves_the_block_to_its_new_rank_in_both_directions", () => {
