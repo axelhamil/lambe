@@ -121,9 +121,12 @@ export function isExcluded(el: Element): boolean {
   return el.matches(EXCLUDED_ATTRIBUTES_SELECTOR) || isVisuallyHidden(el);
 }
 
+export const isHidden = (el: Element): boolean =>
+  el.matches(HIDDEN_SELECTOR) || isVisuallyHidden(el);
+
 export function isInHiddenSubtree(el: Element): boolean {
   for (let node: Element | null = el; node; node = node.parentElement)
-    if (node.matches(HIDDEN_SELECTOR) || isVisuallyHidden(node)) return true;
+    if (isHidden(node)) return true;
 
   return false;
 }

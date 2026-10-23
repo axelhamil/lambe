@@ -432,6 +432,36 @@ const linksOf = (el: Element | null | undefined): string[] =>
 
 const MARKUP_LENGTH_BEFORE = [252, 320];
 
+describe("DomPageSurface with hidden inline text", () => {
+  test("hidden_span_keeps_its_place_and_text_through_a_round_trip", () => {
+    const { doc, surface, blocks } = bodySurface(
+      '<p id="p">Before <span style="display:none">secret</span> after <link href="/x">end.</p>',
+    );
+    const block = blocks[0];
+    const paragraph = doc.getElementById("p");
+    const original = paragraph?.innerHTML;
+    const markup = toMarkup(block?.nodes ?? []);
+    const answer = markup
+      .replace("Before", "Avant")
+      .replace("after", "après")
+      .replace("end", "fin");
+
+    if (block) {
+      surface.commit({
+        blockId: block.id,
+        kind: "structured",
+        nodes: parseMarkup(answer).unwrapOr([]),
+      });
+    }
+    const translated = paragraph?.textContent;
+    surface.show("original");
+
+    expect(markup).toBe("Before <x1/> after end.");
+    expect(translated).toBe("Avant secret après fin.");
+    expect(paragraph?.innerHTML).toBe(original);
+  });
+});
+
 describe("DomPageSurface on Wikipedia-like markup", () => {
   test("segments_are_lighter_and_the_round_trip_keeps_links_in_place", () => {
     const { doc, surface, blocks } = bodySurface(`${WIKI_COORDINATES}${WIKI_PARAGRAPH}`);

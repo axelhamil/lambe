@@ -8,6 +8,7 @@ import {
   EXCLUDED_SELECTOR,
   HARD_EXCLUDED_SELECTOR,
   isExcluded,
+  isHidden,
   isProtectedInline,
 } from "./protected-nodes";
 
@@ -180,11 +181,15 @@ interface Wrapper {
 
 const isAtom = (el: Element): boolean => isExcluded(el) || isProtectedInline(el);
 
+const isEmptyHidden = (el: Element): boolean => isHidden(el) && BLANK.test(el.textContent ?? "");
+
 function isBlankElement(el: Element): boolean {
   return [...el.childNodes].every((child) => {
     if (child instanceof Text) return BLANK.test(child.data);
 
-    return !(child instanceof Element) || (!isAtom(child) && isBlankElement(child));
+    if (!(child instanceof Element) || isEmptyHidden(child)) return true;
+
+    return !isAtom(child) && isBlankElement(child);
   });
 }
 
@@ -210,9 +215,11 @@ const isPlainWrapper = (el: Element): boolean =>
   !el.getAttributeNames().some((name) => HELD_ATTRIBUTE.test(name));
 
 function textsUnder(node: Node): Text[] {
-  return [...node.childNodes].flatMap((child) =>
-    child instanceof Text ? [child] : textsUnder(child),
-  );
+  return [...node.childNodes].flatMap((child) => {
+    if (child instanceof Text) return [child];
+
+    return child instanceof Element && isEmptyHidden(child) ? [] : textsUnder(child);
+  });
 }
 
 class RunBuilder {
@@ -243,7 +250,7 @@ class RunBuilder {
       return [{ kind: "text", text: collapseWhitespace(node.nodeValue ?? "") }];
     }
 
-    if (!(node instanceof Element)) return [];
+    if (!(node instanceof Element) || isEmptyHidden(node)) return [];
 
     this.nextKey += 1;
     const key = this.nextKey;

@@ -444,7 +444,7 @@ const shapeOf = (body: string): string => {
 };
 
 describe("BlockReader markup weight", () => {
-  test("whitespace_only_inline_element_is_plain_text_not_a_group", () => {
+  test("whitespace_only_and_hidden_empty_inline_elements_cost_no_tag", () => {
     const shape = shapeOf(
       '<p>Hello<span> </span>world<span class="sep">\u00a0</span><link href="/x"> <b>now</b></p>',
     );
@@ -460,13 +460,11 @@ describe("BlockReader markup weight", () => {
     expect(shape).toBe("See <g>the page</g> now.");
   });
 
-  test("plain_wrappers_are_dropped_while_links_emphasis_and_code_keep_their_tags", () => {
+  test("plain_wrappers_are_dropped_while_links_emphasis_code_and_hidden_text_keep_their_tags", () => {
     const shape = shapeOf(
       '<p><a href="/a">Link</a><span class="geo">34.05</span><em>stress</em> and <span>plain</span> text <code>x()</code> <span class="note">kept</span> here <span style="display:none">hidden</span></p>',
     );
 
-    expect(shape).toBe(
-      "<g>Link</g>34.05<g>stress</g> and plain text <x/> <g>kept</g> here <g>hidden</g>",
-    );
+    expect(shape).toBe("<g>Link</g>34.05<g>stress</g> and plain text <x/> <g>kept</g> here <x/>");
   });
 });
