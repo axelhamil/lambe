@@ -1,6 +1,8 @@
 # Lambë
 
-A Chrome extension that translates web pages in place with a local LLM. It keeps code untouched and domain jargon as professionals write it, and toggles back to the original instantly. A floating bubble on each page starts, toggles and re-runs the translation.
+[Français](README.fr.md)
+
+A Chrome extension that translates web pages and YouTube captions in place with the model you choose: Ollama on your computer by default, or any OpenAI-compatible server. It keeps code untouched and domain jargon as professionals write it, and toggles back to the original instantly.
 
 Lambë is Quenya for "tongue, language"; the bubble glyph is the tengwa of the same name.
 
@@ -8,7 +10,7 @@ Lambë is Quenya for "tongue, language"; the bubble glyph is the tengwa of the s
 
 - Chrome (or any Chromium browser) with Manifest V3.
 - Node 24.20 or newer (`.nvmrc`), pnpm 11 (`packageManager`), Bun 1.4.0 for tests and scripts (`.bun-version`, also read by CI).
-- [Ollama](https://ollama.com) on `http://localhost:11434` with the default model: `ollama pull translategemma:12b`.
+- A model server. The default is [Ollama](https://ollama.com) on `http://localhost:11434` with `ollama pull translategemma:12b`.
 
 ## Install and build
 
@@ -19,44 +21,86 @@ pnpm --filter @lambe/extension build
 
 Load it: open `chrome://extensions`, enable Developer mode, click **Load unpacked** and pick `apps/extension/.output/chrome-mv3`.
 
-The manifest declares no content script and no host access beyond `localhost` and `127.0.0.1`: the page script is injected on demand in the top frame only.
+## First run
+
+The settings page opens on install with a welcome screen. It says what leaves the browser (the text of the pages you translate and the captions you translate, sent only to the provider you configure) and asks for your consent. Until you agree, Lambë sends nothing: the toolbar icon, `Alt+L` and the bubble open the settings instead. You can withdraw consent at any time in **Privacy and about**.
+
+## Use
+
+- Toolbar icon or `Alt+L`: translate the current page, then toggle between the translation and the original.
+- Click the bubble: translate the visible part of the page, then what you scroll to.
+- Click again: back to the original, from memory, no request. Once more: translated again, no request.
+- Double click: translate again, bypassing the cache and overwriting it.
+- Drag the bubble: it snaps to the nearest edge and its tail flips.
+- Right click the bubble: translate into another language for this page, translate this site automatically, hide the bubble on this site, or open the settings.
+
+## Settings
+
+| Section | What you set |
+| --- | --- |
+| Provider | Ollama or OpenAI-compatible, base URL, model (picked from the server's list), API key for OpenAI-compatible, and a connection test that explains each failure |
+| Translation | The target language, by default the browser language |
+| Sites | Show the bubble on every site, and per site rules: translate automatically, hide the bubble |
+| YouTube | Translated captions in the player |
+| Prompt | The guidelines the model follows; editing them starts a fresh cache for that text, reset restores the default |
+| Cache | Size of the translations kept on the device, and a clear button |
+| Shortcut | The current binding of the toggle command (default `Alt+L`) and a link to change it |
+| Privacy and about | What is sent and where, consent, version, the privacy policy |
+
+Settings live in `chrome.storage.local` under `lambe:settings`; the API key is kept apart under `lambe:secrets` and never logged. If stored settings are invalid or come from a newer version, Lambë runs on defaults, leaves them untouched and shows a banner to reset or fix them.
+
+## Providers
+
+- **Ollama** (default): `http://localhost:11434`, models listed from `/api/tags`. See [Allow the extension in Ollama](#allow-the-extension-in-ollama).
+- **OpenAI-compatible**: any server that speaks `POST /v1/chat/completions` with streaming and `GET /v1/models` (LM Studio, vLLM, llama.cpp server, hosted APIs). Enter the base URL with or without `/v1` and the API key if the server needs one. Saving a base URL that is not on `localhost` asks Chrome for access to that origin only.
+
+Provider requests leave from the background worker or the settings page, never from a content script.
+
+## Permissions
+
+Lambë asks for the least it needs and requests the rest when you turn on a feature.
+
+| Permission | Why |
+| --- | --- |
+| `storage`, `unlimitedStorage` | Settings, the optional API key and the translation cache, on the device only |
+| `activeTab`, `scripting` | Inject the page script into the current tab when you click the toolbar icon or press `Alt+L` |
+| `http://localhost/*`, `http://127.0.0.1/*` | Reach Ollama on your computer, on any port |
+| `https://*/*`, `http://*/*` (optional) | Requested at click time for what you choose: the bubble on every site, a site translated automatically, YouTube captions, a remote provider |
+
+The manifest declares no content script. The bubble on every site, automatic translation of a site and YouTube captions register their scripts at runtime once you grant the origin. Revoking an origin in `chrome://extensions` removes its scripts and turns the setting off.
+
+## Languages
+
+The interface follows the browser language, English or French (`apps/extension/locales`). Missing French strings fall back to English, and a test fails when the two catalogs drift.
 
 ## Extension id
 
-The manifest carries a fixed public `key` (in `apps/extension/wxt.config.ts`), so the id is the same on every machine: `dccgcoohbalgmgkflpndagoallbcgnch`. To derive it from a build:
+The manifest carries a fixed public `key` (in `apps/extension/wxt.config.ts`), so the unpacked id is the same on every machine: `dccgcoohbalgmgkflpndagoallbcgnch`. To derive it from a build:
 
 ```sh
 jq -r .key apps/extension/.output/chrome-mv3/manifest.json | base64 -d | sha256sum | head -c32 | tr 0-9a-f a-p
 ```
 
-The private key is never committed.
+The private key is never committed. The store build has no `key`: the Chrome Web Store assigns its own id.
 
 ## Allow the extension in Ollama
 
-Ollama answers 403 to origins it does not know. The bubble then turns red and its tooltip gives this fix. Run `sudo systemctl edit ollama`, then add:
+Ollama answers 403 to origins it does not know. The bubble then turns red, and the connection test in the settings shows the fix for Linux, macOS and Windows with the id of the running extension. On Linux, run `sudo systemctl edit ollama`, then add:
 
 ```ini
 [Service]
 Environment="OLLAMA_ORIGINS=chrome-extension://dccgcoohbalgmgkflpndagoallbcgnch"
 ```
 
-Save, then run `sudo systemctl restart ollama`.
+Save, then run `sudo systemctl restart ollama`. With the store build, use the store id instead.
 
 ## Optional: parallel requests
 
-Nothing else is required. Lambë keeps one request queued ahead of the one streaming, so the GPU never waits between requests, and asks Ollama to keep the model loaded for 10 minutes (`keep_alive`). If you also add `Environment="OLLAMA_NUM_PARALLEL=4"` to the same `[Service]` block, Lambë sees the replies stream side by side, raises its concurrency up to `provider.concurrency` (default 8) and splits the visible screen across the slots. Without it, Lambë stays at 1 request at a time. The learned concurrency is shared by every tab and kept for the same 10 minutes after the last reply, then Lambë starts again from 1.
-
-## Use
-
-- Click the bubble: translate the visible part of the page, then what you scroll to.
-- Click again: back to the original, from memory, no request. Once more: translated again, no request.
-- Double click: translate again, bypassing the cache and overwriting it.
-- Drag the bubble: it snaps to the nearest edge and its tail flips.
-- `Alt+L` or the toolbar icon: toggle.
+Nothing else is required. Lambë keeps one request queued ahead of the one streaming, so the GPU never waits between requests, and asks Ollama to keep the model loaded for 10 minutes (`keep_alive`). If you also add `Environment="OLLAMA_NUM_PARALLEL=4"` to the same `[Service]` block, Lambë sees the replies stream side by side, raises its concurrency up to 8 and splits the visible screen across the slots. Without it, Lambë stays at 1 request at a time. The learned concurrency is shared by every tab and kept for the same 10 minutes after the last reply, then Lambë starts again from 1.
 
 ## YouTube captions
 
-On a watch page, Lambë adds a button to the player controls, left of the subtitles button. Click it to show the captions translated into the target language, in an overlay styled like YouTube's own captions; the native captions are hidden and turned on if they were off. Click again for the native captions as you found them, from memory and with no request; once more and the translation is back, also with no request. Turning the subtitles off in the player turns Lambë off too. Lambë reads the track the player itself loads and asks the model only a few sentences ahead of the playhead, so seeking and in app navigation work without a reload. A track already in the target language is shown as is, with no request.
+Turn on **YouTube** in the settings first: Chrome asks for access to `https://www.youtube.com/*`. On a watch page, Lambë then adds a button to the player controls, left of the subtitles button. Click it to show the captions translated into the target language, in an overlay styled like YouTube's own captions; the native captions are hidden and turned on if they were off. Click again for the native captions as you found them, from memory and with no request; once more and the translation is back, also with no request. Turning the subtitles off in the player turns Lambë off too. Lambë reads the track the player itself loads and asks the model only a few sentences ahead of the playhead, so seeking and in app navigation work without a reload. A track already in the target language is shown as is, with no request.
 
 ## Scripts
 
@@ -65,13 +109,22 @@ On a watch page, Lambë adds a button to the player controls, left of the subtit
 | `pnpm verify` | Biome, type check, tests, knip, jscpd, dependency-cruiser |
 | `pnpm test` | Bun tests in every workspace |
 | `pnpm fix` | Biome with fixes |
+| `pnpm zip` | Store zip in `apps/extension/.output/*-chrome-store.zip`, built with `LAMBE_STORE=1` (no `key`) |
 | `pnpm --filter @lambe/extension build` | Production build in `apps/extension/.output/chrome-mv3` |
 | `pnpm --filter @lambe/extension dev` | WXT dev mode |
 | `pnpm --filter @lambe/extension fixtures` | Serves the fixtures and the proof pages on `http://localhost:4173` |
+| `bun apps/extension/scripts/render-promo.ts` | Renders the 440x280 store promo tile with Brave headless (`BRAVE_PATH` to use another Chromium) |
 
 ## Fixtures
 
 `packages/translation/fixtures` holds saved pages for the DOM tests and the browser proof. `github-fork-a-repo.html` is GitHub Docs content under CC BY 4.0; its source and the changes made are listed in `packages/translation/fixtures/README.md`. `apps/extension/proof` holds `proof.html` (the fixture in 390, 768 and 1440 px frames) and `strict-csp.html`, served with a strict `Content-Security-Policy`.
+
+## Chrome Web Store
+
+- Listing text, single purpose, permission justifications and data disclosures: [`docs/store/listing.en.md`](docs/store/listing.en.md) and [`docs/store/listing.fr.md`](docs/store/listing.fr.md). A test checks that the short descriptions fit 132 characters and that every manifest permission is justified, no more.
+- Promo tile: `docs/store/assets/promo-440x280.png`.
+- Privacy policy: [`docs/privacy-policy.md`](docs/privacy-policy.md). Its public URL replaces `<PRIVACY_POLICY_URL>` in the listing; that is the one manual step.
+- Store build: `pnpm zip`, then `LAMBE_STORE=1 pnpm --filter @lambe/extension check:manifest` to check it has no `key`, no static content script and exactly the narrow permissions.
 
 ## Release
 
@@ -86,9 +139,7 @@ Repository secrets:
 - `CHROME_PUBLISHER_ID`: the publisher id, in the dashboard account settings.
 - `CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL`, `CHROME_SERVICE_ACCOUNT_PRIVATE_KEY`: a Google Cloud service account with the Chrome Web Store API enabled in its project, a JSON key downloaded for it (`client_email` and `private_key`), and its email added to the publisher in the developer dashboard. `pnpm --filter @lambe/extension exec wxt submit init` walks through the same steps.
 
-The first store submission must be made by hand: upload the `*-chrome-store.zip` asset of a release in the developer dashboard, fill the listing and privacy tabs, and submit. API publishing only updates an item that already exists. The store assigns its own id, so the published extension id differs from the unpacked dev id derived from the `key` in `wxt.config.ts`, which only dev and unpacked builds carry: Ollama users of the store build need `OLLAMA_ORIGINS=chrome-extension://<store id>`.
-
-Store releases are blocked for now. The extension still requests `<all_urls>`, and the spec requires narrowing it to `activeTab` plus optional host permissions before any store release. Until that change lands, `check:manifest` fails on every `LAMBE_STORE=1` build, so the store submission fails while the GitHub release still gets both zips. Run the same guard by hand before a manual upload.
+The first store submission must be made by hand: upload the `*-chrome-store.zip` asset of a release in the developer dashboard, fill the listing and privacy tabs from `docs/store/listing.en.md`, and submit. API publishing only updates an item that already exists. The store assigns its own id, so the published extension id differs from the unpacked dev id derived from the `key` in `wxt.config.ts`, which only dev and unpacked builds carry: Ollama users of the store build need `OLLAMA_ORIGINS=chrome-extension://<store id>`.
 
 ## Plan 1 verification
 
@@ -159,3 +210,7 @@ Samples from `iG9CE55wbtY`, sentences 2 to 21 from 31.1 s. Manual cues are sente
 | 77.7 s | I find this very interesting. | Je trouve cela très intéressant. |
 | 79.1 s | If you're at a dinner party, and you say you work in education -- | Si vous êtes à une soirée, et que vous dites que vous travaillez dans l'éducation... |
 | 83.1 s | actually, you're not often at dinner parties, frankly. | En réalité, on ne va pas souvent à des dîners, pour être honnête. |
+
+## License
+
+[MIT](LICENSE).
