@@ -18,6 +18,7 @@ const TOOLTIP_EDGE = 12;
 const FRAME_PATH = "M3 3h18a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z";
 const FRAME_OUTLINE_PATH = `${FRAME_PATH}M3 5v14h18V5z`;
 const GLYPH_TRANSFORM = "translate(12 12) scale(0.5) translate(-16.71 -30.57)";
+const GLYPH_STROKE_WIDTH = "1.5";
 const GLYPH_PATH = /\sd="([^"]+)"/.exec(glyphSvg)?.[1] ?? "";
 
 function svgElement(doc: Document, name: string, attributes: Record<string, string>): SVGElement {
@@ -26,6 +27,21 @@ function svgElement(doc: Document, name: string, attributes: Record<string, stri
   for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, value);
 
   return element;
+}
+
+function glyphPath(doc: Document, ink: string, className?: string): SVGElement {
+  const path = svgElement(doc, "path", {
+    d: GLYPH_PATH,
+    transform: GLYPH_TRANSFORM,
+    fill: ink,
+    stroke: ink,
+    "stroke-width": GLYPH_STROKE_WIDTH,
+    "stroke-linejoin": "round",
+  });
+
+  if (className) path.setAttribute("class", className);
+
+  return path;
 }
 
 function createIcon(doc: Document): SVGElement {
@@ -40,7 +56,7 @@ function createIcon(doc: Document): SVGElement {
 
   mask.append(
     svgElement(doc, "rect", { width: "24", height: "24", fill: "white" }),
-    svgElement(doc, "path", { d: GLYPH_PATH, transform: GLYPH_TRANSFORM, fill: "black" }),
+    glyphPath(doc, "black"),
   );
   defs.append(mask);
   icon.append(
@@ -51,12 +67,7 @@ function createIcon(doc: Document): SVGElement {
       "fill-rule": "evenodd",
       fill: "white",
     }),
-    svgElement(doc, "path", {
-      class: "lambe-ytp-off lambe-ytp-glyph",
-      d: GLYPH_PATH,
-      transform: GLYPH_TRANSFORM,
-      fill: "white",
-    }),
+    glyphPath(doc, "white", "lambe-ytp-off lambe-ytp-glyph"),
     svgElement(doc, "path", {
       class: "lambe-ytp-on",
       d: FRAME_PATH,

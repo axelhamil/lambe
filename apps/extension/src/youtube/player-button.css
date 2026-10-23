@@ -16,8 +16,12 @@
   animation: lambe-ytp-pulse var(--lambe-ytp-pulse);
 }
 
-.lambe-ytp-button[data-state="error"] svg path {
+.lambe-ytp-button[data-state="error"] svg > path {
   fill: var(--lambe-ytp-error);
+}
+
+.lambe-ytp-button[data-state="error"] svg > .lambe-ytp-glyph {
+  stroke: var(--lambe-ytp-error);
 }
 
 .lambe-ytp-tooltip {

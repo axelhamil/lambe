@@ -162,7 +162,7 @@ Measured on 2026-10-18 in headless Brave over CDP, `translategemma:12b` on local
 - Revisit (1440 px frame): with headings that end in an empty anchor now cached, the first screen takes 10 requests instead of 14. The next visit sends 1 request, for a navigation item the first visit never reached, and the one after sends 0.
 - Double click (1440 px frame): 10 new requests; 54 cache entries are overwritten and the page never shows the stale values planted in them.
 - Side tab (re-measured on 2026-10-23 on a local fixture): 24 x 36 px at rest and 32 x 36 px on hover, its right edge equal to `clientWidth` with or without a visible scrollbar; a drag moves it only vertically and clamps it to `height - 36 - 8`.
-- Strict CSP (`style-src 'self'`, no inline): the former 38 px bubble was styled exactly as on a normal page (fixed, same fill and stroke), with 0 CSP violations, and the page translates.
+- Strict CSP (`default-src 'self'; style-src 'self'; script-src 'self'`, re-measured on 2026-10-23 with the side tab on a local fixture): an inline style is blocked, yet the tab renders as on the same page without CSP (24 x 36 px, fixed, same fill, radius and shadow, 32 px on hover), with 0 CSP violations from the extension, and the page translates in 3.2 s.
 - Console: no error from the content script or the service worker. The host page logs 31 404s for fixture images and 8 CORS errors for docs.github.com fonts, which come from the saved fixture.
 
 ## Plan 3 verification
