@@ -42,7 +42,7 @@ function isSection(value: string): value is SectionId {
 }
 
 export function sectionFromHash(hash: string): SectionId {
-  const name = hash.replace(/^#/, "");
+  const name = hash.replace(/^#/, "").split("?")[0] ?? "";
 
   return isSection(name) ? name : DEFAULT_SECTION;
 }

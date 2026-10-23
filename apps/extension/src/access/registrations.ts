@@ -65,7 +65,7 @@ function covers(granted: MatchPattern, wanted: MatchPattern): boolean {
   );
 }
 
-function isGranted(granted: string[], pattern: string): boolean {
+export function isGranted(granted: string[], pattern: string): boolean {
   if (granted.includes(ALL_URLS)) return true;
 
   return patternOf(pattern)
@@ -108,18 +108,24 @@ function youtubeRegistrations(): Registration[] {
   ];
 }
 
+export function sitePatternOf(origin: string): Option<string> {
+  const url = URL.parse(origin);
+
+  if (url === null) return Option.none();
+
+  return Option.some(`${url.protocol}//${url.hostname}/*`);
+}
+
 function siteRegistration(rule: SiteRule, granted: string[]): Registration[] {
   if (!rule.autoTranslate && !rule.hideBubble) return [];
 
-  const url = URL.parse(rule.origin);
-
-  if (url === null) return [];
-
-  const match = `${url.protocol}//${url.hostname}/*`;
-
-  if (!isGranted(granted, match)) return [];
-
-  return [registration(`${SITE_PREFIX}${rule.origin}`, PAGE_SCRIPT, [match])];
+  return sitePatternOf(rule.origin)
+    .map((match) =>
+      isGranted(granted, match)
+        ? [registration(`${SITE_PREFIX}${rule.origin}`, PAGE_SCRIPT, [match])]
+        : [],
+    )
+    .unwrapOr([]);
 }
 
 export function desiredRegistrations(settings: Settings, granted: string[]): Registration[] {

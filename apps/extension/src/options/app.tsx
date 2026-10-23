@@ -9,6 +9,9 @@ import { PrivacySection } from "./sections/privacy-section";
 import { PromptSection } from "./sections/prompt-section";
 import { ProviderSection } from "./sections/provider-section";
 import { ShortcutSection } from "./sections/shortcut-section";
+import { SitesSection } from "./sections/sites-section";
+import { TranslationSection } from "./sections/translation-section";
+import { YoutubeSection } from "./sections/youtube-section";
 import { SettingsProblem } from "./settings-problem";
 
 function useHashSection(): SectionId {
@@ -51,6 +54,9 @@ export function App() {
         {section === "cache" && <CacheSection />}
         {section === "shortcut" && <ShortcutSection />}
         {section === "privacy" && <PrivacySection />}
+        {section === "translation" && <TranslationSection />}
+        {section === "sites" && <SitesSection />}
+        {section === "youtube" && <YoutubeSection />}
       </main>
     </div>
   );

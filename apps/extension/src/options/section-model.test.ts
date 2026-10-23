@@ -7,6 +7,10 @@ describe("section model", () => {
     expect(sectionFromHash(hashOf("privacy"))).toBe("privacy");
   });
 
+  test("hash_with_a_query_selects_its_section", () => {
+    expect(sectionFromHash("#sites?origin=https://example.org")).toBe("sites");
+  });
+
   test("unknown_hash_selects_provider", () => {
     expect(sectionFromHash("")).toBe("provider");
     expect(sectionFromHash("#")).toBe("provider");
