@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import type { CaptionLine } from "@lambe/translation/domain/caption/caption-timeline";
 import { YOUTUBE_SELECTORS } from "@lambe/translation/infrastructure/youtube/youtube-selectors";
@@ -156,6 +156,23 @@ describe("caption overlay", () => {
     expect(host().hasAttribute("data-ad")).toBe(false);
 
     overlay.destroy();
+  });
+
+  test("playback_runs_no_frame_loop_without_lines", () => {
+    const frames = spyOn(window, "requestAnimationFrame");
+    const overlay = mountCaptionOverlay(document);
+
+    video().dispatchEvent(new Event("play"));
+    video().dispatchEvent(new Event("playing"));
+    const idle = frames.mock.calls.length;
+    overlay.update(LINES);
+    video().dispatchEvent(new Event("playing"));
+
+    expect(idle).toBe(0);
+    expect(frames.mock.calls.length).toBe(1);
+
+    overlay.destroy();
+    frames.mockRestore();
   });
 
   test("clear_empties_the_overlay", () => {

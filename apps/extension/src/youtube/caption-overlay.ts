@@ -133,11 +133,11 @@ export function mountCaptionOverlay(doc: Document): CaptionOverlay {
     frame = undefined;
     render();
 
-    if (playing()) frame = window.requestAnimationFrame(tick);
+    if (playing() && lines.length > 0) frame = window.requestAnimationFrame(tick);
   };
 
   const startLoop = (): void => {
-    if (frame !== undefined) return;
+    if (frame !== undefined || lines.length === 0) return;
 
     frame = window.requestAnimationFrame(tick);
   };
