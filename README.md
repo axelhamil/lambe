@@ -64,6 +64,10 @@ Other keys: `provider` (`baseUrl`, `model`, `concurrency` as an upper bound, `ti
 - Drag the bubble: it snaps to the nearest edge and its tail flips.
 - `Alt+L` or the toolbar icon: toggle.
 
+## YouTube captions
+
+On a watch page, Lambë adds a button to the player controls, left of the subtitles button. Click it to show the captions translated into the target language, in an overlay styled like YouTube's own captions; the native captions are hidden and turned on if they were off. Click again for the native captions as you found them, from memory and with no request; once more and the translation is back, also with no request. Turning the subtitles off in the player turns Lambë off too. Lambë reads the track the player itself loads and asks the model only a few sentences ahead of the playhead, so seeking and in app navigation work without a reload. A track already in the target language is shown as is, with no request.
+
 ## Scripts
 
 | Command | What it does |
@@ -117,3 +121,51 @@ Measured on 2026-10-18 in headless Brave over CDP, `translategemma:12b` on local
 - Bubble: at every width, dragged to the opposite edge it snaps to `left: 4px`, clamps to the bottom edge (`top = height - 38 - 6`), flips its tail (`scaleX(-1)`), stays inside the frame and still answers clicks; dragged back, it snaps to `width - 38 - 4`.
 - Strict CSP (`style-src 'self'`, no inline): the bubble is styled exactly as on a normal page (38 px, fixed, same fill and stroke), with 0 CSP violations, and the page translates.
 - Console: no error from the content script or the service worker. The host page logs 31 404s for fixture images and 8 CORS errors for docs.github.com fonts, which come from the saved fixture.
+
+## Plan 3 verification
+
+Measured on 2026-10-23 in headless Brave over CDP with the extension loaded, `translategemma:12b` on local Ollama, target `fr`, cookie `PREF=hl=en&gl=US` so the English track is picked. Videos: `iG9CE55wbtY` (manual English track, 427 sentences), `XSu38uFEVuI` (the same talk with only an automatic English track) and `8g5Aif1khO8` (automatic French track).
+
+| Check | Expected | Measured |
+| --- | --- | --- |
+| Track capture | the player's own request, none from the worker | every timedtext request has `base.js` and `captions.js` in its stack; 0 from the worker; the first translate leaves on click with no new fetch |
+| First line, cold (model load, cache cleared) | shown | 2931 ms |
+| First line, warm | under 1 s | 350 ms and 396 ms |
+| Lead over 3 min at 1x, sampled every 1 s | never negative | 182 samples from 32 s to 213 s, after 10 s min 266.6 s, median 1015 s; 3.5 s at 1 s |
+| Requests for the whole manual track | batched | 73 `/api/chat` for 427 sentences, 0 failed |
+| Seek to 50 % (602 s) and 90 % (1083 s) | line under 1 s, old requests cancelled | 481 ms and 520 ms; the 5 requests in flight cancelled 106 ms and 122 ms after the seek |
+| Line timing | within 100 ms of the cue | 67 lines checked, 0 off |
+| Sentence length on the automatic track | at most 20 words | 278 sentences, longest 20 words (17 on the manual track) |
+| Track already in French | no request | 0 `/api/chat`, original lines shown |
+
+- Player: native captions are hidden while translating. The line sits 11 px above the player bottom with the controls hidden and 64 px with them shown in the default view, 10 px in theater view, and clears the fullscreen quick actions (line bottom at 416 px, quick actions from 424 px, control bar from 485 px of a 544 px player); with the controls hidden in fullscreen it drops back to the bottom.
+- Toggle: the second click brings the native captions back as found; the third shows the lines again in 4 ms with 0 requests.
+- Navigation: after an in app click to another video the overlay switches to the new track. The first request goes out 667 ms after the click with an empty title, channel and description, since YouTube swaps the watch metadata later; every later request carries the new video's title, channel and description.
+- Subtitles: turning them off in the player turns Lambë off; with them off, Lambë turns them on and its second click turns them off again.
+- Console: compared with the same journey with the extension disabled, no new error. The page and the worker log only YouTube's own noise (blocked ad requests, sandboxed frames, WebGL and preload warnings).
+- Not verified: hiding during an ad, since no ad played; jargon, since the talk has none.
+
+Samples from `iG9CE55wbtY`, sentences 2 to 21 from 31.1 s. Manual cues are sentence fragments, so the model sometimes capitalizes or ends a fragment as a sentence.
+
+| Start | Original | Translation |
+| --- | --- | --- |
+| 31.1 s | It's been great, hasn't it? | Ça a été formidable, n'est-ce pas ? |
+| 33.4 s | I've been blown away by the whole thing. | J'ai été complètement impressionné par tout cela. |
+| 35.8 s | In fact, I'm leaving. | En fait, je suis en train de partir. |
+| 37.3 s | (Laughter) | (Rire) |
+| 43.1 s | There have been three themes running through the conference, | Trois thèmes principaux ont traversé cette conférence, |
+| 46.7 s | which are relevant to what I want to talk about. | et qui sont pertinents pour ce que je veux aborder. |
+| 49.0 s | One is the extraordinary evidence of human creativity | L'un d'eux est la preuve extraordinaire de la créativité humaine. |
+| 53.5 s | in all of the presentations that we've had | Dans toutes les présentations que nous avons entendues. |
+| 55.9 s | and in all of the people here; | Et chez toutes les personnes présentes ici. |
+| 57.9 s | just the variety of it and the range of it. | Juste la diversité et l'étendue de cette créativité. |
+| 61.2 s | The second is that it's put us in a place | Le deuxième point est que cela nous place |
+| 63.3 s | where we have no idea what's going to happen | dans une situation où nous ne savons pas |
+| 65.8 s | in terms of the future. | ce qui va se passer dans le futur. |
+| 67.3 s | No idea how this may play out. | Je ne sais pas comment cela va se dérouler. |
+| 70.3 s | I have an interest in education. | Je m'intéresse à l'éducation. |
+| 71.9 s | Actually, what I find is, everybody has an interest in education. | En réalité, je constate que tout le monde s'intéresse à l'éducation. |
+| 76.4 s | Don't you? | N'est-ce pas vrai ? |
+| 77.7 s | I find this very interesting. | Je trouve cela très intéressant. |
+| 79.1 s | If you're at a dinner party, and you say you work in education -- | Si vous êtes à une soirée, et que vous dites que vous travaillez dans l'éducation... |
+| 83.1 s | actually, you're not often at dinner parties, frankly. | En réalité, on ne va pas souvent à des dîners, pour être honnête. |
