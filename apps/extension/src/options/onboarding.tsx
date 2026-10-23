@@ -1,0 +1,34 @@
+import { t } from "../i18n/t";
+import { Button } from "./components/ui/button";
+import { LambeGlyph } from "./lambe-glyph";
+import { useSettings } from "./use-settings";
+
+export function Onboarding() {
+  const { loaded, update } = useSettings();
+
+  if (loaded.settings.consentAt !== undefined) return null;
+
+  const consent = (): void => {
+    void update((current) => ({ ...current, consentAt: Date.now() }));
+  };
+
+  return (
+    <section
+      className="onboarding grid gap-x-8 gap-y-5 md:grid-cols-[auto_1fr]"
+      aria-labelledby="onboarding-title"
+    >
+      <LambeGlyph className="onboarding-glyph" />
+      <div className="flex flex-col items-start gap-4">
+        <h2 id="onboarding-title" className="onboarding-title">
+          {t("onboarding.title")}
+        </h2>
+        <p>{t("onboarding.disclosure")}</p>
+        <p>{t("onboarding.local")}</p>
+        <p className="onboarding-note">{t("onboarding.later")}</p>
+        <Button size="lg" onClick={consent}>
+          {t("onboarding.consent")}
+        </Button>
+      </div>
+    </section>
+  );
+}

@@ -1,3 +1,4 @@
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "wxt";
 import { LOCAL_HOSTS, OPTIONAL_HOSTS } from "./src/permissions";
 
@@ -15,7 +16,8 @@ const STORE_BUILD = process.env.LAMBE_STORE === "1";
 
 export default defineConfig({
   imports: false,
-  modules: ["@wxt-dev/i18n/module"],
+  modules: ["@wxt-dev/i18n/module", "@wxt-dev/module-react"],
+  vite: () => ({ plugins: [tailwindcss()] }),
   zip: {
     artifactTemplate: STORE_BUILD
       ? "{{name}}-{{version}}-{{browser}}-store.zip"
