@@ -13,6 +13,9 @@ import {
   KEEP_ALIVE_MS,
   OllamaProvider,
 } from "@lambe/translation/infrastructure/providers/ollama-provider";
+import { chromeHostAccess } from "../access/host-access";
+import { reconciler } from "../access/reconcile";
+import { chromeScriptRegistrar } from "../access/script-registrar";
 import { activateTab, showUnavailable, type TabScripting } from "../activation/activate-tab";
 import { StorageTranslationCache } from "../adapters/chrome/storage-translation-cache";
 import { loadRuntimeConfig } from "../config/runtime-config";
@@ -110,7 +113,23 @@ async function activateActiveTab(): Promise<void> {
   }
 }
 
+function syncScriptRegistrations(): void {
+  const settings = settingsStore();
+  const sync = reconciler({ settings, access: chromeHostAccess, registrar: chromeScriptRegistrar });
+  const resync = (): void => {
+    void sync();
+  };
+
+  chrome.runtime.onInstalled.addListener(resync);
+  chrome.runtime.onStartup.addListener(resync);
+  chrome.permissions.onAdded.addListener(resync);
+  chrome.permissions.onRemoved.addListener(resync);
+  settings.subscribe(resync);
+}
+
 export function startBackground(): void {
+  syncScriptRegistrations();
+
   let worker: Promise<Worker> | undefined;
   let capacity: ProviderCapacity | undefined;
 
