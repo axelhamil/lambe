@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Result } from "@lambe/kernel/result";
 import type { InlineNode } from "../block/inline-node";
-import { type MarkupError, parseMarkup } from "./markup";
+import { type MarkupError, parseMarkup, toMarkup } from "./markup";
 import { checkAgainstSource } from "./structure-check";
 
 const source = parseMarkup("Run <x1/> or <g1>read <x2/></g1>").getValue();
@@ -16,8 +16,39 @@ describe("checkAgainstSource", () => {
     expect(checked.isSuccess).toBe(true);
   });
 
-  test("rejects_lost_atom", () => {
-    expect(check("Lance ou <g1>lis <x2/></g1>").getError().code).toBe("PLACEHOLDER_LOST");
+  test("reinserts_a_dropped_atom_and_accepts_the_translation", () => {
+    expect(toMarkup(check("Lance ou <g1>lis <x2/></g1>").getValue())).toBe(
+      "Lance<x1/> ou <g1>lis <x2/></g1>",
+    );
+  });
+
+  test.each([
+    ["<x1/>First words here.", "Premiers mots ici.", "<x1/>Premiers mots ici."],
+    [
+      "First sentence here.<x1/> Second sentence here.",
+      "Première phrase ici. Deuxième phrase ici.",
+      "Première phrase ici.<x1/> Deuxième phrase ici.",
+    ],
+    ["Last words here.<x1/>", "Derniers mots ici.", "Derniers mots ici.<x1/>"],
+    [
+      "<g1>Read the guide<x1/></g1> today.",
+      "<g1>Lisez le guide</g1> aujourd'hui.",
+      "<g1>Lisez le guide<x1/></g1> aujourd'hui.",
+    ],
+  ])("reinserts_a_dropped_atom_at_its_relative_source_position %#", (from, answer, expected) => {
+    const repaired = checkAgainstSource(
+      parseMarkup(from).getValue(),
+      parseMarkup(answer).getValue(),
+    );
+
+    expect(toMarkup(repaired.getValue())).toBe(expected);
+  });
+
+  test("rejects_a_dropped_atom_whose_group_is_lost", () => {
+    const twoGroups = parseMarkup("<g1>a <x1/></g1> <g2>b</g2> <g3>c</g3>").getValue();
+    const answer = parseMarkup("a <g2>b</g2> <g3>c</g3>").getValue();
+
+    expect(checkAgainstSource(twoGroups, answer).getError().code).toBe("PLACEHOLDER_LOST");
   });
 
   test("rejects_duplicated_atom", () => {

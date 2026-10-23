@@ -1,5 +1,6 @@
 import { Result } from "@lambe/kernel/result";
 import { appendNode, type InlineNode } from "../block/inline-node";
+import { reinsertAtom, relativeAtomPosition } from "./atom-reinsertion";
 import { type MarkupError, markupError } from "./markup";
 
 const ROOT = "root";
@@ -88,13 +89,66 @@ function atomError(expected: Placements, atoms: Placements): MarkupError | undef
 
     const actualParent = atoms.get(id)?.[0];
 
-    if (actualParent === undefined) return markupError("PLACEHOLDER_LOST", `${id} is missing.`);
-
-    if (actualParent !== parents[0])
+    if (actualParent !== undefined && actualParent !== parents[0])
       return markupError("STRUCTURE_MOVED", `${id} moved from ${parents[0]} to ${actualParent}.`);
   }
 
   return undefined;
+}
+
+interface SourceAtom {
+  key: number;
+  parent: string;
+  siblings: InlineNode[];
+}
+
+function sourceAtoms(nodes: InlineNode[], parent: string = ROOT): SourceAtom[] {
+  return nodes.flatMap((node) => {
+    if (node.kind === "atom") return [{ key: node.key, parent, siblings: nodes }];
+
+    if (node.kind === "group") return sourceAtoms(node.children, `<g${node.key}>`);
+
+    return [];
+  });
+}
+
+function withChildren(
+  nodes: InlineNode[],
+  parent: string,
+  update: (children: InlineNode[]) => InlineNode[],
+): InlineNode[] {
+  if (parent === ROOT) return update(nodes);
+
+  return nodes.map((node) => {
+    if (node.kind !== "group") return node;
+
+    if (placeholderId(node) === parent) return { ...node, children: update(node.children) };
+
+    return { ...node, children: withChildren(node.children, parent, update) };
+  });
+}
+
+function reinsertLostAtoms(
+  source: InlineNode[],
+  translated: InlineNode[],
+  settling: Settling,
+): Result<InlineNode[], MarkupError> {
+  let repaired = translated;
+
+  for (const { key, parent, siblings } of sourceAtoms(source)) {
+    const id = `<x${key}/>`;
+
+    if (settling.atoms.has(id)) continue;
+
+    if (parent !== ROOT && !settling.kept.has(parent))
+      return Result.fail(markupError("PLACEHOLDER_LOST", `${id} is missing.`));
+
+    const position = relativeAtomPosition(siblings, key);
+
+    repaired = withChildren(repaired, parent, (children) => reinsertAtom(children, key, position));
+  }
+
+  return Result.ok(repaired);
 }
 
 const LETTER = /\p{L}/u;
@@ -123,10 +177,16 @@ export function checkAgainstSource(
 ): Result<InlineNode[], MarkupError> {
   const expected = collectPlacements(source);
   const settling: Settling = { expected, kept: new Set(), atoms: new Map() };
-  const translated = settleGroups(withoutLeadingPhantomAtom(expected, answer), ROOT, settling);
+  const settled = settleGroups(withoutLeadingPhantomAtom(expected, answer), ROOT, settling);
   const atomFailure = atomError(expected, settling.atoms);
 
   if (atomFailure !== undefined) return Result.fail(atomFailure);
+
+  const repaired = reinsertLostAtoms(source, settled, settling);
+
+  if (repaired.isFailure) return Result.fail(repaired.getError());
+
+  const translated = repaired.getValue();
 
   if (hasLetters(source) && !hasLetters(translated))
     return Result.fail(markupError("TRANSLATION_EMPTY", "The translation has no text."));
