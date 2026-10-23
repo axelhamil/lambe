@@ -11,6 +11,7 @@ Lambë signifie « langue » en quenya ; le glyphe de la bulle est le tengwa du 
 - Chrome (ou un navigateur Chromium) en Manifest V3.
 - Node 24.20 ou plus récent (`.nvmrc`), pnpm 11 (`packageManager`), Bun 1.4.0 pour les tests et les scripts (`.bun-version`, lu aussi par la CI).
 - Un serveur de modèles. Par défaut, [Ollama](https://ollama.com) sur `http://localhost:11434` avec `ollama pull translategemma:12b`.
+- Débutant avec les modèles locaux ? Suivez le [guide pour faire tourner une IA locale](docs/local-ai.fr.md) : matériel, installation, modèle et réglages.
 
 ## Installer et compiler
 
