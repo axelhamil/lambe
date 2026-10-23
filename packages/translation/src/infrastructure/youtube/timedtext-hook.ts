@@ -1,7 +1,4 @@
-export interface TimedtextCapture {
-  url: string;
-  body: string;
-}
+import type { TimedtextCapture } from "./json3-track";
 
 interface ObservedXhr extends EventTarget {
   readonly status: number;

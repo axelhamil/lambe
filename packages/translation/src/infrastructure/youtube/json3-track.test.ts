@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import type { CaptionTrack } from "../../domain/caption/caption-track";
+import { segmentSentences } from "../../domain/caption/segmentation";
 import { parseTimedtext, type TimedtextErrorCode } from "./json3-track";
 
 const fixture = (name: string): Promise<string> =>
@@ -37,6 +38,17 @@ describe("parseTimedtext", () => {
     expect(track.units[6]?.text).toBe(
       "There have been three themes running through the conference,",
     );
+  });
+
+  test("asr_fixture_segments_into_sentences_of_at_most_twenty_words", async () => {
+    const track = parsedTrack(ASR_EN, await fixture("asr-en.json3.json"));
+    const sentences = segmentSentences(track);
+    const wordCounts = sentences.map(
+      (sentence) => sentence.text.split(/\s+/).filter(Boolean).length,
+    );
+
+    expect(sentences.length).toBeGreaterThan(1);
+    expect(Math.max(...wordCounts)).toBeLessThanOrEqual(20);
   });
 
   test("asr_fixture_gives_timed_words_in_order", async () => {

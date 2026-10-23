@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import type { TimedtextCapture } from "./json3-track";
 import {
   createTimedtextRelay,
   listenTimedtext,
   MAX_BODY_CHARS,
   TIMEDTEXT_EVENT,
 } from "./timedtext-channel";
-import type { TimedtextCapture } from "./timedtext-hook";
 
 const capture = (n: number): TimedtextCapture => ({
   url: `https://www.youtube.com/api/timedtext?v=abc&lang=en&n=${n}`,

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { type HookTarget, installTimedtextHook, type TimedtextCapture } from "./timedtext-hook";
+import type { TimedtextCapture } from "./json3-track";
+import { type HookTarget, installTimedtextHook } from "./timedtext-hook";
 
 const TIMEDTEXT_URL = "https://www.youtube.com/api/timedtext?v=abc&lang=en&fmt=json3";
 const OTHER_URL = "https://www.youtube.com/youtubei/v1/player";

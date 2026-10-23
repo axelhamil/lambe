@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { TimedtextCapture } from "./timedtext-hook";
+import type { TimedtextCapture } from "./json3-track";
 
 export const TIMEDTEXT_EVENT = "lambe:timedtext";
 
