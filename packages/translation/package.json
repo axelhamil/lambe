@@ -18,6 +18,7 @@
     "./application/view-state": "./src/application/view-state.ts",
     "./domain/block/value-objects/block-id.vo": "./src/domain/block/value-objects/block-id.vo.ts",
     "./domain/caption/caption-timeline": "./src/domain/caption/caption-timeline.ts",
+    "./domain/language/language-name": "./src/domain/language/language-name.ts",
     "./domain/language/value-objects/language-code.vo": "./src/domain/language/value-objects/language-code.vo.ts",
     "./domain/prompt/guidelines": "./src/domain/prompt/guidelines.ts",
     "./domain/prompt/model-profile": "./src/domain/prompt/model-profile.ts",

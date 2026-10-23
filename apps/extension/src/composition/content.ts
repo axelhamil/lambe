@@ -26,7 +26,7 @@ import type { OpenOptionsMessage } from "../messaging/open-options.contract";
 import { toggleMessageSchema } from "../messaging/toggle.contract";
 import { SettingsStore } from "../settings/settings-store";
 import { menuActions } from "./menu-actions";
-import { followPageRules, type PageRules, pageNeedsTranslation } from "./page-rules";
+import { bubbleVisible, followPageRules, type PageRules, pageNeedsTranslation } from "./page-rules";
 
 function blockIds(): () => BlockId {
   let next = 0;
@@ -130,6 +130,7 @@ export function startContent(ctx: ContentScriptContext): void {
   const store = new SettingsStore(chrome.storage.local, chrome.i18n.getUILanguage());
   const app = buildApp(store);
   let touched = false;
+  let refresh = (): void => undefined;
   const run = (action: AppAction, failure: string): void => {
     void app.then(action).catch((cause: unknown) => console.error(failure, cause));
   };
@@ -201,13 +202,14 @@ export function startContent(ctx: ContentScriptContext): void {
     const apply = (rules: PageRules): void => {
       latest = Option.some(rules);
       page.retarget(pageTarget.unwrapOr(rules.target));
-      bubble.show(!rules.hideBubble);
+      bubble.show(bubbleVisible(rules, touched));
 
       if (touched || !pageNeedsTranslation(rules, document.documentElement.lang)) return;
 
       toggle();
     };
 
+    refresh = () => latest.map(apply);
     ctx.onInvalidated(await followPageRules(store, location.origin, apply));
   };
 
@@ -215,6 +217,7 @@ export function startContent(ctx: ContentScriptContext): void {
     if (!toggleMessageSchema.safeParse(message).success) return false;
 
     toggle();
+    refresh();
 
     return false;
   });

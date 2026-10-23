@@ -19,6 +19,7 @@ error:
   PROVIDER_FORBIDDEN_ORIGIN: "Ollama refused requests from {origin}. Add this origin to OLLAMA_ORIGINS, restart Ollama, then try again."
   PROVIDER_MODEL_MISSING: "The model {model} is not installed. Install it or pick another model in the settings."
   PROVIDER_BAD_RESPONSE: "The model server sent an unexpected answer. Try again, or pick another model if it keeps happening."
+  PROVIDER_RATE_LIMITED: "The model server is limiting how many requests Lambë sends. Wait a minute, then translate again."
   PROVIDER_TIMEOUT: "The model server did not answer within {timeoutMs} ms. Try again, or pick a lighter model."
   REQUEST_CANCELLED: "The translation was cancelled."
   NO_CAPTIONS: "This video has no captions to translate."

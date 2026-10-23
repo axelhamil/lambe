@@ -50,6 +50,13 @@ const modelOf = (body: unknown): unknown => {
     : undefined;
 };
 
+const ENV = {
+  cache: { getMany: async () => new Map(), setMany: async () => undefined },
+  origin: "chrome-extension://test",
+  now: () => 0,
+  log: { debug: () => undefined },
+};
+
 function hostOver(initial: Record<string, unknown>) {
   const storage = fakeStorageArea(initial);
   const sent: SentRequest[] = [];
@@ -63,10 +70,7 @@ function hostOver(initial: Record<string, unknown>) {
 
       return new Response("", { status: 500 });
     },
-    cache: { getMany: async () => new Map(), setMany: async () => undefined },
-    origin: "chrome-extension://test",
-    now: () => 0,
-    log: { debug: () => undefined },
+    ...ENV,
   });
   const host = new WorkerHost({
     settings: new SettingsStore(storage.area, "en"),
@@ -178,5 +182,38 @@ describe("WorkerHost", () => {
     expect(first?.authorization).toBe("Bearer sk-a");
     expect(second?.url).toBe("https://b.example.test/v1/chat/completions");
     expect(second?.authorization).toBeNull();
+  });
+
+  test("concurrent_first_requests_load_storage_once_and_build_once", async () => {
+    const storage = fakeStorageArea({ [SETTINGS_KEY]: consented() });
+    const reads: string[][] = [];
+    const area = {
+      ...storage.area,
+      get: (keys: string[]) => {
+        reads.push(keys);
+
+        return storage.area.get(keys);
+      },
+    };
+    const builds: string[] = [];
+    const build = workerBuilder({
+      fetch: async () => new Response("", { status: 500 }),
+      ...ENV,
+    });
+    const host = new WorkerHost({
+      settings: new SettingsStore(area, "en"),
+      secrets: new SecretsStore(area),
+      build: (config, apiKey) => {
+        builds.push(config.provider.model);
+
+        return build(config, apiKey);
+      },
+    });
+
+    await Promise.all([host.service(), host.service()]);
+    await host.service();
+
+    expect(reads).toHaveLength(2);
+    expect(builds).toEqual(["translategemma:12b"]);
   });
 });

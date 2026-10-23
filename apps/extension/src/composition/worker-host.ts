@@ -18,7 +18,7 @@ import {
 } from "@lambe/translation/infrastructure/providers/ollama-provider";
 import { isConsented } from "../activation/consent-gate";
 import { type RuntimeConfig, toRuntimeConfig } from "../config/runtime-config";
-import { keyFor, type SecretsStore } from "../settings/secrets-store";
+import { type Credential, keyFor, type SecretsStore } from "../settings/secrets-store";
 import type { Settings } from "../settings/settings";
 import type { SettingsStore } from "../settings/settings-store";
 import { providerFor } from "./provider-factory";
@@ -42,6 +42,11 @@ interface WorkerHostDeps {
   settings: SettingsStore;
   secrets: SecretsStore;
   build: BuildWorker;
+}
+
+interface Snapshot {
+  settings: Settings;
+  credential: Option<Credential>;
 }
 
 interface BuiltWorker {
@@ -93,13 +98,33 @@ function fingerprintOf(settings: Settings, apiKey: Option<string>): string {
 export class WorkerHost implements ProviderCapacity {
   private built: Option<BuiltWorker> = Option.none();
 
+  private loaded: Option<Promise<Snapshot>> = Option.none();
+
   public constructor(private readonly deps: WorkerHostDeps) {}
 
+  private snapshot(): Promise<Snapshot> {
+    if (this.loaded.isSome()) return this.loaded.unwrap();
+
+    this.deps.settings.subscribe(({ settings }) => this.patch({ settings }));
+    this.deps.secrets.subscribe((credential) => this.patch({ credential }));
+
+    const loading = Promise.all([this.deps.settings.load(), this.deps.secrets.credential()]).then(
+      ([{ settings }, credential]) => ({ settings, credential }),
+    );
+
+    this.loaded = Option.some(loading);
+
+    return loading;
+  }
+
+  private patch(change: Partial<Snapshot>): void {
+    this.loaded = this.loaded.map((loading) =>
+      loading.then((snapshot) => ({ ...snapshot, ...change })),
+    );
+  }
+
   public async service(): Promise<Result<BatchTranslationService, ProviderError>> {
-    const [{ settings }, credential] = await Promise.all([
-      this.deps.settings.load(),
-      this.deps.secrets.credential(),
-    ]);
+    const { settings, credential } = await this.snapshot();
     const apiKey = keyFor(credential, settings.provider.baseUrl);
 
     if (!isConsented(settings)) return Result.fail(consentRequired());

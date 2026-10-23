@@ -121,6 +121,7 @@ function syncScriptRegistrations(): void {
   chrome.permissions.onAdded.addListener(resync);
   chrome.permissions.onRemoved.addListener(resync);
   settings.subscribe(resync);
+  resync();
 }
 
 export function startBackground(): void {

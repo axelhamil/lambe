@@ -34,19 +34,20 @@ async function converge({ settings, access, registrar }: ReconcileDeps): Promise
   ]);
   const desired = desiredRegistrations(loaded.settings, granted);
   const current = new Map(registered.map((registration) => [registration.id, registration]));
-  const fresh = desired.filter((registration) => {
+  const changed = desired.filter((registration) => {
     const existing = current.get(registration.id);
 
-    return existing === undefined || !sameRegistration(existing, registration);
+    return existing !== undefined && !sameRegistration(existing, registration);
   });
+  const added = desired.filter((registration) => !current.has(registration.id));
   const kept = new Set(desired.map((registration) => registration.id));
-  const stale = registered
-    .map((registration) => registration.id)
-    .filter((id) => !kept.has(id) || fresh.some((registration) => registration.id === id));
+  const stale = registered.map((registration) => registration.id).filter((id) => !kept.has(id));
 
   if (stale.length > 0) await registrar.unregister(stale);
 
-  if (fresh.length > 0) await registrar.register(fresh);
+  if (changed.length > 0) await registrar.update(changed);
+
+  if (added.length > 0) await registrar.register(added);
 }
 
 async function attempt(deps: ReconcileDeps, remaining: number): Promise<void> {

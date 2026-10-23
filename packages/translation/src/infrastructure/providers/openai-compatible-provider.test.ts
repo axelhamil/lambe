@@ -158,6 +158,16 @@ describe("OpenAiCompatibleProvider", () => {
     expect(error.params).toEqual({ baseUrl: "https://api.example.com" });
   });
 
+  test("429_maps_to_rate_limited_with_the_retry_after_delay", async () => {
+    const limited = () =>
+      new Response("slow down", { status: 429, headers: { "retry-after": "2" } });
+
+    const error = await errorOf(fetchReturning(limited));
+
+    expect(error.code).toBe("PROVIDER_RATE_LIMITED");
+    expect(error.params).toEqual({ retryAfterMs: "2000" });
+  });
+
   test("404_maps_to_model_missing", async () => {
     const error = await errorOf(fetchReturning(() => json({ error: { message: "no" } }, 404)));
 

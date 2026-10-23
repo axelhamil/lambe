@@ -19,6 +19,7 @@ error:
   PROVIDER_FORBIDDEN_ORIGIN: "Ollama refuse les requêtes venant de {origin}. Ajoutez cette origine à OLLAMA_ORIGINS, redémarrez Ollama, puis réessayez."
   PROVIDER_MODEL_MISSING: "Le modèle {model} n'est pas installé. Installez-le ou choisissez un autre modèle dans les réglages."
   PROVIDER_BAD_RESPONSE: "Le serveur de modèles a renvoyé une réponse inattendue. Réessayez, ou choisissez un autre modèle si le problème persiste."
+  PROVIDER_RATE_LIMITED: "Le serveur de modèles limite le nombre de requêtes que Lambë envoie. Patientez une minute, puis relancez la traduction."
   PROVIDER_TIMEOUT: "Le serveur de modèles n'a pas répondu en {timeoutMs} ms. Réessayez, ou choisissez un modèle plus léger."
   REQUEST_CANCELLED: "La traduction a été annulée."
   NO_CAPTIONS: "Cette vidéo n'a pas de sous-titres à traduire."

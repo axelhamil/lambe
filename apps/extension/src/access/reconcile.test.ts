@@ -29,6 +29,9 @@ const fakeChrome = (settings: Partial<Settings>, origins: string[]) => {
 
       for (const registration of registrations) scripts.set(registration.id, registration);
     }),
+    update: mock(async (registrations: Registration[]) => {
+      for (const registration of registrations) scripts.set(registration.id, registration);
+    }),
     unregister: mock(async (ids: string[]) => {
       const missing = ids.find((id) => !scripts.has(id));
 
@@ -79,7 +82,7 @@ describe("reconcile", () => {
     expect(chrome.storage.stored(SETTINGS_KEY)).toMatchObject({ bubbleEverywhere: true });
   });
 
-  test("changed_registration_is_replaced", async () => {
+  test("changed_registration_is_updated_in_place", async () => {
     const chrome = fakeChrome({ youtube: true }, YOUTUBE_MATCHES);
 
     await reconcile(chrome.deps);
@@ -91,7 +94,8 @@ describe("reconcile", () => {
     chrome.scripts.set("lambe-youtube", { ...current, css: [] });
     await reconcile(chrome.deps);
 
-    expect(chrome.registrar.unregister).toHaveBeenCalledWith(["lambe-youtube"]);
+    expect(chrome.registrar.update).toHaveBeenCalledWith([current]);
+    expect(chrome.registrar.unregister).not.toHaveBeenCalled();
     expect(chrome.scripts.get("lambe-youtube")).toEqual(current);
     expect(chrome.ids()).toEqual(["lambe-youtube", "lambe-youtube-main"]);
   });
