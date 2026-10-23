@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
+import { decodeBatch, encodeBatch } from "../../domain/batch/batch-format";
 import type { Block } from "../../domain/block/block";
 import type { BlockTranslation } from "../../domain/block/block-translation";
 import type { InlineNode } from "../../domain/block/inline-node";
 import { BlockId } from "../../domain/block/value-objects/block-id.vo";
+import { parseMarkup, toMarkup } from "../../domain/markup/markup";
 import { BlockReader, type ReadBlock } from "./block-reader";
 import type { WatcherPorts } from "./block-watcher";
 import { DomPageSurface } from "./dom-page-surface";
@@ -391,5 +393,74 @@ describe("DomPageSurface commit and restore", () => {
 
     expect(translated).toBe("Hello <b>x</b> EXTRA");
     expect(paragraph?.innerHTML).toBe("Framework");
+  });
+});
+
+const WIKI_COORDINATES =
+  '<div id="coords"><span id="coordinates"><a href="/wiki/Geographic_coordinate_system" title="Geographic coordinate system">Coordinates</a>: <link rel="mw-deduplicated-inline-style" href="mw-data:TemplateStyles:r1156832818"><span class="plainlinks nourlexpansion"><a class="external text" href="https://geohack.toolforge.org/geohack.php?pagename=Los_Angeles&amp;params=34_03_N_118_15_W"><span class="geo-default"><span class="geo-dms" title="Maps, aerial photos, and other data for this location"><span class="latitude">34°03′N</span> <span class="longitude">118°15′W</span></span></span><span class="geo-multi-punct"><span typeof="mw:Entity">\ufeff</span> / <span typeof="mw:Entity">\ufeff</span></span><span class="geo-nondefault"><span class="geo-dec" title="Maps, aerial photos, and other data for this location">34.050°N 118.250°W</span><span style="display:none"><span typeof="mw:Entity">\ufeff</span> / <span class="geo">34.050; -118.250</span></span></span></a></span><link rel="mw:PageProp/Category" href="./Category:Pages_using_gadget_WikiMiniAtlas"></span></div>';
+
+const WIKI_PARAGRAPH =
+  '<p id="intro"><b>Los Angeles</b> (often shortened as <b>LA</b> or <b>L.A.</b>)<sup class="mw-ref reference"><a href="#cite_note-16"><span class="mw-reflink-text"><span class="cite-bracket">[</span>b<span class="cite-bracket">]</span></span></a></sup> is the <a href="/wiki/List_of_municipalities_in_California" title="List of municipalities in California">most populous city</a> in the U.S. state of <a href="/wiki/California" title="California">California</a>. With an estimated 3.87 million residents within the city limits <span>as of 2025</span><sup class="plainlinks noexcerpt noprint asof-tag update" style="display:none;"><a href="https://en.wikipedia.org/w/index.php?title=Los_Angeles&amp;action=edit" class="external text"><span>[</span>update<span>]</span></a></sup><span></span><link href="./Category:Articles_containing_potentially_dated_statements_from_2025">, it is the second-most populous city in the United States.</p>';
+
+const MARKUP_TOKEN = /(<[^>]+>|&[a-z]+;)/;
+
+const shout = (markup: string): string =>
+  markup
+    .split(MARKUP_TOKEN)
+    .map((part) => (MARKUP_TOKEN.test(part) ? part : part.toUpperCase()))
+    .join("");
+
+const shouted = (el: Element | null): Element | undefined => {
+  const copy = el?.cloneNode(true);
+
+  if (!(copy instanceof Element)) return undefined;
+
+  for (const text of allTextNodesUnder(copy)) {
+    if (!text.parentElement?.closest("sup")) text.data = text.data.toUpperCase();
+  }
+
+  return copy;
+};
+
+const visibleText = (el: Element | null | undefined): string =>
+  (el?.textContent ?? "").replaceAll("\ufeff", "");
+
+const linksOf = (el: Element | null | undefined): string[] =>
+  [...(el?.querySelectorAll("a") ?? [])].map(
+    (link) => `${link.getAttribute("href")} ${link.textContent}`,
+  );
+
+const MARKUP_LENGTH_BEFORE = [252, 320];
+
+describe("DomPageSurface on Wikipedia-like markup", () => {
+  test("segments_are_lighter_and_the_round_trip_keeps_links_in_place", () => {
+    const { doc, surface, blocks } = bodySurface(`${WIKI_COORDINATES}${WIKI_PARAGRAPH}`);
+    const roots = [doc.getElementById("coords"), doc.getElementById("intro")];
+    const original = doc.body.innerHTML;
+    const expected = roots.map(shouted);
+    const segments = blocks.map((block, index) => ({
+      n: index + 1,
+      markup: toMarkup(block.nodes),
+    }));
+    const answer = decodeBatch(shout(encodeBatch(segments)));
+
+    blocks.forEach((block, index) => {
+      const nodes = parseMarkup(answer.get(index + 1) ?? "").unwrapOr([]);
+
+      surface.commit({ blockId: block.id, kind: "structured", nodes });
+    });
+    const translated = roots.map(visibleText);
+    const translatedLinks = roots.map(linksOf);
+    surface.show("original");
+
+    const lengths = segments.map(({ markup }) => markup.length);
+
+    expect(lengths.length).toBe(2);
+    expect(lengths.every((length, index) => length < (MARKUP_LENGTH_BEFORE[index] ?? 0))).toBe(
+      true,
+    );
+    expect(translated).toEqual(expected.map(visibleText));
+    expect(translatedLinks).toEqual(expected.map(linksOf));
+    expect(doc.body.innerHTML).toBe(original);
   });
 });

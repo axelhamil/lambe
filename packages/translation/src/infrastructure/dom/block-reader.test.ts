@@ -4,6 +4,7 @@ import { textSlots } from "../../domain/block/block-translation";
 import type { InlineNode } from "../../domain/block/inline-node";
 import { BlockId } from "../../domain/block/value-objects/block-id.vo";
 import { reflowLines } from "../../domain/markup/comment-reflow";
+import { toMarkup } from "../../domain/markup/markup";
 import { BlockReader, type ReadBlock } from "./block-reader";
 
 const fixture = async (name: string): Promise<Document> => {
@@ -364,5 +365,40 @@ describe("BlockReader roles", () => {
 
     for (const text of ["Pull requests", "README.md", "Raw", "Edit", "main", "Document the retry"])
       expect(roleOf(reads, text)).toBe("chrome");
+  });
+});
+
+const shapeOf = (body: string): string => {
+  const doc = htmlDocument(body);
+  const [read] = readerFor(doc).read(doc);
+
+  return toMarkup(read?.block.nodes ?? []).replace(/(<\/?[gx])\d+/g, "$1");
+};
+
+describe("BlockReader markup weight", () => {
+  test("whitespace_only_inline_element_is_plain_text_not_a_group", () => {
+    const shape = shapeOf(
+      '<p>Hello<span> </span>world<span class="sep">\u00a0</span><link href="/x"> <b>now</b></p>',
+    );
+
+    expect(shape).toBe("Hello world\u00a0 <g>now</g>");
+  });
+
+  test("nested_groups_without_text_of_their_own_collapse_into_one", () => {
+    const shape = shapeOf(
+      '<p>See <span class="nowrap"><a href="/page"><b>the page</b></a></span> now.</p>',
+    );
+
+    expect(shape).toBe("See <g>the page</g> now.");
+  });
+
+  test("plain_wrappers_are_dropped_while_links_emphasis_and_code_keep_their_tags", () => {
+    const shape = shapeOf(
+      '<p><a href="/a">Link</a><span class="geo">34.05</span><em>stress</em> and <span>plain</span> text <code>x()</code> <span class="note">kept</span> here <span style="display:none">hidden</span></p>',
+    );
+
+    expect(shape).toBe(
+      "<g>Link</g>34.05<g>stress</g> and plain text <x/> <g>kept</g> here <g>hidden</g>",
+    );
   });
 });

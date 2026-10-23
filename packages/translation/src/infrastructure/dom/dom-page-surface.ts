@@ -100,11 +100,23 @@ function slotLayout(read: ReadBlock, texts: string[]): Layout {
   return { arrangements: [], data, dropped: [] };
 }
 
+function keptInPlace(original: Node[], placed: Node[], rest: Node[]): Node[] {
+  return rest.reduce((nodes, node) => {
+    const before = original
+      .slice(0, original.indexOf(node))
+      .findLast((candidate) => nodes.includes(candidate));
+    const at = before === undefined ? 0 : nodes.indexOf(before) + 1;
+
+    return [...nodes.slice(0, at), node, ...nodes.slice(at)];
+  }, placed);
+}
+
 class StructuredLayout {
   private readonly arrangements: Arrangement[] = [];
   private readonly data = new Map<Text, string>();
   private readonly visited = new Set<Node>();
   private readonly dropped: Node[] = [];
+  private readonly carried = new Map<Node, Text>();
   readonly extras: Text[] = [];
 
   public constructor(
@@ -112,10 +124,16 @@ class StructuredLayout {
     private readonly read: ReadBlock,
     private readonly original: Layout,
     private readonly parked: WeakSet<Node>,
-  ) {}
+  ) {
+    for (const [node, carrier] of read.carriers) {
+      if (node instanceof Text && !read.inert.has(node)) this.carried.set(carrier, node);
+    }
+  }
 
   public build(nodes: InlineNode[]): Layout {
     const scope = this.original.arrangements[0];
+
+    for (const text of this.read.inert) this.data.set(text, "");
 
     if (scope) this.arrange(scope, nodes);
 
@@ -124,7 +142,7 @@ class StructuredLayout {
 
   private arrange(container: Arrangement, children: InlineNode[]): void {
     const own = new Set(container.nodes);
-    const pool = container.nodes.filter((node) => node instanceof Text);
+    const pool = container.nodes.flatMap((node) => this.poolOf(node));
     const extras = new Set<Node>();
     const placed: Node[] = [];
 
@@ -132,7 +150,7 @@ class StructuredLayout {
       if (child.kind === "text") {
         const text = pool.shift() ?? this.extra(extras);
         this.data.set(text, child.text);
-        placed.push(text);
+        placed.push(this.anchorOf(text));
         continue;
       }
 
@@ -143,7 +161,7 @@ class StructuredLayout {
 
       this.visited.add(node);
 
-      if (own.has(node)) placed.push(node);
+      if (own.has(this.anchorOf(node))) placed.push(this.anchorOf(node));
 
       if (child.kind === "group") this.arrangeGroup(node, child.children);
     }
@@ -151,13 +169,29 @@ class StructuredLayout {
     for (const text of pool) this.data.set(text, "");
 
     const placedSet = new Set(placed);
-    const groups = new Set<Node>(this.read.groups.values());
+    const groups = new Set([...this.read.groups.values()].map((group) => this.anchorOf(group)));
     const unplaced = container.nodes.filter((node) => !placedSet.has(node));
     const rest = unplaced.filter((node) => !groups.has(node));
 
     this.dropped.push(...unplaced.filter((node) => groups.has(node)));
 
-    this.arrangements.push({ ...container, nodes: [...placed, ...rest], extras });
+    this.arrangements.push({
+      ...container,
+      nodes: keptInPlace(container.nodes, placed, rest),
+      extras,
+    });
+  }
+
+  private poolOf(node: Node): Text[] {
+    if (node instanceof Text) return this.read.inert.has(node) ? [] : [node];
+
+    const carried = this.carried.get(node);
+
+    return carried ? [carried] : [];
+  }
+
+  private anchorOf(node: Node): Node {
+    return this.read.carriers.get(node) ?? node;
   }
 
   private arrangeGroup(group: Node, children: InlineNode[]): void {
