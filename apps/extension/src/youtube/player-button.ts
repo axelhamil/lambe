@@ -121,6 +121,7 @@ export function mountPlayerButton(doc: Document, onClick: () => void, text: UiTe
   const listeners = new AbortController();
   const options = { signal: listeners.signal };
   let hint = text.translate("youtube.button");
+  let failed = false;
 
   const place = (): void => {
     const subtitles = doc.querySelector(YOUTUBE_SELECTORS.subtitlesButton);
@@ -138,6 +139,11 @@ export function mountPlayerButton(doc: Document, onClick: () => void, text: UiTe
     if (tooltip.parentElement !== player) player.append(tooltip);
 
     tooltip.textContent = hint;
+    tooltip.style.setProperty("--lambe-ytp-tooltip-left", "0px");
+
+    if (failed) tooltip.setAttribute("data-state", "error");
+    else tooltip.removeAttribute("data-state");
+
     tooltip.hidden = false;
 
     const frame = player.getBoundingClientRect();
@@ -178,12 +184,13 @@ export function mountPlayerButton(doc: Document, onClick: () => void, text: UiTe
       const label = labelOf(state, text);
 
       hint = hintOf(state, text);
+      failed = state.kind === "error";
       button.setAttribute("aria-pressed", String(isShowingTranslation(state)));
       button.setAttribute("aria-label", label);
       button.setAttribute("data-title-no-tooltip", label);
       button.classList.toggle(PULSE_CLASS, state.kind === "translating");
 
-      if (state.kind === "error") {
+      if (failed) {
         button.setAttribute("data-state", "error");
         button.setAttribute("aria-description", hint);
       } else {

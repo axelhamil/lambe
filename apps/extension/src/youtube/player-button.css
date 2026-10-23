@@ -31,6 +31,7 @@
   --lambe-ytp-tooltip-radius: 8px;
   --lambe-ytp-tooltip-pad: 5px 9px;
   --lambe-ytp-tooltip-max: 300px;
+  --lambe-ytp-tooltip-edge: 12px;
 
   position: absolute;
   left: var(--lambe-ytp-tooltip-left, 0px);
@@ -51,6 +52,12 @@
   border-radius: var(--lambe-ytp-tooltip-radius);
   backdrop-filter: blur(var(--lambe-ytp-tooltip-blur));
   pointer-events: none;
+}
+
+.lambe-ytp-tooltip[data-state="error"] {
+  max-width: min(var(--lambe-ytp-tooltip-max), calc(100% - 2 * var(--lambe-ytp-tooltip-edge)));
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .lambe-ytp-tooltip[hidden] {
