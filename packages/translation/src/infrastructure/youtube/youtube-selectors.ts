@@ -1,0 +1,15 @@
+export const YOUTUBE_SELECTORS = {
+  player: "#movie_player.html5-video-player",
+  video: "video.html5-main-video",
+  rightControls: ".ytp-right-controls",
+  subtitlesButton: ".ytp-subtitles-button",
+  captionContainer: ".ytp-caption-window-container",
+  title: "ytd-watch-metadata h1",
+  channel: "ytd-channel-name a",
+  description: 'meta[name="description"]',
+  adShowingClass: "ad-showing",
+  autohideClass: "ytp-autohide",
+  nativeHiddenClass: "lambe-native-captions-hidden",
+  styleId: "lambe-youtube",
+  navigateFinishEvent: "yt-navigate-finish",
+} as const;

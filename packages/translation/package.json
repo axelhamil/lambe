@@ -7,6 +7,7 @@
     "./application/batch-translation.service": "./src/application/batch-translation.service.ts",
     "./application/page-translation.service": "./src/application/page-translation.service.ts",
     "./application/ports/batch-translator": "./src/application/ports/batch-translator.ts",
+    "./application/ports/caption-display": "./src/application/ports/caption-display.ts",
     "./application/ports/language-detector": "./src/application/ports/language-detector.ts",
     "./application/ports/provider-capacity": "./src/application/ports/provider-capacity.ts",
     "./application/ports/translation-cache": "./src/application/ports/translation-cache.ts",
