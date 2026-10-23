@@ -9,6 +9,7 @@ import { connectWorker } from "../messaging/connect-worker";
 import { SettingsStore } from "../settings/settings-store";
 import { mountCaptionOverlay } from "../youtube/caption-overlay";
 import { mountPlayerButton, type PlayerButton } from "../youtube/player-button";
+import { invalidateWhenOrphaned } from "./orphan-watch";
 import { followPageRules } from "./page-rules";
 
 interface YoutubeApp {
@@ -59,6 +60,8 @@ async function buildApp(button: PlayerButton): Promise<YoutubeApp> {
 }
 
 export function startYoutube(ctx: ContentScriptContext): void {
+  invalidateWhenOrphaned(ctx);
+
   const button = mountPlayerButton(document, () => toggle(), catalogUiText);
   const app = buildApp(button);
   const toggle = (): void => {
