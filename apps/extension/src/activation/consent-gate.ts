@@ -10,3 +10,17 @@ export async function hasConsent(settings: SettingsStore): Promise<boolean> {
 
   return isConsented(current);
 }
+
+export async function runWithConsent(
+  settings: SettingsStore,
+  action: () => void,
+  openSettings: () => void,
+): Promise<void> {
+  if (await hasConsent(settings)) {
+    action();
+
+    return;
+  }
+
+  openSettings();
+}

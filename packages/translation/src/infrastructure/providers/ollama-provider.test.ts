@@ -128,6 +128,30 @@ describe("OllamaProvider", () => {
     expect(models.getValue()).toEqual(["translategemma:12b", "gemma3:4b"]);
   });
 
+  test("listing_models_reports_a_forbidden_origin_that_only_a_post_reveals", async () => {
+    const fetch = mock(async (_input: RequestInfo | URL, init?: RequestInit) =>
+      init?.method === "POST"
+        ? new Response("", { status: 403 })
+        : json({ models: [{ name: "translategemma:12b" }] }),
+    );
+
+    const models = await providerWith(fetch).listModels();
+
+    expect(models.getError().code).toBe("PROVIDER_FORBIDDEN_ORIGIN");
+  });
+
+  test("listing_models_accepts_any_answer_but_403_to_the_origin_probe", async () => {
+    const fetch = mock(async (_input: RequestInfo | URL, init?: RequestInit) =>
+      init?.method === "POST"
+        ? json({ error: "model not found" }, 404)
+        : json({ models: [{ name: "gemma3:4b" }] }),
+    );
+
+    const models = await providerWith(fetch).listModels();
+
+    expect(models.getValue()).toEqual(["gemma3:4b"]);
+  });
+
   test("maps_connection_refused_to_PROVIDER_UNREACHABLE", async () => {
     const error = await errorOf(fetchRejecting(new TypeError("fetch failed")));
 

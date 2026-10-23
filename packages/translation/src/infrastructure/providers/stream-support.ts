@@ -237,6 +237,23 @@ export function streamChat(request: StreamRequest): Promise<ChatResult> {
   });
 }
 
+export function probeAccess(request: ProviderRequest): Promise<Result<void, ProviderError>> {
+  const { fetch, url, init, failures } = request;
+
+  return withDeadline(request.timeoutMs, request.signal, async (_idle, signal) => {
+    try {
+      const response = await fetch(url, { ...init, signal });
+      const refused = failures.refused(response.status);
+
+      if (refused) return Result.fail(refused);
+
+      return Result.ok();
+    } catch (error) {
+      return Result.fail(transportError(failures, error));
+    }
+  });
+}
+
 export function fetchJson<T>(request: JsonRequest<T>): Promise<Result<T, ProviderError>> {
   const { failures, schema } = request;
   const badResponse = (detail: string) =>
