@@ -38,9 +38,7 @@ async function buildApp(button: PlayerButton): Promise<YoutubeApp> {
     release() {
       unsubscribe();
       detach();
-
-      if (captions.state().kind !== "original") void captions.toggle();
-
+      captions.dispose();
       overlay.destroy();
     },
   };

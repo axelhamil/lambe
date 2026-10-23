@@ -134,6 +134,10 @@ export class CaptionTranslationService {
     this.awaitTrack(available);
   }
 
+  public dispose(): void {
+    this.turnOff(true);
+  }
+
   public whenIdle(): Promise<void> {
     return this.pump.whenIdle();
   }

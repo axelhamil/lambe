@@ -633,6 +633,24 @@ describe("CaptionTranslationService", () => {
     expect(translator.translate.mock.calls.length).toBe(callsBefore);
   });
 
+  test("dispose_turns_off_restores_native_captions_and_cancels_requests", async () => {
+    const controlled = controlledTranslator();
+    const { service, surface, load, texts } = setup({ translate: controlled.translate });
+    load(manualTrack(3));
+    const first = controlled.nextCall();
+    await service.toggle();
+    await first;
+
+    service.dispose();
+    service.dispose();
+
+    expect(controlled.call(0).options.signal?.aborted).toBe(true);
+    expect(texts()).toEqual([]);
+    expect(surface.nativeHidden).toBe(false);
+    expect(surface.restores).toBe(1);
+    expect(service.state()).toEqual({ kind: "original" });
+  });
+
   test("user_turning_cc_off_turns_lambe_off", async () => {
     const { service, surface, load, captionsOff, texts } = setup();
     load(manualTrack(2));
