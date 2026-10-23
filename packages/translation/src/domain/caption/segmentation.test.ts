@@ -135,6 +135,32 @@ describe("segmentSentences", () => {
     );
   });
 
+  test("cue_level_units_are_capped_by_real_words_and_break_inside_a_cue", () => {
+    const cues = Array.from({ length: 5 }, (_, index) =>
+      at(`cue${index} brings eight words of steady talk here`, index * 2400, index * 2400 + 2400),
+    );
+    const monologue = cues.map((unit) => unit.text).join(" ");
+    const sentences = textsOf(generated(cues));
+
+    expect(sentences.every((text) => text.split(" ").length <= 20)).toBe(true);
+    expect(sentences.join(" ")).toBe(monologue);
+
+    const punctuated = generated([
+      at("It rained all day. We stayed at home.", 0, 3000),
+      at("The old roof held. Nobody got wet at all.", 3000, 6000),
+    ]);
+
+    expect(textsOf(punctuated)).toEqual([
+      "It rained all day.",
+      "We stayed at home.",
+      "The old roof held.",
+      "Nobody got wet at all.",
+    ]);
+    expect(segmentSentences(punctuated).map(({ startMs }) => startMs)).toEqual([
+      0, 1500, 3000, 4364,
+    ]);
+  });
+
   test("short_fragment_joins_its_neighbour_within_limits", () => {
     const sentence = "we went to the market";
     const other = "the shop was closed again";

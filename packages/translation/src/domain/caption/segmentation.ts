@@ -96,6 +96,22 @@ function endsSentence(words: TimedText[], index: number, rules: LanguageRules): 
   return !NUMBER_WITH_DOT.test(text) && !isAbbreviation(words, index, rules);
 }
 
+function wordsOf(unit: TimedText): TimedText[] {
+  const texts = unit.text.split(/\s+/).filter((text) => text !== "");
+  const total = texts.reduce((sum, text) => sum + text.length, 0);
+  const duration = unit.endMs - unit.startMs;
+  const at = (chars: number): number => unit.startMs + Math.round((duration * chars) / total);
+  let consumed = 0;
+
+  return texts.map((text) => {
+    const startMs = at(consumed);
+
+    consumed += text.length;
+
+    return { text, startMs, endMs: at(consumed) };
+  });
+}
+
 function markedPieces(units: TimedText[]): Piece[] {
   const pieces: Piece[] = [];
   let speech: TimedText[] = [];
@@ -288,7 +304,7 @@ export function segmentSentences(track: CaptionTrack): CaptionSentence[] {
   if (!track.generated) return cueSentences(track);
 
   const rules = rulesFor(track.language);
-  const pieces = markedPieces(track.units);
+  const pieces = markedPieces(track.units.flatMap(wordsOf));
   const breakRule = isPunctuated(pieces) ? terminalRule(rules) : pauseRule(rules);
   const sentences = pieces
     .flatMap((piece) =>

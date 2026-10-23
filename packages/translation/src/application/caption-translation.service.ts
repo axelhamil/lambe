@@ -37,13 +37,13 @@ export interface CaptionTranslationDeps {
 type Settlement = Option<string>;
 
 interface Session {
+  serial: number;
   track: CaptionTrack;
   signature: string;
   sentences: CaptionSentence[];
   byKey: Map<string, CaptionSentence>;
   placements: Map<string, RankedSentence>;
   settled: Map<number, Settlement>;
-  inFlight: Set<string>;
   lines: CaptionLine[];
   current: number;
 }
@@ -61,6 +61,10 @@ function remember<V>(entries: Map<string, V>, key: string, value: V): void {
 
     entries.delete(oldest);
   }
+}
+
+function requestKey(serial: number, sentence: CaptionSentence): string {
+  return `${serial}:${sentence.id.value}`;
 }
 
 function lineOf(sentence: CaptionSentence, settlement: Settlement | undefined): CaptionLine {
@@ -88,6 +92,7 @@ export class CaptionTranslationService {
   private readonly memory = new Map<string, Map<number, Settlement>>();
   private readonly pump: RequestPump<CaptionSentence>;
   private session: Session | undefined;
+  private sessions = 0;
   private active = false;
   private leadPending = false;
 
@@ -97,7 +102,7 @@ export class CaptionTranslationService {
         canPump: () => this.canPump(),
         take: (free) => this.takeNext(free),
         run: (sentences, scope) => this.process(sentences, scope),
-        keyOf: (sentence) => sentence.id.value,
+        keyOf: (sentence) => requestKey(this.sessions, sentence),
         drained: (failure) => this.afterDrain(failure),
       },
       { capacity: deps.capacity, maxConcurrency: deps.maxConcurrency },
@@ -194,14 +199,16 @@ export class CaptionTranslationService {
       for (const sentence of sentences) settled.set(sentence.index, Option.none());
     }
 
+    this.sessions += 1;
+
     const session: Session = {
+      serial: this.sessions,
       track,
       signature,
       sentences,
       byKey: new Map(sentences.map((sentence) => [sentence.id.value, sentence])),
       placements: new Map(),
       settled,
-      inFlight: new Set(),
       lines: sentences.map((sentence) => lineOf(sentence, settled.get(sentence.index))),
       current: 0,
     };
@@ -241,14 +248,16 @@ export class CaptionTranslationService {
 
       if (sentence === undefined) continue;
 
-      session.placements.set(sentence.id.value, placement);
+      const key = requestKey(session.serial, sentence);
 
-      if (!session.inFlight.has(sentence.id.value)) this.enqueue(session, sentence);
+      session.placements.set(key, placement);
+
+      if (!this.pump.isInFlight(key)) this.enqueue(session, sentence);
     }
   }
 
   private enqueue(session: Session, sentence: CaptionSentence): void {
-    const placement = session.placements.get(sentence.id.value);
+    const placement = session.placements.get(requestKey(session.serial, sentence));
 
     if (session !== this.session || placement === undefined) return;
 
@@ -298,7 +307,7 @@ export class CaptionTranslationService {
 
     if (sentence === undefined || session.settled.has(sentence.index)) return Option.none();
 
-    if (session.inFlight.has(sentence.id.value)) return Option.none();
+    if (this.pump.isInFlight(requestKey(session.serial, sentence))) return Option.none();
 
     this.queue.drop(sentence.id);
     this.pump.lead();
@@ -317,8 +326,6 @@ export class CaptionTranslationService {
     const live = (): boolean =>
       session === this.session && this.pump.isCurrent(scope) && !scope.signal.aborted;
     const bySegment = new Map(sentences.map((sentence) => [`${sentence.index}`, sentence]));
-
-    for (const sentence of sentences) session.inFlight.add(sentence.id.value);
 
     const result = await settle(
       this.deps.translator.translate(
@@ -353,10 +360,7 @@ export class CaptionTranslationService {
         this.settleSentence(session, sentence, settlementOf(outcomes.get(id)));
     }
 
-    for (const sentence of sentences) {
-      session.inFlight.delete(sentence.id.value);
-      this.enqueue(session, sentence);
-    }
+    for (const sentence of sentences) this.enqueue(session, sentence);
 
     return result.map(() => undefined);
   }

@@ -339,6 +339,45 @@ describe("CaptionTranslationService", () => {
     expect(service.state()).toEqual({ kind: "translated" });
   });
 
+  test("restarted_session_requests_never_alias_the_previous_session", async () => {
+    const controlled = controlledTranslator();
+    const { service, load, seek, texts, flags } = setup({
+      translate: controlled.translate,
+      sentencesPerRequest: 2,
+    });
+    load(manualTrack(20));
+
+    const first = controlled.nextCall();
+    await service.toggle();
+    await first;
+    const lanes = Promise.all([controlled.nextCall(), controlled.nextCall()]);
+    controlled.call(0).finish(frenchOutcomes(controlled.call(0).request));
+    await lanes;
+    await service.toggle();
+    await service.toggle();
+    const restartedFirst = controlled.nextCall();
+    controlled.call(2).finish(Result.fail(requestCancelled()));
+    await restartedFirst;
+    const restartedSecond = controlled.nextCall();
+    controlled.call(1).options.onOutcome?.(streamed("1", "Sentence 1."));
+    controlled.call(1).finish(frenchOutcomes(controlled.call(1).request));
+    await restartedSecond;
+    const afterLateOutcomes = texts().slice(0, 3);
+    seek(60000);
+    const aborted = [3, 4].map((index) => controlled.call(index).options.signal?.aborted);
+    controlled.autoFinish();
+    controlled.call(3).finish(Result.fail(requestCancelled()));
+    controlled.call(4).finish(Result.fail(requestCancelled()));
+    await service.whenIdle();
+
+    expect(segmentsOf(controlled.call(3))).toEqual(["Sentence 1.", "Sentence 2."]);
+    expect(segmentsOf(controlled.call(4))).toEqual(["Sentence 3.", "Sentence 4."]);
+    expect(afterLateOutcomes).toEqual(["fr Sentence 0.", "Sentence 1.", "Sentence 2."]);
+    expect(aborted).toEqual([true, true]);
+    expect(segmentsOf(controlled.call(5))).toEqual(["Sentence 12."]);
+    expect(flags()).toEqual(Array.from({ length: 20 }, () => true));
+  });
+
   test("navigation_aborts_in_flight_and_drops_late_outcomes", async () => {
     const controlled = controlledTranslator();
     const { service, load, navigate, texts } = setup({ translate: controlled.translate });
