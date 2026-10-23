@@ -43,6 +43,8 @@ export default defineConfig({
   hooks: {
     "build:manifestGenerated": (_wxt, manifest) => {
       for (const script of manifest.content_scripts ?? []) {
+        if (!script.matches?.some((pattern) => PAGE_MATCHES.includes(pattern))) continue;
+
         script.matches = [...PAGE_MATCHES];
         script.all_frames = ALL_FRAMES;
       }

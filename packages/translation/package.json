@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./application/batch-translation.service": "./src/application/batch-translation.service.ts",
+    "./application/caption-translation.service": "./src/application/caption-translation.service.ts",
     "./application/page-translation.service": "./src/application/page-translation.service.ts",
     "./application/ports/batch-translator": "./src/application/ports/batch-translator.ts",
     "./application/ports/caption-display": "./src/application/ports/caption-display.ts",
@@ -22,6 +23,9 @@
     "./infrastructure/hashing/sha256-hasher": "./src/infrastructure/hashing/sha256-hasher.ts",
     "./infrastructure/providers/adaptive-concurrency-provider": "./src/infrastructure/providers/adaptive-concurrency-provider.ts",
     "./infrastructure/providers/ollama-provider": "./src/infrastructure/providers/ollama-provider.ts",
+    "./infrastructure/youtube/timedtext-channel": "./src/infrastructure/youtube/timedtext-channel.ts",
+    "./infrastructure/youtube/timedtext-hook": "./src/infrastructure/youtube/timedtext-hook.ts",
+    "./infrastructure/youtube/youtube-player-surface": "./src/infrastructure/youtube/youtube-player-surface.ts",
     "./infrastructure/youtube/youtube-selectors": "./src/infrastructure/youtube/youtube-selectors.ts"
   },
   "scripts": {
