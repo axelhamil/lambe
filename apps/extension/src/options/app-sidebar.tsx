@@ -9,7 +9,7 @@ import {
   ServerIcon,
   ShieldIcon,
 } from "lucide-react";
-import { type MessageKey, t } from "../i18n/t";
+import { t } from "../i18n/t";
 import {
   Sidebar,
   SidebarContent,
@@ -23,22 +23,10 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "./components/ui/sidebar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./components/ui/tooltip";
+import { Tipped } from "./help-tip";
 import { LambeGlyph } from "./lambe-glyph";
-import { hashOf, SECTION_NAME, type SectionId } from "./section-model";
+import { hashOf, NAV_GROUPS, SECTION_NAME, type SectionId } from "./section-model";
 import { useSettings } from "./use-settings";
-
-export interface NavGroup {
-  label: MessageKey;
-  sections: SectionId[];
-}
-
-export const NAV_GROUPS: NavGroup[] = [
-  { label: "options.shell.group.setup", sections: ["provider", "translation"] },
-  { label: "options.shell.group.reach", sections: ["sites", "youtube", "shortcut"] },
-  { label: "options.shell.group.tuning", sections: ["prompt", "cache"] },
-  { label: "options.shell.group.data", sections: ["privacy"] },
-];
 
 const SECTION_ICON = {
   provider: ServerIcon,
@@ -63,23 +51,18 @@ function ModelInUse() {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <SidebarMenuButton asChild>
-              <a
-                href={hashOf("provider")}
-                aria-label={t("options.shell.modelInUse", provider.model)}
-                onClick={() => setOpenMobile(false)}
-              >
-                <ServerIcon />
-                <span>{provider.model}</span>
-              </a>
-            </SidebarMenuButton>
-          </TooltipTrigger>
-          <TooltipContent side="right" className="max-w-xs">
-            {t("options.shell.modelInUseTip", provider.baseUrl)}
-          </TooltipContent>
-        </Tooltip>
+        <Tipped side="right" tip={t("options.shell.modelInUseTip", provider.baseUrl)}>
+          <SidebarMenuButton asChild>
+            <a
+              href={hashOf("provider")}
+              aria-label={t("options.shell.modelInUse", provider.model)}
+              onClick={() => setOpenMobile(false)}
+            >
+              <ServerIcon />
+              <span>{provider.model}</span>
+            </a>
+          </SidebarMenuButton>
+        </Tipped>
       </SidebarMenuItem>
     </SidebarMenu>
   );

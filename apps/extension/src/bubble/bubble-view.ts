@@ -1,5 +1,5 @@
 import type { ViewState } from "@lambe/translation/application/page-translation.service";
-import glyphSvg from "../../../../assets/tengwa-lambe.svg?raw";
+import { GLYPH_PATH } from "../brand/glyph-path";
 import type { UiText } from "../i18n/ui-text";
 import { type BubbleClass, bubbleStateOf } from "./bubble-state";
 import { type ClickHandlers, createClickClassifier, type Scheduler } from "./click-classifier";
@@ -26,7 +26,6 @@ export const BUBBLE_SELECTOR = "button.bubble";
 const SVG_NS = "http://www.w3.org/2000/svg";
 const DRAG_THRESHOLD = 4;
 const INITIAL_TOP = 150;
-const GLYPH_PATH = /\sd="([^"]+)"/.exec(glyphSvg)?.[1] ?? "";
 const STATE_CLASSES: BubbleClass[] = ["on", "busy", "error", "unavailable"];
 
 function createButton(text: UiText): HTMLButtonElement {

@@ -23,6 +23,7 @@ async function start(container: HTMLElement): Promise<void> {
         secrets={new SecretsStore(chrome.storage.local)}
         initial={initial}
         defaults={defaultSettings(uiLanguage)}
+        uiLanguage={uiLanguage}
       >
         <App />
       </SettingsProvider>

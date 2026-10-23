@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { localModelGuideUrl } from "../project-links";
+import { useSettings } from "../use-settings";
 import type { ProviderDraft, ProviderKind } from "./provider-model";
 
 const KIND_LABEL = {
@@ -85,6 +86,8 @@ export interface KindChoiceProps {
 }
 
 export function KindChoice({ value, onChange }: KindChoiceProps) {
+  const { uiLanguage } = useSettings();
+
   return (
     <FieldSet>
       <FieldLegend>{t("options.provider.kindLabel")}</FieldLegend>
@@ -103,7 +106,7 @@ export function KindChoice({ value, onChange }: KindChoiceProps) {
       </RadioGroup>
       <FieldDescription>
         {t("options.provider.guideIntro")}{" "}
-        <a href={localModelGuideUrl(chrome.i18n.getUILanguage())} target="_blank" rel="noreferrer">
+        <a href={localModelGuideUrl(uiLanguage)} target="_blank" rel="noreferrer">
           {t("options.provider.guide")}
         </a>
       </FieldDescription>

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { hashOf, sectionFromHash } from "./section-model";
+import { hashOf, NAV_GROUPS, SECTIONS, sectionFromHash } from "./section-model";
 
 describe("section model", () => {
   test("hash_selects_the_section", () => {
@@ -9,6 +9,12 @@ describe("section model", () => {
 
   test("hash_with_a_query_selects_its_section", () => {
     expect(sectionFromHash("#sites?origin=https://example.org")).toBe("sites");
+  });
+
+  test("nav_groups_list_every_section_exactly_once", () => {
+    const listed = NAV_GROUPS.flatMap((group) => group.sections);
+
+    expect([...listed].sort()).toEqual([...SECTIONS].sort());
   });
 
   test("unknown_hash_selects_provider", () => {

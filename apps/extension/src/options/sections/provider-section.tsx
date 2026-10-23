@@ -1,7 +1,6 @@
 import { Option } from "@lambe/kernel/option";
 import { CircleXIcon } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
-import { toast } from "sonner";
 import { chromeHostAccess } from "../../access/host-access";
 import { t } from "../../i18n/t";
 import { defaultSettings } from "../../settings/settings";
@@ -12,8 +11,8 @@ import { Card, CardContent, CardFooter } from "../components/ui/card";
 import { Field, FieldDescription, FieldGroup, FieldSeparator } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import { Spinner } from "../components/ui/spinner";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
-import { TipLabel } from "../help-tip";
+import { TipLabel, Tipped } from "../help-tip";
+import { toastResult } from "../saved-toast";
 import { useSettings } from "../use-settings";
 import { ConnectionResult } from "./provider-connection";
 import { isProviderKind, KindChoice, ModelField } from "./provider-fields";
@@ -100,7 +99,7 @@ export function ProviderSection() {
       .then((result) => {
         setSaved(result);
 
-        if (result.isSuccess) toast.success(t("options.provider.saved"));
+        toastResult(result, t("options.provider.saved"));
       });
   };
 
@@ -186,21 +185,15 @@ export function ProviderSection() {
           </FieldGroup>
         </CardContent>
         <CardFooter className="flex-wrap gap-inline">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button type="button" variant="outline" onClick={test} disabled={testing}>
-                {testing && <Spinner aria-label={t("options.provider.testing")} />}
-                {t(testing ? "options.provider.testing" : "options.provider.test")}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="max-w-xs">{t("options.provider.testTip")}</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button type="submit">{t("options.provider.save")}</Button>
-            </TooltipTrigger>
-            <TooltipContent className="max-w-xs">{t("options.provider.saveTip")}</TooltipContent>
-          </Tooltip>
+          <Tipped tip={t("options.provider.testTip")}>
+            <Button type="button" variant="outline" onClick={test} disabled={testing}>
+              {testing && <Spinner aria-label={t("options.provider.testing")} />}
+              {t(testing ? "options.provider.testing" : "options.provider.test")}
+            </Button>
+          </Tipped>
+          <Tipped tip={t("options.provider.saveTip")}>
+            <Button type="submit">{t("options.provider.save")}</Button>
+          </Tipped>
         </CardFooter>
       </Card>
       {failure && (

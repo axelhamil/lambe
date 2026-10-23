@@ -13,6 +13,7 @@ import { Item, ItemContent, ItemDescription } from "../components/ui/item";
 import { Skeleton } from "../components/ui/skeleton";
 import { ConfirmAction } from "../confirm-action";
 import { HelpTip } from "../help-tip";
+import { useSettings } from "../use-settings";
 import { cacheModel, formatBytes, formatCount } from "./cache-model";
 
 export interface CacheFiguresProps {
@@ -20,7 +21,7 @@ export interface CacheFiguresProps {
 }
 
 function CacheFigures({ size }: CacheFiguresProps) {
-  const locale = chrome.i18n.getUILanguage();
+  const { uiLanguage: locale } = useSettings();
 
   return (
     <span className="grid grid-cols-2 gap-list">

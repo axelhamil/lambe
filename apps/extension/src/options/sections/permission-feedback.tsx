@@ -1,10 +1,10 @@
 import { Option } from "@lambe/kernel/option";
 import { InfoIcon, ShieldAlertIcon } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 import { t } from "../../i18n/t";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
+import { toastResult } from "../saved-toast";
 import { type Change, changeNoticeOf } from "./permission-change";
 
 export interface PermissionMissingProps {
@@ -22,7 +22,7 @@ export function useChangeFeedback() {
     void change.then((result) => {
       setNotice(changeNoticeOf(result));
 
-      if (result.isSuccess) toast.success(success);
+      toastResult(result, success);
     });
   };
 

@@ -1,6 +1,5 @@
-import type { Option } from "@lambe/kernel/option";
 import { GlobeIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { type FormEvent, useEffect, useId, useState } from "react";
+import { type FormEvent, useId, useMemo, useState } from "react";
 import { chromeHostAccess } from "../../access/host-access";
 import { t } from "../../i18n/t";
 import { siteRuleOf } from "../../settings/site-rule";
@@ -27,11 +26,11 @@ import {
 } from "../components/ui/item";
 import { Label } from "../components/ui/label";
 import { Switch } from "../components/ui/switch";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
-import { HelpTip, TipLabel } from "../help-tip";
+import { HelpTip, TipLabel, Tipped } from "../help-tip";
 import { hashOf } from "../section-model";
 import { SwitchField } from "../switch-field";
 import { useGrantedOrigins } from "../use-granted-origins";
+import { useHash } from "../use-hash";
 import { useSettings } from "../use-settings";
 import { ChangeNotice, PermissionMissing, useChangeFeedback } from "./permission-feedback";
 import {
@@ -39,6 +38,8 @@ import {
   originOf,
   pendingOriginOf,
   type SiteRow,
+  siteHost,
+  siteLabel,
   siteRows,
   sitesModel,
 } from "./sites-model";
@@ -53,6 +54,7 @@ export interface PendingSiteProps {
   origin: string;
   model: SitesModel;
   follow: Follow;
+  onDismiss(): void;
 }
 
 export interface RuleSwitchProps {
@@ -70,35 +72,15 @@ export interface SiteItemProps {
   follow: Follow;
 }
 
-function usePendingOrigin(): Option<string> {
-  const [pending, setPending] = useState(() => pendingOriginOf(window.location.hash));
-
-  useEffect(() => {
-    const onHashChange = (): void => setPending(pendingOriginOf(window.location.hash));
-
-    window.addEventListener("hashchange", onHashChange);
-
-    return () => window.removeEventListener("hashchange", onHashChange);
-  }, []);
-
-  return pending;
-}
-
-const dismissPending = (): void => {
-  window.location.hash = hashOf("sites");
-};
-
-const hostOf = (origin: string): string => new URL(origin).host;
-
-function PendingSite({ origin, model, follow }: PendingSiteProps) {
-  const host = hostOf(origin);
+function PendingSite({ origin, model, follow, onDismiss }: PendingSiteProps) {
+  const host = siteHost(origin);
 
   const confirm = (): void => {
     const change = model.addSite(origin);
 
     follow(change, t("options.sites.added", host));
     void change.then((result) => {
-      if (result.isSuccess) dismissPending();
+      if (result.isSuccess) onDismiss();
     });
   };
 
@@ -112,7 +94,7 @@ function PendingSite({ origin, model, follow }: PendingSiteProps) {
           <Button size="sm" onClick={confirm}>
             {t("options.sites.pendingConfirm")}
           </Button>
-          <Button size="sm" variant="ghost" onClick={dismissPending}>
+          <Button size="sm" variant="ghost" onClick={onDismiss}>
             {t("options.sites.pendingDismiss")}
           </Button>
         </span>
@@ -133,10 +115,9 @@ function RuleSwitch({ id, label, tip, checked, onCheckedChange }: RuleSwitchProp
 
 function SiteItem({ row, missing, model, follow }: SiteItemProps) {
   const { rule } = row;
-  const url = new URL(rule.origin);
-  const name = url.protocol === "http:" ? rule.origin : url.host;
+  const host = siteHost(rule.origin);
   const id = useId();
-  const remove = t("options.sites.remove", url.host);
+  const remove = t("options.sites.remove", host);
 
   return (
     <Item variant="outline" role="listitem">
@@ -144,24 +125,19 @@ function SiteItem({ row, missing, model, follow }: SiteItemProps) {
         <GlobeIcon />
       </ItemMedia>
       <ItemContent>
-        <ItemTitle>{name}</ItemTitle>
+        <ItemTitle>{siteLabel(rule.origin)}</ItemTitle>
       </ItemContent>
       <ItemActions>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={remove}
-              onClick={() =>
-                follow(model.removeRule(rule.origin), t("options.sites.removed", url.host))
-              }
-            >
-              <Trash2Icon />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{t("options.sites.removeTip")}</TooltipContent>
-        </Tooltip>
+        <Tipped tip={t("options.sites.removeTip")}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={remove}
+            onClick={() => follow(model.removeRule(rule.origin), t("options.sites.removed", host))}
+          >
+            <Trash2Icon />
+          </Button>
+        </Tipped>
       </ItemActions>
       <ItemFooter className="flex-wrap justify-start gap-x-block gap-y-list">
         <RuleSwitch
@@ -205,16 +181,16 @@ function NoSites() {
 export function SitesSection() {
   const { loaded, update } = useSettings();
   const granted = useGrantedOrigins();
-  const pending = usePendingOrigin();
+  const { hash, go } = useHash();
   const { notice, follow } = useChangeFeedback();
   const [draft, setDraft] = useState("");
   const [invalid, setInvalid] = useState(false);
-  const model = sitesModel({ access: chromeHostAccess, update });
+  const model = useMemo(() => sitesModel({ access: chromeHostAccess, update }), [update]);
   const settings = loaded.settings;
   const origins = granted.unwrapOr([]);
   const everywhere = bubbleEverywhereState(settings, origins);
   const rows = siteRows(settings, origins);
-  const prompt = pending
+  const prompt = pendingOriginOf(hash)
     .filter((origin) => !siteRuleOf(settings.sites, origin).autoTranslate)
     .toUndefined();
 
@@ -229,7 +205,7 @@ export function SitesSection() {
 
     const change = model.addSite(origin.unwrap());
 
-    follow(change, t("options.sites.added", hostOf(origin.unwrap())));
+    follow(change, t("options.sites.added", siteHost(origin.unwrap())));
     void change.then((result) => {
       if (result.isSuccess) setDraft("");
     });
@@ -237,7 +213,14 @@ export function SitesSection() {
 
   return (
     <>
-      {prompt && <PendingSite origin={prompt} model={model} follow={follow} />}
+      {prompt && (
+        <PendingSite
+          origin={prompt}
+          model={model}
+          follow={follow}
+          onDismiss={() => go(hashOf("sites"))}
+        />
+      )}
       <ChangeNotice notice={notice} />
       <Card>
         <CardContent>

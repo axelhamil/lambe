@@ -6,8 +6,7 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter } from "../components/ui/card";
 import { Item, ItemActions, ItemContent, ItemMedia, ItemTitle } from "../components/ui/item";
 import { Kbd, KbdGroup } from "../components/ui/kbd";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
-import { HelpTip } from "../help-tip";
+import { HelpTip, Tipped } from "../help-tip";
 import { shortcutKeys, shortcutModel } from "./shortcut-model";
 
 export interface ShortcutKeysProps {
@@ -57,15 +56,12 @@ export function ShortcutSection() {
         <CardDescription>{t("options.shortcut.hint")}</CardDescription>
       </CardContent>
       <CardFooter>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="outline" onClick={() => void model.openShortcutSettings()}>
-              <ExternalLinkIcon />
-              {t("options.shortcut.change")}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{t("options.shortcut.changeTip")}</TooltipContent>
-        </Tooltip>
+        <Tipped tip={t("options.shortcut.changeTip")}>
+          <Button variant="outline" onClick={() => void model.openShortcutSettings()}>
+            <ExternalLinkIcon />
+            {t("options.shortcut.change")}
+          </Button>
+        </Tipped>
       </CardFooter>
     </Card>
   );
