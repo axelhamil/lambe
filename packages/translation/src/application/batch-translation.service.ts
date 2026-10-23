@@ -21,6 +21,7 @@ import {
   toMarkup,
 } from "../domain/markup/markup";
 import { missingGroups, settleAgainstSource } from "../domain/markup/structure-check";
+import { guidelinesIdOf } from "../domain/prompt/guidelines";
 import type { ContentBrief, PromptAdapter } from "../domain/prompt/prompt-adapter";
 import { promptVersionOf } from "../domain/prompt/prompt-version";
 import { type ProviderError, requestCancelled } from "../domain/provider/provider-error";
@@ -59,6 +60,7 @@ export interface BatchTranslationDeps {
   prompt: PromptAdapter;
   contextTokens: number;
   maxSegmentsPerBatch: number;
+  guidelines: string;
 }
 
 interface SegmentGroup {
@@ -315,7 +317,11 @@ function streamedSegments(pieces: Piece[], run: BatchRun): (delta: string) => vo
 const ignoreOutcome = (): void => undefined;
 
 export class BatchTranslationService {
-  public constructor(private readonly deps: BatchTranslationDeps) {}
+  private readonly guidelinesId: Promise<string>;
+
+  public constructor(private readonly deps: BatchTranslationDeps) {
+    this.guidelinesId = guidelinesIdOf(deps.guidelines, deps.hasher);
+  }
 
   public async translate(
     request: BatchRequest,
@@ -372,7 +378,9 @@ export class BatchTranslationService {
     );
   }
 
-  private keyOf(markup: string, request: BatchRequest): Promise<string> {
+  private async keyOf(markup: string, request: BatchRequest): Promise<string> {
+    const guidelinesId = await this.guidelinesId;
+
     return this.deps.hasher.sha256Hex(
       cacheKey({
         sourceMarkup: markup,
@@ -381,7 +389,7 @@ export class BatchTranslationService {
         host: request.brief.host,
         providerId: this.deps.provider.id,
         model: this.deps.provider.model,
-        promptVersion: promptVersionOf(request.brief),
+        promptVersion: promptVersionOf(request.brief, guidelinesId),
       }),
     );
   }
@@ -400,6 +408,7 @@ export class BatchTranslationService {
       source: request.source,
       target: request.target,
       brief: request.brief,
+      guidelines: this.deps.guidelines,
     });
 
     return maxInputTokens(this.deps.contextTokens, overhead);
@@ -506,6 +515,7 @@ export class BatchTranslationService {
       target: request.target,
       brief: request.brief,
       segments,
+      guidelines: this.deps.guidelines,
     });
     const response = await this.deps.provider.chat(messages, {
       contextTokens: this.deps.contextTokens,

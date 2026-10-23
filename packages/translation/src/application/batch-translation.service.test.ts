@@ -10,6 +10,7 @@ import type { CaptionBrief } from "../domain/caption/caption-brief";
 import { LanguageCode } from "../domain/language/value-objects/language-code.vo";
 import { toMarkup } from "../domain/markup/markup";
 import type { PageBrief } from "../domain/page/page-brief";
+import { DEFAULT_GUIDELINES } from "../domain/prompt/guidelines";
 import type { ChatMessage } from "../domain/prompt/prompt-adapter";
 import { CAPTION_PROMPT_VERSION, PROMPT_VERSION } from "../domain/prompt/prompt-version";
 import { translateGemmaPrompt } from "../domain/prompt/translategemma-prompt";
@@ -46,7 +47,7 @@ const brief: PageBrief = {
 
 const inputBudget = maxInputTokens(
   CONTEXT_TOKENS,
-  translateGemmaPrompt.overheadTokens({ source, target, brief }),
+  translateGemmaPrompt.overheadTokens({ source, target, brief, guidelines: "" }),
 );
 
 const sentBatch = (messages: ChatMessage[]): string => {
@@ -73,7 +74,9 @@ const seg = (markup: string): string => `[1] ${markup}`;
 const sentences = (count: number): string =>
   Array.from({ length: count }, (_, index) => `Sentence ${index + 1} talks about forks.`).join(" ");
 
-function setup(options: { cached?: Map<string, string>; maxSegmentsPerBatch?: number } = {}) {
+function setup(
+  options: { cached?: Map<string, string>; maxSegmentsPerBatch?: number; guidelines?: string } = {},
+) {
   const provider = {
     id: "ollama",
     model: "translategemma:12b",
@@ -104,6 +107,7 @@ function setup(options: { cached?: Map<string, string>; maxSegmentsPerBatch?: nu
     prompt: translateGemmaPrompt,
     contextTokens: CONTEXT_TOKENS,
     maxSegmentsPerBatch: options.maxSegmentsPerBatch ?? 8,
+    guidelines: options.guidelines ?? "",
   });
 
   const written = (): Map<string, string> =>
@@ -869,5 +873,50 @@ describe("BatchTranslationService", () => {
     expect(result.getValue()).toEqual([{ id: "a", status: "failed", code: "PLACEHOLDER_LOST" }]);
     expect(provider.chat).toHaveBeenCalledTimes(1);
     expect(written().size).toBe(0);
+  });
+
+  test("default_guidelines_keep_existing_cache_keys", async () => {
+    const pinned = `sha(${cacheKey({
+      sourceMarkup: RUN,
+      source,
+      target,
+      host: brief.host,
+      providerId: "ollama",
+      model: "translategemma:12b",
+      promptVersion: "4",
+    })})`;
+
+    for (const guidelines of ["", DEFAULT_GUIDELINES]) {
+      const { provider, service } = setup({
+        guidelines,
+        cached: new Map([[pinned, "Lancez <x1/>."]]),
+      });
+
+      const result = await service.translate(request([{ id: "a", markup: RUN }]));
+
+      expect(result.getValue()).toEqual([
+        { id: "a", status: "translated", markup: "Lancez <x1/>.", fromCache: true },
+      ]);
+      expect(provider.chat).not.toHaveBeenCalled();
+    }
+  });
+
+  test("custom_guidelines_change_only_their_own_keys", async () => {
+    const formal = setup({
+      guidelines: "Use formal French.",
+      cached: new Map([[keyOf(RUN), "x"]]),
+    });
+    const casual = setup({ guidelines: "Use casual French." });
+
+    await formal.service.translate(request([{ id: "a", markup: RUN }]));
+    await casual.service.translate(request([{ id: "a", markup: RUN }]));
+
+    const [formalKey] = [...formal.written().keys()];
+    const [casualKey] = [...casual.written().keys()];
+
+    expect(formal.provider.chat).toHaveBeenCalledTimes(1);
+    expect(formalKey).toContain(`${PROMPT_VERSION}+`);
+    expect(formalKey).not.toBe(keyOf(RUN));
+    expect(casualKey).not.toBe(formalKey);
   });
 });

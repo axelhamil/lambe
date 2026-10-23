@@ -2,25 +2,26 @@ import { encodeBatch } from "../batch/batch-format";
 import type { LanguageCode } from "../language/value-objects/language-code.vo";
 import type { PageBrief } from "../page/page-brief";
 import { captionContextLines } from "./caption-context";
+import { guidelinesTextOf } from "./guidelines";
 import type { ChatMessage, ContentBrief, PromptAdapter, PromptInput } from "./prompt-adapter";
-import { JARGON_RULE, languageLabel, overheadTokensOf, TAG_RULE } from "./prompt-adapter";
+import { languageLabel, overheadTokensOf, TAG_RULE } from "./prompt-adapter";
 
-function contextLine(brief: PageBrief): string {
+function contextLine(brief: PageBrief, guidelines: string): string {
   const headings = brief.headings.length > 0 ? ` Headings: ${brief.headings.join(" | ")}.` : "";
 
-  return `Context: the text comes from ${brief.host}, page "${brief.title}".${headings} ${JARGON_RULE}`;
+  return `Context: the text comes from ${brief.host}, page "${brief.title}".${headings} ${guidelinesTextOf(guidelines)}`;
 }
 
 const LINE_NUMBER_RULE =
   "Keep the [N] number at the start of every line and return every line on its own line with its number.";
 
-function ruleLines(brief: ContentBrief, target: LanguageCode): string[] {
+function ruleLines(brief: ContentBrief, target: LanguageCode, guidelines: string): string[] {
   if (brief.kind === "captions") return [...captionContextLines(brief, target), LINE_NUMBER_RULE];
 
-  return [contextLine(brief), TAG_RULE];
+  return [contextLine(brief, guidelines), TAG_RULE];
 }
 
-function build({ source, target, brief, segments }: PromptInput): ChatMessage[] {
+function build({ source, target, brief, segments, guidelines }: PromptInput): ChatMessage[] {
   const to = languageLabel(target);
   const from = source.map(languageLabel);
 
@@ -39,7 +40,7 @@ function build({ source, target, brief, segments }: PromptInput): ChatMessage[] 
 
   const content = [
     opening,
-    ...ruleLines(brief, target),
+    ...ruleLines(brief, target, guidelines),
     `${request}\n\n\n${encodeBatch(segments)}`,
   ].join("\n");
 
