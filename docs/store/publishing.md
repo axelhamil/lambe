@@ -1,6 +1,6 @@
 # Publishing to the Chrome Web Store
 
-Every release on `main` is submitted to the Chrome Web Store by `.github/workflows/release.yml` and goes live as soon as the review passes. This page lists the one time setup.
+Every release is submitted to the Chrome Web Store by `.github/workflows/release.yml` and goes live as soon as the review passes. This page lists the one time setup of the store; the rest of the release flow is in [`../maintenance/releases.md`](../maintenance/releases.md).
 
 ## 1. First upload, by hand
 
@@ -37,13 +37,13 @@ Repository **Settings**, **Secrets and variables**, **Actions**:
 | `CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL` | `client_email` of the JSON key |
 | `CHROME_SERVICE_ACCOUNT_PRIVATE_KEY` | `private_key` of the JSON key, from `-----BEGIN` to `END PRIVATE KEY-----`; literal `\n` sequences are turned into line breaks by the workflow |
 
-`BOT_CLIENT_ID` and `BOT_PRIVATE_KEY` (the GitHub App that cuts releases) are already required by release-please. While any `CHROME_*` secret is missing, the publish step is skipped with a notice and the release still gets its zips. Delete the JSON key file once the secrets are set.
+The variable `BOT_CLIENT_ID` and the secret `BOT_PRIVATE_KEY` (the GitHub App that cuts releases) are already required by release-please ([releases.md](../maintenance/releases.md#repository-settings)). While any `CHROME_*` secret is missing, the publish step is skipped with a notice and the release still gets its zips. Delete the JSON key file once the secrets are set.
 
 ## 5. How a release flows
 
-1. Merge Conventional Commits (`feat:`, `fix:`) into `main`.
-2. release-please opens or updates a release PR with the next version and changelog.
-3. Merging that PR tags the release.
+1. Merge Conventional Commits (`feat:`, `fix:`) into `develop`.
+2. release-please opens or updates a release PR against `develop` with the next version and changelog.
+3. Merging that PR tags the release, publishes it as a GitHub pre-release and moves `main` to it.
 4. The `publish` job checks out the tag, runs `pnpm verify`, builds `*-chrome.zip` (unpacked, keeps `key`) and `*-chrome-store.zip` (`LAMBE_STORE=1`, no `key`), checks both manifests and attaches the zips to the release.
 5. `wxt submit` uploads the store zip over the [CWS API v2](https://developer.chrome.com/docs/webstore/api) with `publishType` `DEFAULT_PUBLISH`: the version is [published right after approval](https://developer.chrome.com/docs/webstore/api/reference/rest/v2/publishers.items/publish).
 
@@ -51,7 +51,7 @@ Never edit a version or a tag by hand.
 
 ## 6. Retry a publish
 
-When the store step fails (secret typo, pending review, outage), rerun it without a new release: **Actions**, **Release**, **Run workflow**, enter the existing tag (for example `v0.2.0`). The job rebuilds that tag, replaces the release assets and submits again. Publishes run one at a time.
+When the store step fails (secret typo, pending review, outage), rerun it without a new release: **Actions**, **release**, **Run workflow**, enter the existing tag (for example `v0.2.0`). The job rebuilds that tag, replaces the release assets and submits again. Publishes run one at a time.
 
 A version already accepted by the store cannot be uploaded twice: retry only a tag the store has not taken.
 
