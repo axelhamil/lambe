@@ -102,6 +102,8 @@ export class YoutubePlayerSurface implements CaptionSurface {
   loadCaptions(): boolean {
     const button = this.subtitlesButton();
 
+    this.restoring = false;
+
     if (button === null || button.getAttribute("aria-disabled") === "true") return false;
 
     const pressed = button.getAttribute(PRESSED);

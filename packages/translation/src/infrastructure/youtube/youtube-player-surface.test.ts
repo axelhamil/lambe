@@ -261,6 +261,32 @@ describe("YoutubePlayerSurface", () => {
     expect(cc.clicks()).toBe(2);
   });
 
+  test("ignored_restore_click_does_not_swallow_the_next_cc_off", async () => {
+    const { surface, element } = watchPage();
+    const button = element(YOUTUBE_SELECTORS.subtitlesButton);
+    const player = { ignoresClicks: false };
+    button.addEventListener("click", () => {
+      if (player.ignoresClicks) return;
+
+      const pressed = button.getAttribute("aria-pressed") === "true";
+      button.setAttribute("aria-pressed", String(!pressed));
+    });
+    const { listener, recorded } = recorder();
+    surface.watch(listener);
+    surface.loadCaptions();
+    await flushMutations();
+
+    player.ignoresClicks = true;
+    surface.restoreCaptions();
+    await flushMutations();
+    player.ignoresClicks = false;
+    surface.loadCaptions();
+    button.setAttribute("aria-pressed", "false");
+    await flushMutations();
+
+    expect(recorded.captionsOff).toBe(1);
+  });
+
   test("hide_native_hides_the_caption_container", () => {
     const { doc, surface, element } = watchPage();
     const container = element(YOUTUBE_SELECTORS.captionContainer);
